@@ -1,0 +1,7 @@
+/doc/
+/ml.md
+/test/
+/.vscode/
+/runs/
+/pre.py
+__pycache__/
