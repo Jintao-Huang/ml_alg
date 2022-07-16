@@ -5,6 +5,8 @@ import torch.cuda as cuda
 import time
 from typing import Optional
 
+__all__ = ["seed_everything", "time_synchronize"]
+
 
 def seed_everything(seed: Optional[int] = None, gpu_dtm: bool = False) -> int:
     """gpu_dtm: gpu_determinstic"""

@@ -1,11 +1,13 @@
 
 import time
 from timeit import timeit
-from typing import Callable, Any
+from typing import Callable, Any, Optional
 import numpy as np
 
+__all__ = ["test_time"]
 
-def test_time(func: Callable[[], Any], number: int = 100, warm_up: int = 5, timer: Callable[[], float] = None) -> Any:
+
+def test_time(func: Callable[[], Any], number: int = 100, warm_up: int = 2, timer: Optional[Callable[[], float]] = None) -> Any:
     # timer: e.g. time_synchronize
     timer = timer if timer is not None else time.perf_counter
     #
@@ -22,13 +24,13 @@ def test_time(func: Callable[[], Any], number: int = 100, warm_up: int = 5, time
         ts.append(t2 - t1)
     # 打印平均, 标准差, 最大, 最小
     ts = np.array(ts)
-    n = ts.shape[0]
     max_ = ts.max()
     min_ = ts.min()
     mean = ts.mean()
     std = ts.std()
     # print
-    print(f"time: {mean:.6f}±{std:.6f} |max: {max_:.6f} |min: {min_:.6f}")
+    print(
+        f"time[number={number}]: {mean:.6f}±{std:.6f} |max: {max_:.6f} |min: {min_:.6f}")
     return res
 
 

@@ -13,6 +13,7 @@ from copy import copy, deepcopy
 from typing import List, Tuple, Dict, Set, Callable, Optional, Union, Any
 import sys
 import time
+import datetime
 import random
 from tqdm import tqdm
 
@@ -25,7 +26,9 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from PIL import Image
 import torch
-from torch import Tensor
+from torch import Tensor, device as Device
+from torch.nn import Module
+from torch.optim import Optimizer
 import torch.cuda as cuda
 import torch.nn as nn
 import torch.nn.functional as F
@@ -45,7 +48,6 @@ from torchvision.utils import make_grid
 
 import pytorch_lightning as pl
 import pytorch_lightning.callbacks as plc
-
 #
 from . import utils as libs_utils
 from . import ml as libs_ml

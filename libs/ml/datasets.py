@@ -3,6 +3,7 @@ import torch
 from torch import Tensor
 from typing import Tuple
 
+__all__ = ["XORDataset"]
 
 class XORDataset(Dataset):
     # examples
@@ -14,7 +15,7 @@ class XORDataset(Dataset):
 
     def _generate_xor(self) -> Tuple[Tensor, Tensor]:
         data = torch.randint(0, 2, size=(self.n_samples, 2), dtype=torch.long)
-        labels = torch.bitwise_xor(data[:, 0], data[:, 1]).float()
+        labels = torch.bitwise_xor(data[:, 0], data[:, 1])
         data = data.float()
         data += torch.randn(self.n_samples, 2) * self.std  # 3std 定理
         return data, labels

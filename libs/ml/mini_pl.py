@@ -1,5 +1,5 @@
 import torch
-from torch import device, Tensor
+from torch import device as Device, Tensor
 from torch.utils.tensorboard.writer import SummaryWriter
 from torch.utils.data import DataLoader
 from torch.nn import Module
@@ -11,6 +11,7 @@ from tqdm import tqdm
 import datetime
 import yaml
 
+__all__ = ["LModule", "Trainer"]
 # 可以再加: lr_scheduler
 
 
@@ -45,9 +46,6 @@ class LModule:
         self.mes[k] = float(v)
 
     def __call__(self, *args, **kwargs):
-        return self.forward(*args, **kwargs)
-
-    def forward(self, *args, **kwargs):
         return self.model(*args, **kwargs)
 
     def load_from_checkpoint(self, ckpt_fname: str) -> None:
@@ -58,10 +56,11 @@ class LModule:
         ckpt_path = os.path.join(self.ckpt_dir, ckpt_fname)
         torch.save(self.model.state_dict(), ckpt_path)
 
+    #
     def optimizer_step(self) -> None:
         ...
 
-    def batch_to_device(self, batch: Any, device: device) -> Any:
+    def batch_to_device(self, batch: Any, device: Device) -> Any:
         ...
 
     def training_step(self, batch: Any) -> Tensor:
@@ -81,7 +80,7 @@ class Trainer:
                  log_every_n_steps: int = 5) -> None:
         # 现在只支持单gpu和cpu, 多gpu以后再扩展
         self.lmodel = lmodel
-        self.device = device("cuda") if gpus else device("cpu")
+        self.device = Device("cuda") if gpus else Device("cpu")
         self.max_epochs = max_epochs
         self.log_every_n_steps = log_every_n_steps
         #
@@ -180,6 +179,7 @@ class Trainer:
             metrics = self._val(val_dataloader, mes, epoch_idx)
             self._epoch_end(epoch_idx, mes, metrics)
 
+    @torch.no_grad()
     def _val(self, dataloader: DataLoader, mes: Dict[str, float], epoch_idx: int) -> float:
         lmodel = self.lmodel
         model = lmodel.model
@@ -205,6 +205,7 @@ class Trainer:
         mes.update(val_mes)
         return metrics / len(dataloader)
 
+    @torch.no_grad()
     def _test(self, dataloader: DataLoader) -> Dict[str, float]:
         lmodel = self.lmodel
         model = lmodel.model
@@ -224,13 +225,12 @@ class Trainer:
             log_string = self._get_log_string(log_mes)
             prog_bar.set_description(log_string)
         self._sum_to_mean(mes, len(dataloader), inplace=True)
-        print(f"Test: mes={mes}")
         return mes
 
-    def fit(self, train_dataloaders: DataLoader, val_dataloaders: DataLoader) -> None:
+    def fit(self, train_dataloader: DataLoader, val_dataloader: DataLoader) -> None:
         # 主要内容: 记录训练的过程, 包括train每个迭代的信息; val每个epoch的信息
         device_r = next(self.lmodel.model.parameters()).device
-        self._train(train_dataloaders, val_dataloaders)
+        self._train(train_dataloader, val_dataloader)
         self.lmodel.model.to(device_r)
 
     def test(self, dataloader: DataLoader) -> Dict[str, float]:
@@ -245,15 +245,13 @@ if __name__ == "__main__":
     import pytorch_lightning as pl
     import torch.nn as nn
     import torch.optim as optim
-    from torchmetrics.classification.accuracy import Accuracy
     try:
-        from .models import MLP_L2
-        from .datasets import XORDataset
-        from .config import RUNS_DIR
+        from . import MLP_L2, XORDataset, RUNS_DIR, accuracy
     except ImportError:
         from models import MLP_L2
         from datasets import XORDataset
         from config import RUNS_DIR
+        from metrics import accuracy
     #
     train_dataset = XORDataset(512)
     train_dataloader = DataLoader(train_dataset, 64, True)
@@ -270,34 +268,32 @@ if __name__ == "__main__":
             super(MyLModule, self).__init__(model, optim,
                                             default_root_dir, {"model": "MLP_2"})
             self.loss_fn = nn.BCEWithLogitsLoss()
-            self.acc = Accuracy()
 
         def optimizer_step(self) -> None:
             self.optim.step()
 
-        def batch_to_device(self, batch: Any, device: device) -> Any:
-            for i in range(len(batch)):
-                batch[i] = batch[i].to(device)
-            return batch
+        def batch_to_device(self, batch: Any, device: Device) -> Any:
+            x_batch, y_batch = batch
+            return x_batch.to(device), y_batch.to(device)
 
         def training_step(self, batch: Any) -> Tensor:
             x_batch, y_batch = batch
             y = self.model(x_batch)[:, 0]
-            loss = self.loss_fn(y, y_batch)
-            self.log("train_loss", loss)
+            loss = self.loss_fn(y, y_batch.float())  # type: Tensor
+            self.log("train_loss", loss.item())
             return loss
 
         def validation_step(self, batch: Any) -> float:
             x_batch, y_batch = batch
             y = self.model(x_batch)[:, 0]
-            acc = self.acc(y.cpu(), y_batch.cpu().long()).item()
+            acc = accuracy(y, y_batch)
             self.log("val_acc", acc)
             return acc
 
         def test_step(self, batch: Any) -> None:
             x_batch, y_batch = batch
             y = self.model(x_batch)[:, 0]
-            acc = self.acc(y.cpu(), y_batch.cpu().long())
+            acc = accuracy(y, y_batch)
             self.log("test_acc", acc)
 
     default_root_dir = os.path.join(RUNS_DIR, "test_mini_pl")

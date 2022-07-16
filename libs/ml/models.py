@@ -2,6 +2,8 @@
 from torch.nn import Module
 import torch.nn as nn
 
+__all__ = ["MLP_L2"]
+
 
 class MLP_L2(Module):
     # examples
