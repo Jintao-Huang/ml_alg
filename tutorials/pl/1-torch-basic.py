@@ -184,7 +184,6 @@ def learning_by_example():
     from torch.utils import data
 
     # [The dataset class]
-
     dataset = libs_ml.XORDataset(200)
     print("Size of dataset:", len(dataset))
     print("Data point 0:", dataset[0])
@@ -231,7 +230,9 @@ def learning_by_example():
                 model, optim, default_root_dir, hparams)
             self.loss_fn = nn.BCEWithLogitsLoss()
 
-        def optimizer_step(self) -> None:
+        def optimizer_step(self, loss: Tensor) -> None:
+            self.optim.zero_grad()
+            loss.backward()
             self.optim.step()
 
         def batch_to_device(self, batch: Any, device: Device) -> Any:
@@ -245,7 +246,7 @@ def learning_by_example():
             loss = self.loss_fn(pred, y_batch.float())
             self.log("train_loss", loss.item())
             return loss
-        
+
         def validation_step(self, batch: Any) -> float:
             # 返回的float用于模型的选择, 越高越好(e.g. acc, 若越低越好则可以返回负数)
             x_batch, y_batch = batch
@@ -263,9 +264,10 @@ def learning_by_example():
 
     lmodel = MyLModule(model, optimizer, os.path.join(PL_RUNS_DIR, "_1"), {
         "model": "MLP_2", "optim": {"name": "SGD", "lr": 0.1}})
-    #### 
+    ####
     trainer = libs_ml.Trainer(lmodel, True, 100)
-    trainer.fit(train_data_loader, train_data_loader)
+    libs_utils.test_time(lambda: trainer.fit(train_data_loader, train_data_loader), number=1, warm_up=0)
+    
 
     # [Saving a model]
     # [^test state_dict]
@@ -299,7 +301,7 @@ def learning_by_example():
 
 
 if __name__ == "__main__":
-    basic_of_pytorch()
+    # basic_of_pytorch()
     learning_by_example()
 
 
