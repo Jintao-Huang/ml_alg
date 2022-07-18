@@ -244,14 +244,14 @@ def learning_by_example():
             x_batch, y_batch = batch
             pred = self.model(x_batch)[:, 0]
             loss = self.loss_fn(pred, y_batch.float())
-            self.log("train_loss", loss.item())
+            self.log("train_loss", loss)
             return loss
 
-        def validation_step(self, batch: Any) -> float:
+        def validation_step(self, batch: Any) -> Union[Tensor, float]:
             # 返回的float用于模型的选择, 越高越好(e.g. acc, 若越低越好则可以返回负数)
             x_batch, y_batch = batch
             pred = self.model(x_batch)[:, 0]
-            loss = self.loss_fn(pred, y_batch.float()).item()
+            loss = self.loss_fn(pred, y_batch.float())
             self.log("val_loss", loss)
             return -loss
 

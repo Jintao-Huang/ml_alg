@@ -9,7 +9,7 @@ __all__ = ["seed_everything", "time_synchronize"]
 
 
 def seed_everything(seed: Optional[int] = None, gpu_dtm: bool = False) -> int:
-    """gpu_dtm: gpu_determinstic"""
+    """gpu_dtm: gpu_deterministic"""
     # 返回seed
     if seed is None:
         seed_min = np.iinfo(np.uint32).min
@@ -21,8 +21,13 @@ def seed_everything(seed: Optional[int] = None, gpu_dtm: bool = False) -> int:
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
     if gpu_dtm is True:
-        torch.backends.cudnn.determinstic = True
+        # https://pytorch.org/docs/stable/backends.html#torch.backends.cudnn.torch.backends.cudnn.benchmark
+        # True: cudnn只选择deterministic的卷积算法
+        torch.backends.cudnn.deterministic = True  
+        # True: cuDNN从多个卷积算法中进行benchmark, 选择最快的
+        # 若deterministic=True, 则benchmark一定为False
         torch.backends.cudnn.benchmark = False
+    print(f"Global seed set to {seed}")
     return seed
 
 

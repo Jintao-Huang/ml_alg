@@ -7,7 +7,7 @@ from torch.optim import Optimizer
 from torch.optim.lr_scheduler import MultiStepLR
 
 import os
-from typing import List, Any, Dict, Optional, Tuple, Callable
+from typing import List, Any, Dict, Optional, Tuple, Callable, Union
 from tqdm import tqdm
 import datetime
 import yaml
@@ -21,10 +21,10 @@ class LModule:
     def __init__(self, model: Module, optim: Optimizer, default_root_dir: str,
                  hparams: Optional[Dict[str, Any]] = None) -> None:
         # 一般: 定义损失函数, 学习率管理器. (优化器, 模型)
-        # self.optim, self.model
         self.model = model
         self.optim = optim
         self.default_root_dir = default_root_dir
+        self.hparams = hparams
         #
         time = datetime.datetime.now().strftime("%Y:%m:%d:%H:%M:%S.%f")
         self.ckpt_dir = os.path.join(default_root_dir, time, "checkpoints")
@@ -44,10 +44,12 @@ class LModule:
         with open(self.hparams_path, "w") as f:
             yaml.dump(hparams, f)
 
-    def log(self, k: str, v: float):
+    def log(self, k: str, v: Union[Tensor, float]):
         # 如何log. 我们调用lmodule的log, 将信息存储在lmodule中
         # 当单次迭代结束时, 会修改lmodule._mes, 随后加到trainer的全局log中...
-        self.mes[k] = float(v)
+        if isinstance(v, Tensor):
+            v = v.item()
+        self.mes[k] = v
 
     def __call__(self, *args, **kwargs):
         return self.model(*args, **kwargs)
@@ -64,7 +66,6 @@ class LModule:
     #              hparams: Optional[Dict[str, Any]] = None) -> None:
     #     super().__init__(model, optim, default_root_dir, hparams)
     #     # 一般: 定义损失函数, 学习率管理器. (优化器, 模型)
-    #     # self.optim, self.model
 
     # def epoch_end(self) -> None:
     #     # fit. 用于lr_schedules的处理
@@ -102,13 +103,13 @@ class LModule:
         # 此设计用于: GAN
         ...
 
-    def validation_step(self, batch: Any) -> float:
-        # fit
+    def validation_step(self, batch: Any) -> Union[Tensor, float]:
+        # fit. no_grad环境
         # 返回的float用于模型的选择, 越高越好(e.g. acc, 若越低越好则可以返回负数)
         ...
 
     def test_step(self, batch: Any) -> None:
-        # test
+        # test. no_grad环境
         ...
 
 
@@ -152,17 +153,23 @@ class LDataModule:
 
 class Trainer:
     def __init__(self, lmodel: LModule, gpus: bool, max_epochs: int, *,
-                 log_every_n_steps: int = 5) -> None:
+                 log_every_n_steps: int = 5, benchmark: bool = None) -> None:
         # 现在只支持单gpu和cpu, 多gpu以后再扩展
         self.lmodel = lmodel
         self.device = Device("cuda") if gpus else Device("cpu")
         self.max_epochs = max_epochs
         self.log_every_n_steps = log_every_n_steps
         #
+        benchmark = benchmark if benchmark is not None else True
+        torch.backends.cudnn.benchmark = False \
+            if torch.backends.cudnn.deterministic else benchmark
+        #
         self.logger = SummaryWriter(self.lmodel.tb_dir)
         self.best_metrics = -1e10  # model save
         self.best_ckpt_path = None  # type: str
         self.last_ckpt_path = None  # type: str
+        self.global_step = 0
+        self.global_epoch = -1
 
     @staticmethod
     def _sum_to_mean(log_mes: Dict[str, float], n: int, inplace: bool = False) -> Dict[str, float]:
@@ -171,13 +178,6 @@ class Trainer:
         for k, v in log_mes.items():
             log_mes[k] = v / n
         return log_mes
-
-    def _get_log_string(self, log_mes: Dict[str, float]) -> str:
-        # log_mes(not sum)
-        log_string = ""
-        for k, v in log_mes.items():
-            log_string += f"{k}={v:.4f} "
-        return log_string
 
     def _logger_add_scalars(self, mes: Dict[str, float], step: int) -> None:
         # mes(not sum)
@@ -190,26 +190,25 @@ class Trainer:
         elif mode == "last" and self.last_ckpt_path is not None:
             os.remove(self.last_ckpt_path)
 
-    def _epoch_end(self, epoch_idx: int, mes: Dict[str, float], metric: float) -> None:
-        # n = epoch_idx
+    def _epoch_end(self, mes: Dict[str, float], metric: float) -> None:
         # 1. 模型保存
         ckpt_dir = self.lmodel.ckpt_dir
         if metric > self.best_metrics:
             # 保存
             self._remove_ckpt("best")
             self.best_metrics = metric
-            ckpt_fname = f"best-epoch={epoch_idx}-metrics={metric}.ckpt"
+            ckpt_fname = f"best-epoch={self.global_epoch}-metrics={metric}.ckpt"
             self.best_ckpt_path = os.path.join(ckpt_dir, ckpt_fname)
             self.lmodel.save_checkpoint(ckpt_fname)
             print(f"- best model, saving model `{ckpt_fname}`")
         #
         self._remove_ckpt("last")
-        ckpt_fname = f"last-epoch={epoch_idx}-metrics={metric}.ckpt"
+        ckpt_fname = f"last-epoch={self.global_epoch}-metrics={metric}.ckpt"
         self.last_ckpt_path = os.path.join(ckpt_dir, ckpt_fname)
         self.lmodel.save_checkpoint(ckpt_fname)
         # 2. 结果保存
         with open(self.lmodel.result_path, "a") as f:
-            yaml.dump({f"Epoch={epoch_idx}": mes}, f)
+            yaml.dump({f"Epoch={self.global_epoch}": mes}, f)
 
     def _add_new_mes(self, mes: Dict[str, float], new_mes: Dict[str, float]) -> None:
         for k, v in new_mes.items():
@@ -220,49 +219,47 @@ class Trainer:
     def _train(self, train_dataloader: DataLoader, val_dataloader: DataLoader) -> None:
         lmodel = self.lmodel
         model = lmodel.model
-        global_step = 0
         #
-        for epoch_idx in range(self.max_epochs):
+        for _ in range(self.global_epoch + 1, self.max_epochs):
+            self.global_epoch += 1
             model.train()
             model.to(self.device)
             #
             mes = {}
             #
-            prog_bar = tqdm(enumerate(train_dataloader),
-                            total=len(train_dataloader))
-            for batch_idx, batch in prog_bar:
-                global_step += 1
-                batch = lmodel.batch_to_device(batch, self.device)
-                loss = lmodel.training_step(batch)
-                if loss is not None:
-                    lmodel.optimizer_step(loss)
-                #
-                new_mes = self.lmodel.mes
-                self._add_new_mes(mes, new_mes)
-                # tensorboard
-                if global_step % self.log_every_n_steps == 0:
-                    self._logger_add_scalars(new_mes, global_step)
-                new_mes.clear()
-                #
-                log_mes = self._sum_to_mean(mes, batch_idx + 1)
-                log_string = f"Epoch {epoch_idx}: " + \
-                    self._get_log_string(log_mes)
-                prog_bar.set_description(log_string)
-
+            with tqdm(total=len(train_dataloader),
+                      desc=f"Epoch {self.global_epoch}") as prog_bar:
+                for batch_idx, batch in enumerate(train_dataloader):
+                    self.global_step += 1
+                    batch = lmodel.batch_to_device(batch, self.device)
+                    loss = lmodel.training_step(batch)
+                    if loss is not None:
+                        lmodel.optimizer_step(loss)
+                    #
+                    new_mes = self.lmodel.mes
+                    self._add_new_mes(mes, new_mes)
+                    # tensorboard
+                    if self.global_step % self.log_every_n_steps == 0:
+                        self._logger_add_scalars(new_mes, self.global_step)
+                    new_mes.clear()
+                    #
+                    log_mes = self._sum_to_mean(mes, batch_idx + 1)
+                    prog_bar.set_postfix(log_mes, refresh=False)
+                    prog_bar.update()
             #
             self._sum_to_mean(mes, len(train_dataloader), inplace=True)
-            metrics, val_mes = self._val(val_dataloader, epoch_idx)
+            metrics, val_mes = self._val(val_dataloader)
             mes.update(val_mes)
             #
-            self._epoch_end(epoch_idx, mes, metrics)
+            self._epoch_end(mes, metrics)
             lmodel.epoch_end()
             #
             epoch_mes = self.lmodel.mes
-            self._logger_add_scalars(epoch_mes, epoch_idx)
+            self._logger_add_scalars(epoch_mes, self.global_epoch)
             epoch_mes.clear()
 
     @torch.no_grad()
-    def _val(self, dataloader: DataLoader, epoch_idx: int) -> Tuple[float, Dict[str, Any]]:
+    def _val(self, dataloader: DataLoader) -> Tuple[float, Dict[str, Any]]:
         lmodel = self.lmodel
         model = lmodel.model
         #
@@ -272,19 +269,20 @@ class Trainer:
 
         #
         val_mes = {}
-        prog_bar = tqdm(enumerate(dataloader), total=len(dataloader))
-        for batch_idx, batch in prog_bar:
-            batch = lmodel.batch_to_device(batch, self.device)
-            metrics += float(lmodel.validation_step(batch))
-            #
-            new_mes = self.lmodel.mes
-            self._add_new_mes(val_mes, new_mes)
-            new_mes.clear()
-            log_mes = self._sum_to_mean(val_mes, batch_idx + 1)
-            log_string = "    Val: " + self._get_log_string(log_mes)
-            prog_bar.set_description(log_string)
+        with tqdm(total=len(dataloader), desc="  Val: ") as prog_bar:
+            for batch_idx, batch in enumerate(dataloader):
+                batch = lmodel.batch_to_device(batch, self.device)
+                _m = lmodel.validation_step(batch)
+                metrics += _m.item() if isinstance(_m, Tensor) else _m 
+                #
+                new_mes = self.lmodel.mes
+                self._add_new_mes(val_mes, new_mes)
+                new_mes.clear()
+                log_mes = self._sum_to_mean(val_mes, batch_idx + 1)
+                prog_bar.set_postfix(log_mes, refresh=False)
+                prog_bar.update()
         self._sum_to_mean(val_mes, len(dataloader), inplace=True)
-        self._logger_add_scalars(val_mes, epoch_idx)
+        self._logger_add_scalars(val_mes, self.global_epoch)
         return metrics / len(dataloader), val_mes
 
     @ torch.no_grad()
@@ -296,17 +294,18 @@ class Trainer:
         model.to(self.device)
         #
         mes = {}  # sum stat
-        prog_bar = tqdm(enumerate(dataloader), total=len(dataloader))
-        for batch_idx, batch in prog_bar:
-            batch = lmodel.batch_to_device(batch, self.device)
-            lmodel.test_step(batch)
-            new_mes = self.lmodel.mes
-            self._add_new_mes(mes, new_mes)  # LModule.log的内容
-            new_mes.clear()
-            log_mes = self._sum_to_mean(mes, batch_idx + 1)
-            log_string = self._get_log_string(log_mes)
-            prog_bar.set_description(log_string)
+        with tqdm(total=len(dataloader), desc="Test: ") as prog_bar:
+            for batch_idx, batch in enumerate(dataloader):
+                batch = lmodel.batch_to_device(batch, self.device)
+                lmodel.test_step(batch)
+                new_mes = self.lmodel.mes
+                self._add_new_mes(mes, new_mes)  # LModule.log的内容
+                new_mes.clear()
+                log_mes = self._sum_to_mean(mes, batch_idx + 1)
+                prog_bar.set_postfix(log_mes, refresh=False)
+                prog_bar.update()
         self._sum_to_mean(mes, len(dataloader), inplace=True)
+        self._logger_add_scalars(mes, self.global_epoch)
         return mes
 
     def fit(self, train_dataloader: DataLoader, val_dataloader: DataLoader) -> None:
@@ -328,11 +327,10 @@ if __name__ == "__main__":
     import torch.nn as nn
     import torch.optim as optim
     try:
-        from . import MLP_L2, XORDataset, RUNS_DIR, accuracy
+        from . import MLP_L2, XORDataset, accuracy
     except ImportError:
         from models import MLP_L2
         from datasets import XORDataset
-        from config import RUNS_DIR
         from metrics import accuracy
     #
 
@@ -370,10 +368,10 @@ if __name__ == "__main__":
             x_batch, y_batch = batch
             y = self.model(x_batch)[:, 0]
             loss = self.loss_fn(y, y_batch.float())  # type: Tensor
-            self.log("train_loss", loss.item())
+            self.log("train_loss", loss)
             return loss
 
-        def validation_step(self, batch: Any) -> float:
+        def validation_step(self, batch: Any) -> Union[Tensor, float]:
             x_batch, y_batch = batch
             y = self.model(x_batch)[:, 0]
             y = y >= 0
@@ -387,7 +385,11 @@ if __name__ == "__main__":
             y = y >= 0
             acc = accuracy(y, y_batch)
             self.log("test_acc", acc)
-
+    #
+    _ROOT_DIR = "/home/jintao/Desktop/coding/python/ml_alg"
+    RUNS_DIR = os.path.join(_ROOT_DIR, "runs")
+    os.makedirs(RUNS_DIR, exist_ok=True)
+    #
     default_root_dir = os.path.join(RUNS_DIR, "test_mini_pl")
     lmodel = MyLModule(model, optimizer, default_root_dir)
     #

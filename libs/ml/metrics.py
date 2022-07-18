@@ -8,14 +8,14 @@ __all__ = ["accuracy"]
 
 
 def accuracy(y_pred: Tensor, y_true: Tensor,
-             return_count: bool = False) -> Union[float, int]:
+             return_count: bool = False) -> Tensor:
     """y_pred在前, 保持与torch的loss一致
         y_pred: [N]
         y_true: [N]
         return_count: 返回count. 否则: 返回百分比
     """
     n_samples = y_true.shape[0]
-    res = torch.count_nonzero(y_true == y_pred).item()
+    res = torch.count_nonzero(y_true == y_pred)
     return res if return_count else res / n_samples
 
 

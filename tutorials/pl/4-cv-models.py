@@ -16,7 +16,7 @@ def setup():
 
     #
 
-    libs_ml.seed_everything(42, gpu_dtm=True)
+    libs_ml.seed_everything(42, gpu_dtm=False)
     device = torch.device(
         "cpu") if not torch.cuda.is_available() else torch.device("cuda:0")
     print("Using device", device)
@@ -34,7 +34,7 @@ def setup():
         "tensorboards/DenseNet/events.out.tfevents.densenet",
     ]
 
-    libs_utils.download_files(base_url, pretrained_files, CHECKPOINTS_PATH)
+    # libs_utils.download_files(base_url, pretrained_files, CHECKPOINTS_PATH)
     os.makedirs(CHECKPOINTS_PATH, exist_ok=True)
     #
     train_dataset = CIFAR10(root=DATASETS_PATH, train=True, download=True)
@@ -78,22 +78,13 @@ def setup():
 
 class InceptionBlock(nn.Module):
     def __init__(self, c_in, c_red: dict, c_out: dict, act_fn):
-        """
-        Inputs:
-            c_in - Number of input feature maps from the previous layers
-            c_red - Dictionary with keys "3x3" and "5x5" specifying the output of the dimensionality reducing 1x1 convolutions
-            c_out - Dictionary with keys "1x1", "3x3", "5x5", and "max"
-            act_fn - Activation class constructor (e.g. nn.ReLU)
-        """
-        super().__init__()
+        # c_red: reduce
+        super(InceptionBlock, self).__init__()
 
-        # 1x1 convolution branch
-        self.conv_1x1 = nn.Sequential(
+        self.conv_1x1 = nn.Sequential(  # ConvBNReLU
             nn.Conv2d(c_in, c_out["1x1"], kernel_size=1), nn.BatchNorm2d(
                 c_out["1x1"]), act_fn()
         )
-
-        # 3x3 convolution branch
         self.conv_3x3 = nn.Sequential(
             nn.Conv2d(c_in, c_red["3x3"], kernel_size=1),
             nn.BatchNorm2d(c_red["3x3"]),
@@ -103,7 +94,6 @@ class InceptionBlock(nn.Module):
             act_fn(),
         )
 
-        # 5x5 convolution branch
         self.conv_5x5 = nn.Sequential(
             nn.Conv2d(c_in, c_red["5x5"], kernel_size=1),
             nn.BatchNorm2d(c_red["5x5"]),
@@ -113,7 +103,6 @@ class InceptionBlock(nn.Module):
             act_fn(),
         )
 
-        # Max-pool branch
         self.max_pool = nn.Sequential(
             nn.MaxPool2d(kernel_size=3, padding=1, stride=1),
             nn.Conv2d(c_in, c_out["max"], kernel_size=1),
@@ -131,8 +120,8 @@ class InceptionBlock(nn.Module):
 
 
 class GoogleNet(nn.Module):
-    def __init__(self, num_classes=10, act_fn_name="relu", **kwargs):
-        super().__init__()
+    def __init__(self, num_classes=10, act_fn_name="relu"):
+        super(GoogleNet, self).__init__()
         self.hparams = SimpleNamespace(
             num_classes=num_classes, act_fn_name=act_fn_name, act_fn=act_fn_by_name[act_fn_name]
         )
@@ -140,12 +129,13 @@ class GoogleNet(nn.Module):
         self._init_params()
 
     def _create_network(self):
-        # A first convolution on the original image to scale up the channel size
+        #
         self.input_net = nn.Sequential(
+            # 可以bias=False
             nn.Conv2d(3, 64, kernel_size=3, padding=1), nn.BatchNorm2d(
                 64), self.hparams.act_fn()
         )
-        # Stacking inception blocks
+        #
         self.inception_blocks = nn.Sequential(
             InceptionBlock(
                 64,
@@ -198,15 +188,14 @@ class GoogleNet(nn.Module):
                 act_fn=self.hparams.act_fn,
             ),
         )
-        # Mapping to classification output
+        #
         self.output_net = nn.Sequential(
             nn.AdaptiveAvgPool2d((1, 1)), nn.Flatten(), nn.Linear(
                 128, self.hparams.num_classes)
         )
 
     def _init_params(self):
-        # Based on our discussion in Tutorial 4, we should initialize the
-        # convolutions according to the activation function
+        #
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 nn.init.kaiming_normal_(
@@ -263,7 +252,7 @@ class MyLModule(libs_ml.LModule):
         self.log("train_val", acc)
         return loss
 
-    def validation_step(self, batch: Any) -> float:
+    def validation_step(self, batch: Any) -> Union[Tensor, float]:
         # fit
         # 返回的float用于模型的选择, 越高越好(e.g. acc, 若越低越好则可以返回负数)
         x_batch, y_batch = batch
