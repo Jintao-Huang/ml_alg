@@ -12,8 +12,9 @@ from tqdm import tqdm
 import datetime
 import yaml
 
+# 未来会添加的功能: 多GPU, 混合精度训练...
+
 __all__ = ["LModule", "LDataModule", "Trainer"]
-# 可以再加: lr_scheduler
 # 这里的batch_idx[+1], epoch_idx[+0]
 
 
@@ -65,28 +66,25 @@ class LModule:
     # def __init__(self, model: Module, optim: Optimizer, default_root_dir: str,
     #              hparams: Optional[Dict[str, Any]] = None) -> None:
     #     super().__init__(model, optim, default_root_dir, hparams)
-    #     # 一般: 定义损失函数, 学习率管理器. (优化器, 模型)
 
     # def epoch_end(self) -> None:
-    #     # fit. 用于lr_schedules的处理
-    #     # 这里log的信息不会出现在prog_bar中. 其他函数(b, o, t, v, t)中log的都会出现
     #     self.log("lr0", self.lrs.get_last_lr()[0])
     #     self.lrs.step()
 
     # def batch_to_device(self, batch: Any, device: Device) -> Any:
-    #     # fit/test.
     #     x_batch, y_batch = batch
     #     return x_batch.to(device), y_batch.to(device)
 
     # def optimizer_step(self, loss: Tensor) -> None:
-    #     # fit. 用于optim, lr_schedules的处理.
     #     self.optim.zero_grad()
     #     loss.backward()
     #     self.optim.step()
 
     def epoch_end(self) -> None:
         # fit. 用于lr_schedules的处理
-        # 这里log的信息不会出现在prog_bar中. 其他函数(b, o, t, v, t)中log的都会出现
+        # 这里log的信息不会出现在prog_bar中(但会在tensorboard中). 
+        # 其他函数(b, o, t, v, t)中log的都会在prog_bar中出现
+        # log要在step之前(lrs)
         ...
 
     def batch_to_device(self, batch: Any, device: Device) -> Any:
@@ -95,12 +93,13 @@ class LModule:
 
     def optimizer_step(self, loss: Tensor) -> None:
         # fit. 用于optim, lr_schedules的处理.
+        # log要在step之前(lrs)
         ...
 
     def training_step(self, batch: Any) -> Tensor:
         # fit
         # 返回的Tensor(loss)用于优化. 如果返回None, 则training_step内进行自定义optimizer_step.
-        # 此设计用于: GAN
+        #   此设计用于: GAN
         ...
 
     def validation_step(self, batch: Any) -> Union[Tensor, float]:
@@ -154,7 +153,7 @@ class LDataModule:
 class Trainer:
     def __init__(self, lmodel: LModule, gpus: bool, max_epochs: int, *,
                  log_every_n_steps: int = 5, benchmark: bool = None) -> None:
-        # 现在只支持单gpu和cpu, 多gpu以后再扩展
+        # 现在只支持单gpu, 多gpu以后再扩展
         self.lmodel = lmodel
         self.device = Device("cuda") if gpus else Device("cpu")
         self.max_epochs = max_epochs
@@ -323,7 +322,7 @@ class Trainer:
 
 
 if __name__ == "__main__":
-    import pytorch_lightning as pl
+    # 更多的examples见 `https://github.com/Jintao-Huang/ml_alg/blob/main/tutorials/pl`
     import torch.nn as nn
     import torch.optim as optim
     try:

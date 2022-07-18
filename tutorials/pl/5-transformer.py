@@ -204,28 +204,65 @@ class PositionalEncoding(nn.Module):
 # [LR warm-up]
 
 
-class CosineWarmupScheduler(optim.lr_scheduler._LRScheduler):
-    def __init__(self, optimizer, warmup, max_iters):
+from torch.optim.lr_scheduler import _LRScheduler
+
+def get_offset_func(fa: float, fb: float, ga: float, gb: float) -> Callable[[float], float]:
+    """将y=[sa..sb]的曲线 -> y=[ta..tb]"""
+    # 存在fx, gx; 已知: gx=s(fx+a), 求s,a. 返回func: fx->gx
+    # s(fa+a)=ga; s(fb+a)=gb
+    if fa == fb:
+        raise ValueError("fa == fb")
+    if ga == gb:
+        return lambda x: ga
+    s = (ga-gb) / (fa-fb)
+    a = ga / s - fa
+
+    def func(x):
+        return s * (x + a)
+    return func
+
+def cosine_annealing_lr(epoch: int, T_max: int, eta_min: float, initial_lrs: List[float]) -> List[float]:
+    if epoch == 0:
+        return initial_lrs
+    if epoch == T_max:
+        return [eta_min] * len(initial_lrs)
+    if epoch > T_max:
+        raise ValueError(f"epoch: {epoch}")
+    # 余弦曲线
+    #   epoch=0: lr=initial_lr
+    #   epoch=T_max: lr=eta_min
+    # 周期为T_max * 2的cos函数: 系数=2pix/T
+    res = []
+    x = math.cos(math.pi * epoch / T_max)
+    # 缩放[-1, 1] -> [eta_min, initial_lr]
+    for initial_lr in initial_lrs:
+        func = get_offset_func(-1, 1, eta_min, initial_lr)
+        res.append(func(x))
+    return res
+
+class _WarmupCosineAnnealingLR(_LRScheduler):
+    def __init__(self, optimizer: Optimizer, warmup: int, T_max: int, eta_min: float = 0.,
+                 last_epoch: int = -1) -> None:
+        # warmup一般使用iter_idx(epoch)作为T_max进行控制
         self.warmup = warmup
-        self.max_num_iters = max_iters
-        # last_epoch=-1
-        super(CosineWarmupScheduler, self).__init__(optimizer)
+        self.T_max = T_max
+        self.eta_min = eta_min
+        super(_WarmupCosineAnnealingLR, self).__init__(optimizer, last_epoch)
 
-    def get_lr(self):
-        lr_factor = self.get_lr_factor(epoch=self.last_epoch)
-        return [base_lr * lr_factor for base_lr in self.base_lrs]
-
-    def get_lr_factor(self, epoch):
-        lr_factor = 0.5 * (1 + np.cos(np.pi * epoch / self.max_num_iters))
-        if epoch <= self.warmup:
-            lr_factor *= epoch * 1.0 / self.warmup
-        return lr_factor
+    def get_lr(self) -> List[float]:
+        lrs = cosine_annealing_lr(
+            self.last_epoch, self.T_max, self.eta_min, self.base_lrs)
+        scale = 1
+        if self.last_epoch <= self.warmup:
+            scale = self.last_epoch / self.warmup
+        return [lr * scale for lr in lrs]
 
 
-p = nn.Parameter(torch.empty(4, 4))
-optimizer = optim.Adam([p], lr=1e-3)
-lr_scheduler = CosineWarmupScheduler(
-    optimizer=optimizer, warmup=100, max_iters=2000)
+# p = nn.Parameter(torch.empty(4, 4))
+# optimizer = optim.Adam([p], lr=1e-3)
+# lr_scheduler = _WarmupCosineAnnealingLR(
+#     optimizer=optimizer, warmup=100, max_iters=2000)
+
 
 #
 # epochs = list(range(2000))
@@ -250,7 +287,7 @@ class MyLModule(libs_ml.LModule):
             model, optim, default_root_dir, hparams)
         # 一般: 定义损失函数, 学习率管理器. (优化器, 模型)
         # self.optim, self.model在super中定义
-        self.lrs = CosineWarmupScheduler(optim, **hparams["lrs_params"])
+        self.lrs = _WarmupCosineAnnealingLR(optim, **hparams["lrs_params"])
 
     def batch_to_device(self, batch: Any, device: Device) -> Any:
         # fit/test.
@@ -385,7 +422,7 @@ hparams = {
     },
     "lrs_params": {
         "warmup": 50,
-        "max_iters": max_epochs * len(ldm.train_dataloader),
+        "T_max": max_epochs * len(ldm.train_dataloader),
     },
     "trainer_params": {
         "max_epochs": max_epochs

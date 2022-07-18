@@ -152,7 +152,7 @@ def test_calr(param):
         optim.step()
         lrs.step()
     print(20, lrs.get_last_lr())
-    # 
+    #
     optim = SGD(param, lr=0.01)
     lrs = _WarmupCosineAnnealingLR2(optim, 10, 20, 1e-4)
     for i in range(20):

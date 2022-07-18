@@ -53,17 +53,17 @@ def download_files(base_url: str, fnames: List[str], save_dir:str):
         except HTTPError:
             raise
 
-# if __name__ == "__main__":
-#     from timeit import timeit
+if __name__ == "__main__":
+    from timeit import timeit
 
-#     def func(x, y):
-#         return x @ y
-#     x = np.random.randn(1000, 1000)
-#     test_time(lambda: func(x, x), 100)
+    def func(x, y):
+        return x @ y
+    x = np.random.randn(1000, 1000)
+    test_time(lambda: func(x, x), 100)
 
-#     #
-#     import sys
-#     sys.path.append("/home/jintao/Desktop/coding/python/ml_alg")
-#     from libs import libs_ml
-#     test_time(lambda: func(x, x), 100, timer=libs_ml.time_synchronize)
-#     print(timeit(lambda: func(x, x), number=100))
+    #
+    import sys
+    sys.path.append("/home/jintao/Desktop/coding/python/ml_alg")
+    from libs import libs_ml
+    test_time(lambda: func(x, x), 100, timer=libs_ml.time_synchronize)
+    print(timeit(lambda: func(x, x), number=100))
