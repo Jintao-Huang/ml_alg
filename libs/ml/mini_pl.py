@@ -12,8 +12,8 @@ from tqdm import tqdm
 import datetime
 import yaml
 
-# 未来会添加的功能: 多GPU, 混合精度训练, batch_to_device的修改, model.to()的速度测试, prog_bar的update优化. 
-# 
+# 未来会添加的功能: 多GPU, 混合精度训练
+#
 
 __all__ = ["LModule", "LDataModule", "Trainer"]
 # 这里的batch_idx[+1], epoch_idx[+0]
@@ -29,7 +29,6 @@ class LModule:
         #
 
         self.mes = {}  # type: Dict[str, float]
-        self.hparams = hparams
         #
 
     def log(self, k: str, v: Union[Tensor, float]):
@@ -48,66 +47,82 @@ class LModule:
     def save_checkpoint(self, ckpt_path: str) -> None:
         torch.save(self.model.state_dict(), ckpt_path)
 
-    # def __init__(self, model: Module, optim: Optimizer, default_root_dir: str,
-    #              hparams: Optional[Dict[str, Any]] = None) -> None:
-    #     super().__init__(model, optim, default_root_dir, hparams)
-
-    # def epoch_end(self) -> None:
-    #     self.log("lr0", self.lrs.get_last_lr()[0])
-    #     self.lrs.step()
-
-    # def batch_to_device(self, batch: Any, device: Device) -> Any:
-    #     x_batch, y_batch = batch
-    #     return x_batch.to(device), y_batch.to(device)
-
-    # def optimizer_step(self, loss: Tensor) -> None:
-    #     self.optim.zero_grad()
-    #     loss.backward()
-    #     self.optim.step()
-
     def epoch_end(self) -> None:
         # fit. 用于lr_schedules的处理
         # 这里log的信息不会出现在prog_bar中(但会在tensorboard中).
         # 其他函数(b, o, t, v, t)中log的都会在prog_bar中出现
-        # log要在step之前(lrs)
-        ...
+        # log要在lrs.step之前
+        pass
+
+    def _batch_to_device(self, batch: Any, device: Device) -> Any:
+        # tree的深搜. 对python object(int, float)报错
+        if isinstance(batch, Tensor):
+            res = []
+            return batch.to(device)
+        #
+        if isinstance(batch, (list, tuple)):
+            res = []
+            for b in batch:
+                res.append(self._batch_to_device(b, device))
+            if isinstance(batch, tuple):
+                res = tuple(res)
+        elif isinstance(batch, dict):
+            res = {}
+            for k, v in batch.items():
+                res[k] = self._batch_to_device(v, device)
+        else:
+            raise TypeError(f"batch: {batch}")
+        return res
 
     def batch_to_device(self, batch: Any, device: Device) -> Any:
         # fit/test.
-        ...
+        return self._batch_to_device(batch, device)
 
-    def optimizer_step(self, loss: Tensor) -> None:
+    def optimizer_step(self) -> None:
         # fit. 用于optim, lr_schedules的处理.
-        # log要在step之前(lrs)
-        ...
+        # log要在lrs.step之前
+        # 已过optim.zero_grad, loss.backward
+        self.optim.step()
 
     def training_step(self, batch: Any) -> Tensor:
         # fit
         # 返回的Tensor(loss)用于优化. 如果返回None, 则training_step内进行自定义optimizer_step.
         #   此设计用于: GAN
-        ...
+        raise NotImplementedError
 
     def validation_step(self, batch: Any) -> Union[Tensor, float]:
         # fit. no_grad环境
         # 返回的float用于模型的选择, 越高越好(e.g. acc, 若越低越好则可以返回负数)
-        ...
+        raise NotImplementedError
 
     def test_step(self, batch: Any) -> None:
         # test. no_grad环境
-        ...
+        raise NotImplementedError
+
+
+if __name__ == "__main__":
+    x = {"tensor": torch.tensor([1, 2]), 0: [
+        torch.tensor([1, 2]), (torch.tensor([1]),)]}
+    print(LModule(None, None)._batch_to_device(x, Device('cuda')))
+    try:
+        x[0].append(1)
+        print(LModule(None, None)._batch_to_device(x, Device('cuda')))
+    except TypeError as e:
+        print(e)
+    exit(0)
 
 
 class LDataModule:
-    @staticmethod
-    def default_collate_fn(batch: List[Any]) -> Tuple[Tensor]:
-        # batch: e.g. List[dataset[0], dataset[1]...]
-        res = []
-        for x in zip(*batch):
-            if isinstance(x[0], Tensor):
-                res.append(torch.stack(x))  # e.g. data
-            else:
-                res.append(torch.tensor(x))  # e.g. labels
-        return tuple(res)
+    # @staticmethod
+    # def default_collate_fn(batch: List[Any]) -> Tuple[Tensor]:
+    #     # batch: e.g. List[dataset[0], dataset[1]...]
+    #     res = []
+    #     for x in zip(*batch):
+    #         if isinstance(x[0], Tensor):
+    #             res.append(torch.stack(x))  # e.g. data
+    #         else:
+    #             res.append(torch.tensor(x))  # e.g. labels
+    #     return tuple(res)
 
     def __init__(self, train_dataset: Optional[Dataset], val_dataset: Optional[Dataset], test_dataset: Optional[Dataset],
                  batch_size_train: int, num_workers: int = 0,
@@ -119,7 +134,7 @@ class LDataModule:
         self.test_dataloader = None  # type: DataLoader
 
         batch_size_test = batch_size_train * 2
-        collate_fn = collate_fn if collate_fn is not None else self.default_collate_fn
+        # collate_fn = collate_fn if collate_fn is not None else self.default_collate_fn
         #
         if train_dataset:
             self.train_dataloader = DataLoader(train_dataset, batch_size_train, shuffle=shuffle_train,
@@ -237,7 +252,9 @@ class Trainer:
                     batch = lmodel.batch_to_device(batch, self.device)
                     loss = lmodel.training_step(batch)
                     if loss is not None:
-                        lmodel.optimizer_step(loss)
+                        lmodel.optim.zero_grad()
+                        loss.backward()
+                        lmodel.optimizer_step()
                     #
                     new_mes = self.lmodel.mes
                     self._add_new_mes(mes, new_mes)
@@ -356,15 +373,6 @@ if __name__ == "__main__":
             # fit. 用于lr_schedules的处理
             self.log("lr0", self.lrs.get_last_lr()[0])
             self.lrs.step()
-
-        def batch_to_device(self, batch: Any, device: Device) -> Any:
-            x_batch, y_batch = batch
-            return x_batch.to(device), y_batch.to(device)
-
-        def optimizer_step(self, loss: Tensor) -> None:
-            self.optim.zero_grad()
-            loss.backward()
-            self.optim.step()
 
         def training_step(self, batch: Any) -> Tensor:
             x_batch, y_batch = batch

@@ -229,14 +229,6 @@ def learning_by_example():
                 model, optim, hparams)
             self.loss_fn = nn.BCEWithLogitsLoss()
 
-        def optimizer_step(self, loss: Tensor) -> None:
-            self.optim.zero_grad()
-            loss.backward()
-            self.optim.step()
-
-        def batch_to_device(self, batch: Any, device: Device) -> Any:
-            x_batch, y_batch = batch
-            return x_batch.to(device), y_batch.to(device)
 
         def training_step(self, batch: Any) -> Tensor:
             # 返回的Tensor(loss)用于优化
@@ -260,13 +252,14 @@ def learning_by_example():
             y = y >= 0
             acc = libs_ml.accuracy(y, y_batch)
             self.log("test_acc", acc)
+            
     runs_dir = os.path.join(PL_RUNS_DIR, )
     lmodel = MyLModule(model, optimizer, {
         "model": "MLP_2", "optim": {"name": "SGD", "lr": 0.1}})
     ####
     trainer = libs_ml.Trainer(lmodel, True, 100, runs_dir)
-    libs_utils.test_time(lambda: trainer.fit(train_data_loader, train_data_loader), number=1, warm_up=0)
-    
+    libs_utils.test_time(lambda: trainer.fit(
+        train_data_loader, train_data_loader), number=1, warm_up=0)
 
     # [Saving a model]
     # [^test state_dict]

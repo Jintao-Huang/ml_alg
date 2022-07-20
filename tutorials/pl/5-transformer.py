@@ -288,15 +288,9 @@ class MyLModule(libs_ml.LModule):
         # self.optim, self.model在super中定义
         self.lrs = _WarmupCosineAnnealingLR(optim, **hparams["lrs_params"])
 
-    def batch_to_device(self, batch: Any, device: Device) -> Any:
-        # fit/test.
-        x_batch, y_batch = batch
-        return x_batch.to(device), y_batch.to(device)
 
-    def optimizer_step(self, loss: Tensor) -> None:
+    def optimizer_step(self) -> None:
         # fit. 用于optim, lr_schedules的处理.
-        self.optim.zero_grad()
-        loss.backward()
         self.optim.step()
         clip_grad_norm_(self.model.parameters(), **
                         self.hparams["clip_grad_norm_params"])

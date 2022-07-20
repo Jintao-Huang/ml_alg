@@ -227,16 +227,6 @@ class MyLModule(libs_ml.LModule):
         self.log("lr0", self.lrs.get_last_lr()[0])
         self.lrs.step()
 
-    def batch_to_device(self, batch: Any, device: Device) -> Any:
-        # fit/test.
-        x_batch, y_batch = batch
-        return x_batch.to(device), y_batch.to(device)
-
-    def optimizer_step(self, loss: Tensor) -> None:
-        # fit. 用于optim, lr_schedules的处理.
-        self.optim.zero_grad()
-        loss.backward()
-        self.optim.step()
 
     def training_step(self, batch: Any) -> Tensor:
         # fit
