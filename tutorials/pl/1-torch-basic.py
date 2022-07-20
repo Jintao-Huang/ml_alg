@@ -142,7 +142,7 @@ def _gpu_support() -> None:
             x, x), number=5, timer=libs_ml.time_synchronize).cpu()
         print(torch.allclose(_, _2))
 
-    libs_ml.seed_everything(42, gpu_dtm=True)
+    libs_ml.seed_everything(42, gpu_dtm=False)
 
 
 def learning_by_example():
@@ -150,7 +150,7 @@ def learning_by_example():
     # [Learning by example: Continuous XOR]
     # [The model]
     device = torch.device("cuda"if torch.cuda.is_available() else "cpu")
-    libs_ml.seed_everything(42, gpu_dtm=True)
+    libs_ml.seed_everything(42, gpu_dtm=False)
 
     class MyModule(nn.Module):
         def __init__(self):
@@ -224,10 +224,9 @@ def learning_by_example():
     ######
 
     class MyLModule(libs_ml.LModule):
-        def __init__(self, model: Module, optim: Optimizer,
-                     default_root_dir: str, hparams: Optional[Dict[str, Any]] = None) -> None:
+        def __init__(self, model: Module, optim: Optimizer, hparams: Optional[Dict[str, Any]] = None) -> None:
             super(MyLModule, self).__init__(
-                model, optim, default_root_dir, hparams)
+                model, optim, hparams)
             self.loss_fn = nn.BCEWithLogitsLoss()
 
         def optimizer_step(self, loss: Tensor) -> None:
@@ -261,11 +260,11 @@ def learning_by_example():
             y = y >= 0
             acc = libs_ml.accuracy(y, y_batch)
             self.log("test_acc", acc)
-
-    lmodel = MyLModule(model, optimizer, os.path.join(PL_RUNS_DIR, "_1"), {
+    runs_dir = os.path.join(PL_RUNS_DIR, )
+    lmodel = MyLModule(model, optimizer, {
         "model": "MLP_2", "optim": {"name": "SGD", "lr": 0.1}})
     ####
-    trainer = libs_ml.Trainer(lmodel, True, 100)
+    trainer = libs_ml.Trainer(lmodel, True, 100, runs_dir)
     libs_utils.test_time(lambda: trainer.fit(train_data_loader, train_data_loader), number=1, warm_up=0)
     
 
@@ -280,10 +279,11 @@ def learning_by_example():
     #
     state_dict = model.state_dict()
     print(state_dict)
-    lmodel.save_checkpoint("our_model.tar")
+    save_path = os.path.join(trainer.ckpt_dir, "m.ckpt")
+    lmodel.save_checkpoint(save_path)
     new_model = SimpleClassifier(num_inputs=2, num_hidden=4, num_outputs=1)
     lmodel.model = new_model
-    lmodel.load_from_checkpoint("our_model.tar")
+    lmodel.load_from_checkpoint(save_path)
     print("Original model\n", model.state_dict())
     print("\nLoaded model\n", new_model.state_dict())
     # [Evaluation]

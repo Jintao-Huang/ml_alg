@@ -32,13 +32,13 @@ import torch
 from torch import Tensor, device as Device
 from torch.nn import Module
 from torch.optim import Optimizer
-from torch.optim.lr_scheduler import _LRScheduler
 from torch.nn.parameter import Parameter
 import torch.cuda as cuda
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.optim import lr_scheduler as lrs
+from torch.optim.lr_scheduler import _LRScheduler as LRScheduler
 import torch.nn.init as init
 from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import Dataset, DataLoader, random_split, IterableDataset, TensorDataset

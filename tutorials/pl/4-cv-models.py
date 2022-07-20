@@ -212,9 +212,8 @@ class GoogleNet(nn.Module):
 
 
 class MyLModule(libs_ml.LModule):
-    def __init__(self, model: Module, optim: Optimizer,
-                 default_root_dir: str, hparams: Optional[Dict[str, Any]] = None) -> None:
-        super(MyLModule, self).__init__(model, optim, default_root_dir, hparams)
+    def __init__(self, model: Module, optim: Optimizer, hparams: Optional[Dict[str, Any]] = None) -> None:
+        super(MyLModule, self).__init__(model, optim, hparams)
         # 一般: 定义损失函数, 学习率管理器. (优化器, 模型)
         # self.optim, self.model
         self.loss_fn = nn.CrossEntropyLoss()
@@ -282,8 +281,8 @@ def inception():
     model = GoogleNet(**hparams["model_hparams"])
     optimizer = optim.AdamW(model.parameters(), **hparams["optim_hparams"])
     default_root_dir = CHECKPOINTS_PATH
-    lmodel = MyLModule(model, optimizer, default_root_dir, hparams)
-    trainer = libs_ml.Trainer(lmodel, True, 180)
+    lmodel = MyLModule(model, optimizer, hparams)
+    trainer = libs_ml.Trainer(lmodel, True, 180, default_root_dir)
     trainer.fit(ldm.train_dataloader, ldm.val_dataloader)
     trainer.test(ldm.val_dataloader)
     trainer.test(ldm.test_dataloader)

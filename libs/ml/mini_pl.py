@@ -12,38 +12,25 @@ from tqdm import tqdm
 import datetime
 import yaml
 
-# 未来会添加的功能: 多GPU, 混合精度训练...
+# 未来会添加的功能: 多GPU, 混合精度训练, batch_to_device的修改, model.to()的速度测试, prog_bar的update优化. 
+# 
 
 __all__ = ["LModule", "LDataModule", "Trainer"]
 # 这里的batch_idx[+1], epoch_idx[+0]
 
 
 class LModule:
-    def __init__(self, model: Module, optim: Optimizer, default_root_dir: str,
+    def __init__(self, model: Module, optim: Optimizer,
                  hparams: Optional[Dict[str, Any]] = None) -> None:
         # 一般: 定义损失函数, 学习率管理器. (优化器, 模型)
         self.model = model
         self.optim = optim
-        self.default_root_dir = default_root_dir
         self.hparams = hparams
         #
-        time = datetime.datetime.now().strftime("%Y:%m:%d:%H:%M:%S.%f")
-        self.ckpt_dir = os.path.join(default_root_dir, time, "checkpoints")
-        self.tb_dir = os.path.join(
-            default_root_dir, time, "runs")  # tensorboard
-        self.hparams_path = os.path.join(
-            default_root_dir, time, "hparams.yaml")
-        self.result_path = os.path.join(
-            default_root_dir, time, "result.yaml")
-        os.makedirs(self.ckpt_dir, exist_ok=True)
-        os.makedirs(self.tb_dir, exist_ok=True)
-        self.mes = {}  # type: Dict[str, float]
-        #
-        self.save_hparams(hparams if hparams is not None else {})
 
-    def save_hparams(self, hparams: Dict[str, Any]) -> None:
-        with open(self.hparams_path, "w") as f:
-            yaml.dump(hparams, f)
+        self.mes = {}  # type: Dict[str, float]
+        self.hparams = hparams
+        #
 
     def log(self, k: str, v: Union[Tensor, float]):
         # 如何log. 我们调用lmodule的log, 将信息存储在lmodule中
@@ -55,12 +42,10 @@ class LModule:
     def __call__(self, *args, **kwargs):
         return self.model(*args, **kwargs)
 
-    def load_from_checkpoint(self, ckpt_fname: str) -> None:
-        ckpt_path = os.path.join(self.ckpt_dir, ckpt_fname)
+    def load_from_checkpoint(self, ckpt_path: str) -> None:
         self.model.load_state_dict(torch.load(ckpt_path))
 
-    def save_checkpoint(self, ckpt_fname: str) -> None:
-        ckpt_path = os.path.join(self.ckpt_dir, ckpt_fname)
+    def save_checkpoint(self, ckpt_path: str) -> None:
         torch.save(self.model.state_dict(), ckpt_path)
 
     # def __init__(self, model: Module, optim: Optimizer, default_root_dir: str,
@@ -82,7 +67,7 @@ class LModule:
 
     def epoch_end(self) -> None:
         # fit. 用于lr_schedules的处理
-        # 这里log的信息不会出现在prog_bar中(但会在tensorboard中). 
+        # 这里log的信息不会出现在prog_bar中(但会在tensorboard中).
         # 其他函数(b, o, t, v, t)中log的都会在prog_bar中出现
         # log要在step之前(lrs)
         ...
@@ -151,24 +136,43 @@ class LDataModule:
 
 
 class Trainer:
-    def __init__(self, lmodel: LModule, gpus: bool, max_epochs: int, *,
+    def __init__(self, lmodel: LModule, gpus: bool, max_epochs: int, runs_dir: str, *,
                  log_every_n_steps: int = 5, benchmark: bool = None) -> None:
         # 现在只支持单gpu, 多gpu以后再扩展
         self.lmodel = lmodel
         self.device = Device("cuda") if gpus else Device("cpu")
         self.max_epochs = max_epochs
         self.log_every_n_steps = log_every_n_steps
+
+        #
+        time = datetime.datetime.now().strftime("%Y:%m:%d-%H:%M:%S.%f")
+        self.ckpt_dir = os.path.join(runs_dir, time, "checkpoints")
+        self.tb_dir = os.path.join(
+            runs_dir, time, "runs")  # tensorboard
+        self.hparams_path = os.path.join(
+            runs_dir, time, "hparams.yaml")
+        self.result_path = os.path.join(
+            runs_dir, time, "result.yaml")
+        os.makedirs(self.ckpt_dir, exist_ok=True)
+        os.makedirs(self.tb_dir, exist_ok=True)
         #
         benchmark = benchmark if benchmark is not None else True
         torch.backends.cudnn.benchmark = False \
             if torch.backends.cudnn.deterministic else benchmark
         #
-        self.logger = SummaryWriter(self.lmodel.tb_dir)
+        self.logger = SummaryWriter(self.tb_dir)
         self.best_metrics = -1e10  # model save
         self.best_ckpt_path = None  # type: str
         self.last_ckpt_path = None  # type: str
         self.global_step = 0
         self.global_epoch = -1
+        #
+        hparams = self.lmodel.hparams
+        self.save_hparams(hparams if hparams is not None else {})
+
+    def save_hparams(self, hparams: Dict[str, Any]) -> None:
+        with open(self.hparams_path, "w") as f:
+            yaml.dump(hparams, f)
 
     @staticmethod
     def _sum_to_mean(log_mes: Dict[str, float], n: int, inplace: bool = False) -> Dict[str, float]:
@@ -191,22 +195,22 @@ class Trainer:
 
     def _epoch_end(self, mes: Dict[str, float], metric: float) -> None:
         # 1. 模型保存
-        ckpt_dir = self.lmodel.ckpt_dir
+        ckpt_dir = self.ckpt_dir
         if metric > self.best_metrics:
             # 保存
             self._remove_ckpt("best")
             self.best_metrics = metric
             ckpt_fname = f"best-epoch={self.global_epoch}-metrics={metric}.ckpt"
             self.best_ckpt_path = os.path.join(ckpt_dir, ckpt_fname)
-            self.lmodel.save_checkpoint(ckpt_fname)
+            self.lmodel.save_checkpoint(self.best_ckpt_path)
             print(f"- best model, saving model `{ckpt_fname}`")
         #
         self._remove_ckpt("last")
         ckpt_fname = f"last-epoch={self.global_epoch}-metrics={metric}.ckpt"
         self.last_ckpt_path = os.path.join(ckpt_dir, ckpt_fname)
-        self.lmodel.save_checkpoint(ckpt_fname)
+        self.lmodel.save_checkpoint(self.last_ckpt_path)
         # 2. 结果保存
-        with open(self.lmodel.result_path, "a") as f:
+        with open(self.result_path, "a") as f:
             yaml.dump({f"Epoch={self.global_epoch}": mes}, f)
 
     def _add_new_mes(self, mes: Dict[str, float], new_mes: Dict[str, float]) -> None:
@@ -272,7 +276,7 @@ class Trainer:
             for batch_idx, batch in enumerate(dataloader):
                 batch = lmodel.batch_to_device(batch, self.device)
                 _m = lmodel.validation_step(batch)
-                metrics += _m.item() if isinstance(_m, Tensor) else _m 
+                metrics += _m.item() if isinstance(_m, Tensor) else _m
                 #
                 new_mes = self.lmodel.mes
                 self._add_new_mes(val_mes, new_mes)
@@ -343,9 +347,8 @@ if __name__ == "__main__":
     optimizer = optim.SGD(model.parameters(), 0.1, 0.9)
 
     class MyLModule(LModule):
-        def __init__(self, model: Module, optim: Optimizer, default_root_dir: str) -> None:
-            super(MyLModule, self).__init__(model, optim,
-                                            default_root_dir, {"model": "MLP_2"})
+        def __init__(self, model: Module, optim: Optimizer) -> None:
+            super(MyLModule, self).__init__(model, optim, {"model": "MLP_2"})
             self.loss_fn = nn.BCEWithLogitsLoss()
             self.lrs = MultiStepLR(optim, [10, 50], 0.1)
 
@@ -389,16 +392,14 @@ if __name__ == "__main__":
     RUNS_DIR = os.path.join(_ROOT_DIR, "runs")
     os.makedirs(RUNS_DIR, exist_ok=True)
     #
-    default_root_dir = os.path.join(RUNS_DIR, "test_mini_pl")
-    lmodel = MyLModule(model, optimizer, default_root_dir)
+    runs_dir = os.path.join(RUNS_DIR, "test_mini_pl")
+    lmodel = MyLModule(model, optimizer)
     #
-    trainer = Trainer(lmodel, True, 100)
+    trainer = Trainer(lmodel, True, 100, runs_dir)
     trainer.fit(ldm.train_dataloader, ldm.val_dataloader)
     trainer.test(ldm.test_dataloader)
-    model_name = "m.ckpt"
-    lmodel.save_checkpoint(model_name)
     del lmodel.model
     lmodel.model = MLP_L2(2, 4, 1)
-    lmodel.load_from_checkpoint(model_name)
+    lmodel.load_from_checkpoint(trainer.best_ckpt_path)
     #
     trainer.test(ldm.test_dataloader)

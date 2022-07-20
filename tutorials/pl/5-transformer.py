@@ -3,6 +3,7 @@ try:
     from .pre import *
 except ImportError:
     from pre import *
+    
 
 RUNS_DIR = os.path.join(PL_RUNS_DIR, "_5")
 DATASETS_PATH = os.environ.get(
@@ -204,8 +205,6 @@ class PositionalEncoding(nn.Module):
 # [LR warm-up]
 
 
-from torch.optim.lr_scheduler import _LRScheduler
-
 def get_offset_func(fa: float, fb: float, ga: float, gb: float) -> Callable[[float], float]:
     """将y=[sa..sb]的曲线 -> y=[ta..tb]"""
     # 存在fx, gx; 已知: gx=s(fx+a), 求s,a. 返回func: fx->gx
@@ -220,6 +219,7 @@ def get_offset_func(fa: float, fb: float, ga: float, gb: float) -> Callable[[flo
     def func(x):
         return s * (x + a)
     return func
+
 
 def cosine_annealing_lr(epoch: int, T_max: int, eta_min: float, initial_lrs: List[float]) -> List[float]:
     if epoch == 0:
@@ -240,7 +240,8 @@ def cosine_annealing_lr(epoch: int, T_max: int, eta_min: float, initial_lrs: Lis
         res.append(func(x))
     return res
 
-class _WarmupCosineAnnealingLR(_LRScheduler):
+
+class _WarmupCosineAnnealingLR(LRScheduler):
     def __init__(self, optimizer: Optimizer, warmup: int, T_max: int, eta_min: float = 0.,
                  last_epoch: int = -1) -> None:
         # warmup一般使用iter_idx(epoch)作为T_max进行控制
@@ -281,10 +282,8 @@ class _WarmupCosineAnnealingLR(_LRScheduler):
 
 
 class MyLModule(libs_ml.LModule):
-    def __init__(self, model: Module, optim: Optimizer, default_root_dir: str,
-                 hparams: Optional[Dict[str, Any]] = None) -> None:
-        super(MyLModule, self).__init__(
-            model, optim, default_root_dir, hparams)
+    def __init__(self, model: Module, optim: Optimizer, hparams: Optional[Dict[str, Any]] = None) -> None:
+        super(MyLModule, self).__init__(model, optim, hparams)
         # 一般: 定义损失函数, 学习率管理器. (优化器, 模型)
         # self.optim, self.model在super中定义
         self.lrs = _WarmupCosineAnnealingLR(optim, **hparams["lrs_params"])
@@ -299,7 +298,8 @@ class MyLModule(libs_ml.LModule):
         self.optim.zero_grad()
         loss.backward()
         self.optim.step()
-        clip_grad_norm_(self.model.parameters(), **self.hparams["clip_grad_norm_params"])
+        clip_grad_norm_(self.model.parameters(), **
+                        self.hparams["clip_grad_norm_params"])
         self.log("lr0", self.lrs.get_last_lr()[0])
         self.lrs.step()
 
@@ -437,8 +437,9 @@ optimizer = optim.Adam(model.parameters(), **hparams["optim_params"])
 # [Experiment]
 # [Seq to Seq]
 
-lmodel = MyLModule(model, optimizer, RUNS_DIR, hparams)
-trainer = libs_ml.Trainer(lmodel, True, **hparams["trainer_params"])
+lmodel = MyLModule(model, optimizer, hparams)
+trainer = libs_ml.Trainer(
+    lmodel, True, runs_dir=RUNS_DIR, **hparams["trainer_params"])
 trainer.fit(ldm.train_dataloader, ldm.val_dataloader)
 trainer.test(ldm.val_dataloader)
 trainer.test(ldm.test_dataloader)
