@@ -50,14 +50,13 @@ class LModule:
     def epoch_end(self) -> None:
         # fit. 用于lr_schedules的处理
         # 这里log的信息不会出现在prog_bar中(但会在tensorboard中).
-        # 其他函数(b, o, t, v, t)中log的都会在prog_bar中出现
         # log要在lrs.step之前
         pass
 
     def _batch_to_device(self, batch: Any, device: Device) -> Any:
         # tree的深搜. 对python object(int, float)报错
+        #   处理list, tuple, dict, Tensor
         if isinstance(batch, Tensor):
-            res = []
             return batch.to(device)
         #
         if isinstance(batch, (list, tuple)):
@@ -71,7 +70,7 @@ class LModule:
             for k, v in batch.items():
                 res[k] = self._batch_to_device(v, device)
         else:
-            raise TypeError(f"batch: {batch}")
+            raise TypeError(f"batch: {batch}, {type(batch)}")
         return res
 
     def batch_to_device(self, batch: Any, device: Device) -> Any:

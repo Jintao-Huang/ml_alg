@@ -276,6 +276,7 @@ def inception():
     trainer.fit(ldm.train_dataloader, ldm.val_dataloader)
     trainer.test(ldm.val_dataloader)
     trainer.test(ldm.test_dataloader)
+    # getattr(optim, "AdamW")
 
 
 def resnet():
@@ -287,5 +288,6 @@ def densenet():
 
 
 if __name__ == "__main__":
+    # print(getattr(optim, "AdamW"))
     setup()
     inception()

@@ -5,4 +5,5 @@
 /runs/
 /pre.py
 __pycache__/
-
+/private/
+/asset/

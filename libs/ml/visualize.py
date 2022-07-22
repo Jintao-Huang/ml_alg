@@ -23,6 +23,7 @@ __all__ = ["plot_classification_map", "visualize_samples",
 def plot_classification_map(model: Module, device: Device,
                             extent: Tuple[float, float, float, float], n_labels: int, ax: Axes) -> None:
     """只支持输入为2D的情形"""
+    # 功能: 对输入为2D的模型, 遍历输入. 产生输出的map. 使用分类颜色的混合来可视化
     # extent: lrtb
     if n_labels > 10:
         raise ValueError(f"n_labels: {n_labels}")
@@ -66,6 +67,7 @@ def plot_classification_map(model: Module, device: Device,
 
 def visualize_samples(data: Union[Tensor, ndarray], labels: Union[Tensor, ndarray], ax: Axes) -> None:
     """data可以先降维后输入. 可支持多分类"""
+    # 功能: 将data, labels对应的样本点进行可视化. scatter+legend
     # data是2D的[n,f]的Tensor, f=2. float
     # labels: [n]. int
     if isinstance(data, Tensor):
@@ -105,16 +107,14 @@ def visualize_samples(data: Union[Tensor, ndarray], labels: Union[Tensor, ndarra
 #     plot_classification_map(model, Device(
 #         'cuda'), (-0.5, 1.5, 0, 2), n_labels, ax)
 #     visualize_samples(dataset.data, dataset.labels, ax)
-#     # plt.savefig("1.png", bbox_inches='tight')
+#     # plt.savefig("runs/1.png", bbox_inches='tight')
 #     plt.show()
 
 
 def plot_line(funcs: List[Callable[[ndarray], ndarray]], labels: List[str],
               ax: Axes, x_range: Tuple[int, int]) -> None:
     # 输入前需要将ax的config设置好: e.g. xlabel, ylabel, xlim, ylim, xticks, yticks, title
-    #
-    # config_ax(ax)
-    #
+    # 功能: 画对应funcs的多条线条(每个对应的label为labels[i]). x_range为对应funcs的x的范围
     x = np.linspace(x_range[0], x_range[1])
     for i, func in enumerate(funcs):
         y = func(x)
@@ -124,7 +124,7 @@ def plot_line(funcs: List[Callable[[ndarray], ndarray]], labels: List[str],
 
 def plot_subplots(plot_funcs: List[Callable[[Axes], None]],
                   ncols: int = 2, fig: Figure = None) -> Figure:
-
+    # 功能: 每个subplots对应plot_funcs. 对每个subplots进行画图
     n = len(plot_funcs)
     nrows = int(math.ceil(n / ncols))
     if fig is None:
@@ -162,6 +162,7 @@ def make_grid(images: Union[Tensor, ndarray], ax: Axes,
     # Tensor: [N, C, H, W]. 0-1
     # ndarray: [N, H, W, C]. 0-1
     # 将ax传入前, 先进行config_ax
+    # 功能: 将图片按网格进行组合.
     if images.ndim != 4:
         raise ValueError(f"images.ndim: {images.ndim}")
     if isinstance(images, ndarray):
@@ -187,12 +188,15 @@ def normalize(image: Tensor) -> Tensor:
     """线性norm"""
     # image: [N, C, H, W]. 按min, max
     # 这与tvF.normalize不同. 对每个样本norm. tvF.normalize: 对每个通道norm
+    # 功能: 归一化到[0..1]. 而不是标准化
 
     n_samples = image.shape[0]
     #
+    ndim = image.ndim
     image_v = image.view(n_samples, -1)
-    max_ = image_v.max(dim=1)[0].view(n_samples, 1, 1, 1)
-    min_ = image_v.min(dim=1)[0].view(n_samples, 1, 1, 1)
+    shape = n_samples,  *(1,)*(ndim-1)  # keepdim
+    max_ = image_v.max(dim=1)[0].view(shape)
+    min_ = image_v.min(dim=1)[0].view(shape)
     # img_norm * (max_ - min_) + min_ = img
     image -= min_
     image /= (max_ - min_)
@@ -202,6 +206,7 @@ def normalize(image: Tensor) -> Tensor:
 def make_grid2(images: Union[Tensor, ndarray], fig: Figure = None,
                ncols: int = 4, norm: bool = True, cmap: str = None) -> Figure:
     """不使用torchvision的make_grid函数"""
+    # 功能: 不适用torchvision的make_grid函数, 纯plt的make_grid函数.
 
     # cmap: viridis(None), "gray", "gray_r", "hot",
     ###
@@ -235,7 +240,7 @@ def make_grid2(images: Union[Tensor, ndarray], fig: Figure = None,
             # 随后将[vmin, vmax] norm-> [0, 1]
             image = images[idx]
             ax.imshow(image, cmap=cmap, origin="upper", vmin=0, vmax=1)
-    fig.subplots_adjust(hspace=0.5, wspace=0.5)
+    fig.subplots_adjust(hspace=0.1, wspace=0.1)
     return fig
 
 

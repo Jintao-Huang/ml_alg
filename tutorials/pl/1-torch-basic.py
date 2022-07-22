@@ -253,7 +253,7 @@ def learning_by_example():
             acc = libs_ml.accuracy(y, y_batch)
             self.log("test_acc", acc)
             
-    runs_dir = os.path.join(PL_RUNS_DIR, )
+    runs_dir = os.path.join(PL_RUNS_DIR, "_1")
     lmodel = MyLModule(model, optimizer, {
         "model": "MLP_2", "optim": {"name": "SGD", "lr": 0.1}})
     ####
