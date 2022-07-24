@@ -346,11 +346,11 @@ if __name__ == "__main__":
     import torch.nn as nn
     import torch.optim as optim
     try:
-        from . import MLP_L2, XORDataset, accuracy
+        from . import MLP_L2, XORDataset, accuracy_score
     except ImportError:
         from models import MLP_L2
         from datasets import XORDataset
-        from metrics import accuracy
+        from metrics import accuracy_score
     #
 
     train_dataset = XORDataset(512)
@@ -384,7 +384,7 @@ if __name__ == "__main__":
             x_batch, y_batch = batch
             y = self.model(x_batch)[:, 0]
             y = y >= 0
-            acc = accuracy(y, y_batch)
+            acc = accuracy_score(y, y_batch)
             self.log("val_acc", acc)
             return acc
 
@@ -392,7 +392,7 @@ if __name__ == "__main__":
             x_batch, y_batch = batch
             y = self.model(x_batch)[:, 0]
             y = y >= 0
-            acc = accuracy(y, y_batch)
+            acc = accuracy_score(y, y_batch)
             self.log("test_acc", acc)
     #
     _ROOT_DIR = "/home/jintao/Desktop/coding/python/ml_alg"

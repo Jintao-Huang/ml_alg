@@ -13,7 +13,7 @@ from xml.etree.ElementTree import ElementTree, Element
 __all__ = ["test_time", "download_files", "calculate_hash", "xml_to_dict"]
 
 
-def test_time(func: Callable[[], Any], number: int = 100, warm_up: int = 2, timer: Optional[Callable[[], float]] = None) -> Any:
+def test_time(func: Callable[[], Any], number: int = 1, warm_up: int = 0, timer: Optional[Callable[[], float]] = None) -> Any:
     # timer: e.g. time_synchronize
     timer = timer if timer is not None else time.perf_counter
     #
@@ -104,7 +104,8 @@ def calculate_hash(fpath: str) -> str:
 #     fpath = "/home/jintao/Documents/torch/hub/checkpoints/resnet34-b627a593.pth"
 #     print(calculate_hash(fpath))  # b627a593
 
-def _xml_to_dict(node: Element) -> Dict[str, Union[List, str]]:
+Node = Dict[str, Union[List["Node"], str]]
+def _xml_to_dict(node: Element) -> Node:
     # 树的深搜. 子节点: Dict[str, List]; 根节点: Dict[str, str]
     if len(node) == 0:
         return {node.tag:node.text}
@@ -115,7 +116,7 @@ def _xml_to_dict(node: Element) -> Dict[str, Union[List, str]]:
     
     
 
-def xml_to_dict(fpath: str) -> Dict[str, Union[List, str]]:
+def xml_to_dict(fpath: str) -> Node:
     # 不处理node中的attribute
     """每个xml node是一个dict, 标题是key, 里面的内容是List. XML_NODE=Dict[str, List[XML_NODE]]"""
     tree = ET.parse(fpath)

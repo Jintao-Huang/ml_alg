@@ -236,7 +236,7 @@ class MyLModule(libs_ml.LModule):
         y = self.model(x_batch)
         loss = self.loss_fn(y, y_batch)
         y_acc = y.argmax(dim = -1)
-        acc = libs_ml.accuracy(y_acc, y_batch)
+        acc = libs_ml.accuracy_score(y_acc, y_batch)
         self.log("train_loss", loss)
         self.log("train_val", acc)
         return loss
@@ -247,7 +247,7 @@ class MyLModule(libs_ml.LModule):
         x_batch, y_batch = batch
         y = self.model(x_batch)
         y_acc = y.argmax(dim = -1)
-        acc = libs_ml.accuracy(y_acc, y_batch)
+        acc = libs_ml.accuracy_score(y_acc, y_batch)
         self.log("val_acc", acc)
         return acc
 
@@ -256,7 +256,7 @@ class MyLModule(libs_ml.LModule):
         x_batch, y_batch = batch
         y = self.model(x_batch)
         y_acc = y.argmax(dim = -1)
-        acc = libs_ml.accuracy(y_acc, y_batch)
+        acc = libs_ml.accuracy_score(y_acc, y_batch)
         self.log("test_acc", acc)
 
 

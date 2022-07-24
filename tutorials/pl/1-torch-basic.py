@@ -250,7 +250,7 @@ def learning_by_example():
             x_batch, y_batch = batch
             y = self.model(x_batch)[:, 0]
             y = y >= 0
-            acc = libs_ml.accuracy(y, y_batch)
+            acc = libs_ml.accuracy_score(y, y_batch)
             self.log("test_acc", acc)
             
     runs_dir = os.path.join(PL_RUNS_DIR, "_1")

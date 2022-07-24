@@ -8,15 +8,17 @@ from torch import device as Device, Tensor
 from torch.nn import Module
 import torch
 from matplotlib.colors import to_rgb
-from typing import Optional, List, Union, Callable
+from typing import Optional, List, Union, Callable, Dict
 from torch.utils.data import DataLoader, TensorDataset
 from numpy import ndarray
 import math
 from torchvision.utils import make_grid as _make_grid
+from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
 
 
 __all__ = ["plot_classification_map", "visualize_samples",
-           "plot_line", "plot_subplots", "make_grid", "normalize", "make_grid2"]
+           "plot_lines", "plot_subplots", "make_grid", "normalize", "make_grid2", 
+           "tensorboard_smoothing", "config_ax", "read_tensorboard_file"]
 
 
 @torch.no_grad()
@@ -111,8 +113,9 @@ def visualize_samples(data: Union[Tensor, ndarray], labels: Union[Tensor, ndarra
 #     plt.show()
 
 
-def plot_line(funcs: List[Callable[[ndarray], ndarray]], labels: List[str],
-              ax: Axes, x_range: Tuple[int, int]) -> None:
+def plot_lines(funcs: List[Callable[[ndarray], ndarray]], labels: List[str],
+               ax: Axes, x_range: Tuple[int, int]) -> None:
+    """labels: for legend"""
     # 输入前需要将ax的config设置好: e.g. xlabel, ylabel, xlim, ylim, xticks, yticks, title
     # 功能: 画对应funcs的多条线条(每个对应的label为labels[i]). x_range为对应funcs的x的范围
     x = np.linspace(x_range[0], x_range[1])
@@ -146,11 +149,11 @@ def plot_subplots(plot_funcs: List[Callable[[Axes], None]],
 #     from functools import partial
 #     funcs_s = [[np.sin, np.cos], [lambda x: 2 * x, lambda x: x + 1]]
 #     labels_s = [["sin", "cos"], ["2x", "x+1"]]
-#     plot_funcs = [partial(plot_line, funcs, labels, x_range=(-5, 5))
+#     plot_funcs = [partial(plot_lines, funcs, labels, x_range=(-5, 5))
 #                   for funcs, labels in zip(funcs_s, labels_s)]
 #     # 会出错: 因为闭包的性质. 请使用上面的用法
 #     # 当调用函数的时候, funcs, labels都等于funcs_s[-1], labels_s[-1]
-#     # plot_funcs = [lambda ax: plot_line(funcs, labels, ax, x_range=(-5, 5))
+#     # plot_funcs = [lambda ax: plot_lines(funcs, labels, ax, x_range=(-5, 5))
 #     #               for funcs, labels in zip(funcs_s, labels_s)]
 
 #     plot_subplots(plot_funcs)
@@ -228,6 +231,7 @@ def make_grid2(images: Union[Tensor, ndarray], fig: Figure = None,
         images = normalize(images)
     images = images.permute(0, 2, 3, 1)
     images = images.detach().cpu().numpy()
+    #
     for i in range(nrows):
         axs_r = (axs[i] if nrows > 1 else axs)
         for j in range(ncols):
@@ -244,22 +248,102 @@ def make_grid2(images: Union[Tensor, ndarray], fig: Figure = None,
     return fig
 
 
-if __name__ == "__main__":
-    import os
-    import torchvision.transforms as tvt
-    DATASETS_PATH = os.environ.get("DATASETS_PATH")
-    assert DATASETS_PATH is not None
-    from torchvision.datasets import FashionMNIST
-    transform = tvt.Compose(
-        [tvt.transforms.ToTensor(), tvt.Normalize((0.5,), (0.5,))])
-    train_dataset = FashionMNIST(
-        root=DATASETS_PATH, train=True, transform=transform, download=True)
-    data = [train_dataset[i][0] for i in range(22)]  # x,y 中取x
-    print(data[0].shape)  # [1, 28, 28]
-    fig, ax = plt.subplots(figsize=(8, 8), dpi=200)
-    make_grid(torch.stack(data), ax)
-    plt.show()
+# if __name__ == "__main__":
+#     import os
+#     import torchvision.transforms as tvt
+#     DATASETS_PATH = os.environ.get("DATASETS_PATH")
+#     assert DATASETS_PATH is not None
+#     from torchvision.datasets import FashionMNIST
+#     transform = tvt.Compose(
+#         [tvt.transforms.ToTensor(), tvt.Normalize((0.5,), (0.5,))])
+#     train_dataset = FashionMNIST(
+#         root=DATASETS_PATH, train=True, transform=transform, download=True)
+#     data = [train_dataset[i][0] for i in range(22)]  # x,y 中取x
+#     print(data[0].shape)  # [1, 28, 28]
+#     fig, ax = plt.subplots(figsize=(8, 8), dpi=200)
+#     make_grid(torch.stack(data), ax)
+#     plt.show()
 
+#     #
+#     make_grid2(torch.stack(data), cmap='gray')
+#     plt.show()
+
+
+def config_ax(ax: Axes, title: str = None, xlabel: str = None, ylabel: str = None,
+              xlim: Tuple[float, float] = None, ylim: Tuple[float, float] = None,
+              xticks: List[float] = None, xticks_labels: List[str] = None,
+              yticks: List[float] = None, yticks_labels: List[str] = None,
+              xticks_rotate90=False) -> None:
+    if title is not None:
+        ax.set_title(title, fontsize=20)
+    if xlabel is not None:
+        ax.set_xlabel(xlabel, labelpad=8, fontsize=16)
+    if ylabel is not None:
+        ax.set_ylabel(ylabel, labelpad=8, fontsize=16)
+    if xlim is not None:
+        ax.set_xlim(xlim)
+    if ylim is not None:
+        ax.set_ylim(ylim)
+    if xticks is not None:
+        ax.set_xticks(xticks, xticks_labels)
+    if yticks is not None:
+        ax.set_yticks(yticks, yticks_labels)
+
+    ax.tick_params(axis="both", which="major", labelsize=14)
     #
-    make_grid2(torch.stack(data), cmap='gray')
-    plt.show()
+    if xticks_rotate90:
+        ax.tick_params(axis='x', which='major', rotation=90)
+
+
+Item = Dict[str, float]  # e.g. step, loss
+
+
+def read_tensorboard_file(fpath: str) -> Dict[str, List[Item]]:
+    """读取fpath中的scalars信息. 变为"""
+    ea = EventAccumulator(fpath)
+    ea.Reload()
+    res = {}
+    tags = ea.Tags()['scalars']
+    for tag in tags:
+        values = ea.Scalars(tag)
+        _res = []
+        for v in values:
+            _res.append({"step": v.step, "value": v.value})
+        res[tag] = _res
+    return res
+
+
+def tensorboard_smoothing(values: List[float], smooth: float = 0.9) -> List[float]:
+    """不需要传入step"""
+    # [0.81 0.9 1]. res[2] = (0.81 * values[0] + 0.9 * values[1] + values[2]) / 2.71
+    norm_factor = smooth + 1
+    x = values[0]
+    res = [x]
+    for i in range(1, len(values)):
+        x = x * smooth + values[i]  # 指数衰减
+        res.append(x / norm_factor)
+        #
+        norm_factor *= smooth
+        norm_factor += 1
+    return res
+
+
+# if __name__ == "__main__":
+#     fpath = "/home/jintao/Desktop/coding/python/ml_alg/asset/events.out.tfevents.1658302059.jintao.13896.0"
+#     loss = read_tensorboard_file(fpath)["train_loss"]
+#     v = [l["value"] for l in loss]
+#     step = [l["step"] for l in loss]
+#     sv = tensorboard_smoothing(v, 0.9)
+#     print(sv[490//5 - 1], v[490//5-1])
+
+#     def plot_loss():
+#         fig, ax = plt.subplots(figsize=(10, 5))
+#         cg, cb = "#FFE2D9", "#FF7043"
+#         config_ax(ax, title="Plot_Loss", xlabel="Epoch", ylabel="Loss")
+#         ax.plot(step, v, color=cg)
+#         ax.plot(step, sv, color=cb)
+#     plot_loss()
+#     plt.savefig("runs/1.png", dpi=200, bbox_inches='tight')
+#     # plt.show()
+
+

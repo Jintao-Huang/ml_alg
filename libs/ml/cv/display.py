@@ -10,7 +10,7 @@ __all__ = ["Box", "Point", "Color", "draw_box",
 
 Box = Union[Tuple[int, int, int, int], List[int], ndarray]  # ltrb
 Point = Union[Tuple[int, int], List[int], ndarray]
-# BGR. Color可以使用f'C{i}'的方式指定. 共10个
+# BGR. Color可以使用f'C{i}'的方式指定. 共10个[0..9]
 Color = Union[Tuple[int, int, int], List[int], str]
 
 
