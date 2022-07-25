@@ -1,3 +1,7 @@
+# Author: Jintao Huang
+# Email: hjt_study@qq.com
+# Date: 
+
 import random
 import torch
 import numpy as np

@@ -1,6 +1,9 @@
+# Author: Jintao Huang
+# Email: hjt_study@qq.com
+# Date: 
+
 import matplotlib.pyplot as plt
 import numpy as np
-from typing import Tuple
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from mpl_toolkits.mplot3d import Axes3D
@@ -8,7 +11,7 @@ from torch import device as Device, Tensor
 from torch.nn import Module
 import torch
 from matplotlib.colors import to_rgb
-from typing import Optional, List, Union, Callable, Dict
+from typing import Optional, List, Union, Callable, Dict, Tuple
 from torch.utils.data import DataLoader, TensorDataset
 from numpy import ndarray
 import math
@@ -109,7 +112,7 @@ def visualize_samples(data: Union[Tensor, ndarray], labels: Union[Tensor, ndarra
 #     plot_classification_map(model, Device(
 #         'cuda'), (-0.5, 1.5, 0, 2), n_labels, ax)
 #     visualize_samples(dataset.data, dataset.labels, ax)
-#     # plt.savefig("runs/1.png", bbox_inches='tight')
+#     # plt.savefig("runs/images/1.png", bbox_inches='tight')
 #     plt.show()
 
 
@@ -316,10 +319,10 @@ def read_tensorboard_file(fpath: str) -> Dict[str, List[Item]]:
 def tensorboard_smoothing(values: List[float], smooth: float = 0.9) -> List[float]:
     """不需要传入step"""
     # [0.81 0.9 1]. res[2] = (0.81 * values[0] + 0.9 * values[1] + values[2]) / 2.71
-    norm_factor = smooth + 1
-    x = values[0]
-    res = [x]
-    for i in range(1, len(values)):
+    norm_factor = 1
+    x = 0
+    res = []
+    for i in range(len(values)):
         x = x * smooth + values[i]  # 指数衰减
         res.append(x / norm_factor)
         #
@@ -343,7 +346,7 @@ def tensorboard_smoothing(values: List[float], smooth: float = 0.9) -> List[floa
 #         ax.plot(step, v, color=cg)
 #         ax.plot(step, sv, color=cb)
 #     plot_loss()
-#     plt.savefig("runs/1.png", dpi=200, bbox_inches='tight')
+#     plt.savefig("runs/images/1.png", dpi=200, bbox_inches='tight')
 #     # plt.show()
 
 

@@ -30,18 +30,18 @@ class _MultiStepLR(_LRScheduler):
 
 def get_offset_func(fa: float, fb: float, ga: float, gb: float) -> Callable[[float], float]:
     """将y=[sa..sb]的曲线 -> y=[ta..tb]. 曲线的趋势不变"""
-    # 存在f, g; 已知: g(x)=s(f(x)+t), 求s,a. 返回func: f->g. s,a为标量
+    # 存在f, g; 已知: g(x)=s*f(x)+t, 求s,a. 返回func: f->g. s,a为标量
     # 即: 通过缩放和平移, 将f->g
-    # s(f(a)+t)=g(a); s(f(b)+t)=g(b)
+    # s*f(a)+t=g(a); s*f(b)+t=g(b)
     if fa == fb:
         raise ValueError("fa == fb")
     if ga == gb:
         return lambda x: ga
     s = (ga-gb) / (fa-fb)
-    t = ga / s - fa
+    t = ga - s*fa
 
     def func(x):
-        return s * (x + t)
+        return s * x + t  # 或: s(x+fa)+ga
     return func
 
 

@@ -60,6 +60,10 @@ import torchvision.models as tvm
 # import sklearn
 import pytorch_lightning as pl
 import pytorch_lightning.callbacks as plc
+# 
+from transformers.pipelines import pipeline
+from transformers.models.auto.modeling_auto import AutoModel
+from transformers.models.auto.tokenization_auto import AutoTokenizer
 #
 from . import utils as libs_utils
 from . import ml as libs_ml

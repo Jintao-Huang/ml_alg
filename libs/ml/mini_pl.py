@@ -1,3 +1,7 @@
+# Author: Jintao Huang
+# Email: hjt_study@qq.com
+# Date:
+
 import torch
 from torch import device as Device, Tensor
 from torch.utils.tensorboard.writer import SummaryWriter
@@ -99,16 +103,16 @@ class LModule:
         raise NotImplementedError
 
 
-if __name__ == "__main__":
-    x = {"tensor": torch.tensor([1, 2]), 0: [
-        torch.tensor([1, 2]), (torch.tensor([1]),)]}
-    print(LModule(None, None)._batch_to_device(x, Device('cuda')))
-    try:
-        x[0].append(1)
-        print(LModule(None, None)._batch_to_device(x, Device('cuda')))
-    except TypeError as e:
-        print(e)
-    exit(0)
+# if __name__ == "__main__":
+#     x = {"tensor": torch.tensor([1, 2]), 0: [
+#         torch.tensor([1, 2]), (torch.tensor([1]),)]}
+#     print(LModule(None, None)._batch_to_device(x, Device('cuda')))
+#     try:
+#         x[0].append(1)
+#         print(LModule(None, None)._batch_to_device(x, Device('cuda')))
+#     except TypeError as e:
+#         print(e)
+#     exit(0)
 
 
 class LDataModule:
@@ -233,52 +237,57 @@ class Trainer:
                 mes[k] = 0
             mes[k] += v
 
-    def _train(self, train_dataloader: DataLoader, val_dataloader: DataLoader) -> None:
+    def _train_epoch(self, dataloader: DataLoader) -> Dict[str, float]:
         lmodel = self.lmodel
         model = lmodel.model
+        model.train()
+        model.to(self.device)
         #
+        mes = {}
+        #
+        with tqdm(total=len(dataloader),
+                  desc=f"Epoch {self.global_epoch}") as prog_bar:
+            for batch_idx, batch in enumerate(dataloader):
+                self.global_step += 1
+                batch = lmodel.batch_to_device(batch, self.device)
+                loss = lmodel.training_step(batch)
+                if loss is not None:
+                    lmodel.optim.zero_grad()
+                    loss.backward()
+                    lmodel.optimizer_step()
+                #
+                new_mes = self.lmodel.mes
+                self._add_new_mes(mes, new_mes)
+                # tensorboard
+                if self.global_step % self.log_every_n_steps == 0:
+                    self._logger_add_scalars(new_mes, self.global_step)
+                new_mes.clear()
+                #
+                log_mes = self._sum_to_mean(mes, batch_idx + 1)
+                prog_bar.set_postfix(log_mes, refresh=False)
+                prog_bar.update()
+            self._sum_to_mean(mes, len(dataloader), inplace=True)
+
+        return mes
+
+    def _train(self, train_dataloader: DataLoader, val_dataloader: DataLoader) -> None:
         for _ in range(self.global_epoch + 1, self.max_epochs):
             self.global_epoch += 1
-            model.train()
-            model.to(self.device)
+            mes = self._train_epoch(train_dataloader)
             #
-            mes = {}
-            #
-            with tqdm(total=len(train_dataloader),
-                      desc=f"Epoch {self.global_epoch}") as prog_bar:
-                for batch_idx, batch in enumerate(train_dataloader):
-                    self.global_step += 1
-                    batch = lmodel.batch_to_device(batch, self.device)
-                    loss = lmodel.training_step(batch)
-                    if loss is not None:
-                        lmodel.optim.zero_grad()
-                        loss.backward()
-                        lmodel.optimizer_step()
-                    #
-                    new_mes = self.lmodel.mes
-                    self._add_new_mes(mes, new_mes)
-                    # tensorboard
-                    if self.global_step % self.log_every_n_steps == 0:
-                        self._logger_add_scalars(new_mes, self.global_step)
-                    new_mes.clear()
-                    #
-                    log_mes = self._sum_to_mean(mes, batch_idx + 1)
-                    prog_bar.set_postfix(log_mes, refresh=False)
-                    prog_bar.update()
-            #
-            self._sum_to_mean(mes, len(train_dataloader), inplace=True)
             metrics, val_mes = self._val(val_dataloader)
             mes.update(val_mes)
+            # 后处理
+            lmodel.epoch_end()
+            new_mes = self.lmodel.mes
+            self._logger_add_scalars(new_mes, self.global_epoch)
+            mes.update(new_mes)
+            new_mes.clear()
             #
             self._epoch_end(mes, metrics)
-            lmodel.epoch_end()
-            #
-            epoch_mes = self.lmodel.mes
-            self._logger_add_scalars(epoch_mes, self.global_epoch)
-            epoch_mes.clear()
 
     @torch.no_grad()
-    def _val(self, dataloader: DataLoader) -> Tuple[float, Dict[str, Any]]:
+    def _val(self, dataloader: DataLoader) -> Tuple[float, Dict[str, float]]:
         lmodel = self.lmodel
         model = lmodel.model
         #
@@ -287,7 +296,7 @@ class Trainer:
         metrics = 0.  # sum stat
 
         #
-        val_mes = {}
+        mes = {}
         with tqdm(total=len(dataloader), desc="  Val: ") as prog_bar:
             for batch_idx, batch in enumerate(dataloader):
                 batch = lmodel.batch_to_device(batch, self.device)
@@ -295,14 +304,14 @@ class Trainer:
                 metrics += _m.item() if isinstance(_m, Tensor) else _m
                 #
                 new_mes = self.lmodel.mes
-                self._add_new_mes(val_mes, new_mes)
+                self._add_new_mes(mes, new_mes)
                 new_mes.clear()
-                log_mes = self._sum_to_mean(val_mes, batch_idx + 1)
+                log_mes = self._sum_to_mean(mes, batch_idx + 1)
                 prog_bar.set_postfix(log_mes, refresh=False)
                 prog_bar.update()
-        self._sum_to_mean(val_mes, len(dataloader), inplace=True)
-        self._logger_add_scalars(val_mes, self.global_epoch)
-        return metrics / len(dataloader), val_mes
+        self._sum_to_mean(mes, len(dataloader), inplace=True)
+        self._logger_add_scalars(mes, self.global_epoch)
+        return metrics / len(dataloader), mes
 
     @ torch.no_grad()
     def _test(self, dataloader: DataLoader) -> Dict[str, float]:

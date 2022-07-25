@@ -1,3 +1,6 @@
+# Author: Jintao Huang
+# Email: hjt_study@qq.com
+# Date: 
 
 import time
 from typing import Callable, Any, Optional, List, Dict, Union

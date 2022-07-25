@@ -1,6 +1,7 @@
 # Author: Jintao Huang
 # Email: hjt_study@qq.com
 # Date:
+
 from typing import Union, Optional, Tuple
 from torch import Tensor
 import torch
@@ -34,8 +35,8 @@ f_beta = (1+beta^2)*prec*recall/ ((beta^2)*prec + recall)
 
 def accuracy_score(y_pred: Tensor, y_true: Tensor) -> Tensor:
     """
-    y_pred: Tensor[int]
-    y_true: Tensor[int]
+    y_pred: Tensor[long]
+    y_true: Tensor[long]
     """
     return torch.count_nonzero(y_true == y_pred) / y_pred.shape[0]
 
@@ -43,8 +44,8 @@ def accuracy_score(y_pred: Tensor, y_true: Tensor) -> Tensor:
 def confusion_matrix(y_pred: Tensor, y_true: Tensor,
                      normalize: Optional[str] = None) -> Tensor:
     """
-    y_pred: Tensor[int]
-    y_true: Tensor[int]
+    y_pred: Tensor[long]
+    y_true: Tensor[long]
     normalize: 计算完count后, 对哪个维度进行归一化. {"true", "pred", "all", None}. 一般可以对"true"归一化
         "true", "pred"可能出现0/0的情况, 我们用0表示.
     """
@@ -89,8 +90,8 @@ def _fscore(prec: Tensor, recall: Tensor, beta: float = 1.) -> Tensor:
 def precision_recall_fscore(y_pred: Tensor, y_true: Tensor,
                             beta: float = 1., average: Optional[str] = None) -> Tuple[Tensor, Tensor, Tensor]:
     """
-    y_pred: Tensor[int]
-    y_true: Tensor[int]
+    y_pred: Tensor[long]
+    y_true: Tensor[long]
     beta: [0, +inf), beta越大, recall的权重越大. (beta=0, 则不考虑recall)
     average: {'micro', 'macro', None}. 'binary'可以通过None实现.
     return: prec, recall, fscore
@@ -111,8 +112,10 @@ def precision_recall_fscore(y_pred: Tensor, y_true: Tensor,
     fscore = _fscore(prec, recall, beta)
     if average == None:
         return prec, recall, fscore
-    else:
+    elif average == "macro":
         return prec.mean(), recall.mean(), fscore.mean()
+    else:
+        raise ValueError(f"average: {average}")
 
 
 def precision_score(y_pred: Tensor, y_true: Tensor, average: Optional[str] = None) -> Tensor:
@@ -247,7 +250,7 @@ def mean_squared_error(y_pred: Tensor, y_true: Tensor, *, reduction="mean",
         pass
     else:
         raise ValueError(f"reduction: {reduction}")
-    return res
+    return res if squared else res.sqrt_()
 
 
 # if __name__ == "__main__":
@@ -256,16 +259,18 @@ def mean_squared_error(y_pred: Tensor, y_true: Tensor, *, reduction="mean",
 #     y = torch.randn(1000, 2000)
 #     x_np = x.numpy()
 #     y_np = y.numpy()
-#     a = libs_utils.test_time(lambda: torch.nn.MSELoss(reduction="none")(x, y))
-#     b = libs_utils.test_time(lambda: torch.nn.MSELoss(reduction="mean")(x, y))
+#     a = libs_utils.test_time(lambda: torch.nn.MSELoss(
+#         reduction="none")(x, y), number=10)
+#     b = libs_utils.test_time(lambda: torch.nn.MSELoss(
+#         reduction="mean")(x, y), number=10)
 #     c = libs_utils.test_time(lambda: _mean_squared_error(  # 慢!
-#         y_np, x_np, multioutput="raw_values"))
+#         y_np, x_np, multioutput="raw_values"), number=10)
 #     d = libs_utils.test_time(lambda: _mean_squared_error(  # 慢!
-#         y_np, x_np, multioutput="uniform_average"))
+#         y_np, x_np, multioutput="uniform_average"), number=10)
 #     e = libs_utils.test_time(
-#         lambda: mean_squared_error(x, y, reduction="none"))
+#         lambda: mean_squared_error(x, y, reduction="none"), number=10)
 #     f = libs_utils.test_time(
-#         lambda: mean_squared_error(x, y, reduction="mean"))
+#         lambda: mean_squared_error(x, y, reduction="mean"), number=10)
 #     print(torch.allclose(a, e, atol=1e-6))
 #     print(torch.allclose(b, f))
 
@@ -376,10 +381,10 @@ if __name__ == "__main__":
                           ylabel="P", xlim=(0, 1), ylim=(0, 1))
         ax.plot(r, p)
         plt.savefig(fpath, dpi=200, bbox_inches='tight')
-    plot_pr_curve(p, r, "runs/2.png")
+    plot_pr_curve(p, r, "runs/images/2.png")
     from sklearn.metrics import precision_recall_curve as _precision_recall_curve
     p, r, _ = _precision_recall_curve(y_true, y_pred)
-    plot_pr_curve(p, r, "runs/3.png")
+    plot_pr_curve(p, r, "runs/images/3.png")
 
 
 def roc_curve(y_pred: Tensor, y_true: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
@@ -441,6 +446,6 @@ def roc_auc_score(y_pred: Tensor, y_true: Tensor) -> Tensor:
 #         ax.plot(r, p)
 #         plt.savefig(fpath, dpi=200, bbox_inches='tight')
 #     tpr, fpr, _ = roc_curve(y_pred, y_true)
-#     plot_roc_curve(tpr, fpr, "runs/4.png")
+#     plot_roc_curve(tpr, fpr, "runs/images/4.png")
 #     tpr, fpr, _ = _roc_curve(y_true, y_pred)
-#     plot_roc_curve(tpr, fpr, "runs/5.png")
+#     plot_roc_curve(tpr, fpr, "runs/images/5.png")

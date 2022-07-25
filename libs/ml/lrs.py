@@ -1,3 +1,7 @@
+# Author: Jintao Huang
+# Email: hjt_study@qq.com
+# Date: 
+
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.optim import Optimizer
 import torch

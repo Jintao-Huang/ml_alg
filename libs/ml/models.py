@@ -1,3 +1,6 @@
+# Author: Jintao Huang
+# Email: hjt_study@qq.com
+# Date: 
 
 from torch.nn import Module
 import torch.nn as nn
