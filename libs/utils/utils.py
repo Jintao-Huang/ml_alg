@@ -25,10 +25,9 @@ def test_time(func: Callable[[], Any], number: int = 1, warm_up: int = 0, timer:
     for _ in range(warm_up):
         func()
     #
-    res = None
     for _ in range(number):
         t1 = timer()
-        res = func()
+        func()
         t2 = timer()
         ts.append(t2 - t1)
     # 打印平均, 标准差, 最大, 最小
@@ -40,6 +39,8 @@ def test_time(func: Callable[[], Any], number: int = 1, warm_up: int = 0, timer:
     # print
     print(
         f"time[number={number}]: {mean:.6f}±{std:.6f} |max: {max_:.6f} |min: {min_:.6f}")
+    # 
+    res = func()
     return res
 
 

@@ -15,8 +15,11 @@ from typing import List, Any, Dict, Optional, Tuple, Callable, Union
 from tqdm import tqdm
 import datetime
 import yaml
+from torch.nn.utils.clip_grad import clip_grad_norm_
+from collections import abc
 
-# 未来会添加的功能: 多GPU, 混合精度训练
+
+# 未来会添加的功能: 多GPU, 混合精度训练. 断点续训
 #
 
 __all__ = ["LModule", "LDataModule", "Trainer"]
@@ -33,14 +36,19 @@ class LModule:
         #
 
         self.mes = {}  # type: Dict[str, float]
+        self.prog_bar_mean = {}
         #
 
-    def log(self, k: str, v: Union[Tensor, float]):
+    def log(self, k: str, v: Union[Tensor, float], *, prog_bar_mean=True):
+        """
+        prog_bar_mean: 在prog_bar中显示的是整个epoch的均值. (一般loss, acc用均值. lr不用均值)
+        """
         # 如何log. 我们调用lmodule的log, 将信息存储在lmodule中
         # 当单次迭代结束时, 会修改lmodule._mes, 随后加到trainer的全局log中...
         if isinstance(v, Tensor):
             v = v.item()
         self.mes[k] = v
+        self.prog_bar_mean[k] = prog_bar_mean
 
     def __call__(self, *args, **kwargs):
         return self.model(*args, **kwargs)
@@ -63,13 +71,11 @@ class LModule:
         if isinstance(batch, Tensor):
             return batch.to(device)
         #
-        if isinstance(batch, (list, tuple)):
+        if isinstance(batch, abc.Sequence):
             res = []
             for b in batch:
                 res.append(self._batch_to_device(b, device))
-            if isinstance(batch, tuple):
-                res = tuple(res)
-        elif isinstance(batch, dict):
+        elif isinstance(batch, abc.Mapping):
             res = {}
             for k, v in batch.items():
                 res[k] = self._batch_to_device(v, device)
@@ -83,7 +89,7 @@ class LModule:
 
     def optimizer_step(self) -> None:
         # fit. 用于optim, lr_schedules的处理.
-        # log要在lrs.step之前
+        # log要在lrs.step之前. optim.step要在lrs.step之前.
         # 已过optim.zero_grad, loss.backward
         self.optim.step()
 
@@ -155,12 +161,13 @@ class LDataModule:
 
 class Trainer:
     def __init__(self, lmodel: LModule, gpus: bool, max_epochs: int, runs_dir: str, *,
-                 log_every_n_steps: int = 5, benchmark: bool = None) -> None:
+                 log_every_n_steps: int = 5, gradient_clip_norm: float = None, benchmark: bool = None) -> None:
         # 现在只支持单gpu, 多gpu以后再扩展
         self.lmodel = lmodel
         self.device = Device("cuda") if gpus else Device("cpu")
         self.max_epochs = max_epochs
         self.log_every_n_steps = log_every_n_steps
+        self.gradient_clip_norm = gradient_clip_norm
 
         #
         time = datetime.datetime.now().strftime("%Y:%m:%d-%H:%M:%S.%f")
@@ -237,6 +244,18 @@ class Trainer:
                 mes[k] = 0
             mes[k] += v
 
+    @staticmethod
+    def _get_log_mes(mean_mes: Dict[str, float], new_mes: Dict[str, float], prog_bar_mean: Dict[str, bool]):
+        res = {}
+        # 假设mes, new_mes, prog_bar_mean的k相同
+        keys = mean_mes.keys()
+        for k in keys:
+            if prog_bar_mean[k] is True:
+                res[k] = mean_mes[k]
+            else:
+                res[k] = new_mes[k]
+        return res
+
     def _train_epoch(self, dataloader: DataLoader) -> Dict[str, float]:
         lmodel = self.lmodel
         model = lmodel.model
@@ -249,21 +268,26 @@ class Trainer:
                   desc=f"Epoch {self.global_epoch}") as prog_bar:
             for batch_idx, batch in enumerate(dataloader):
                 self.global_step += 1
+                lmodel.mes.clear()
                 batch = lmodel.batch_to_device(batch, self.device)
                 loss = lmodel.training_step(batch)
                 if loss is not None:
                     lmodel.optim.zero_grad()
                     loss.backward()
+                    if self.gradient_clip_norm is not None:
+                        clip_grad_norm_(
+                            model.parameters(), max_norm=self.gradient_clip_norm, error_if_nonfinite=True)
                     lmodel.optimizer_step()
                 #
-                new_mes = self.lmodel.mes
+                new_mes = lmodel.mes
                 self._add_new_mes(mes, new_mes)
                 # tensorboard
                 if self.global_step % self.log_every_n_steps == 0:
                     self._logger_add_scalars(new_mes, self.global_step)
-                new_mes.clear()
                 #
-                log_mes = self._sum_to_mean(mes, batch_idx + 1)
+                mean_mes = self._sum_to_mean(mes, batch_idx + 1)
+                log_mes = self._get_log_mes(
+                    mean_mes, new_mes, lmodel.prog_bar_mean)
                 prog_bar.set_postfix(log_mes, refresh=False)
                 prog_bar.update()
             self._sum_to_mean(mes, len(dataloader), inplace=True)
@@ -271,6 +295,7 @@ class Trainer:
         return mes
 
     def _train(self, train_dataloader: DataLoader, val_dataloader: DataLoader) -> None:
+        lmodel = self.lmodel
         for _ in range(self.global_epoch + 1, self.max_epochs):
             self.global_epoch += 1
             mes = self._train_epoch(train_dataloader)
@@ -278,11 +303,11 @@ class Trainer:
             metrics, val_mes = self._val(val_dataloader)
             mes.update(val_mes)
             # 后处理
+            lmodel.mes.clear()
             lmodel.epoch_end()
-            new_mes = self.lmodel.mes
+            new_mes = lmodel.mes
             self._logger_add_scalars(new_mes, self.global_epoch)
             mes.update(new_mes)
-            new_mes.clear()
             #
             self._epoch_end(mes, metrics)
 
@@ -299,14 +324,16 @@ class Trainer:
         mes = {}
         with tqdm(total=len(dataloader), desc="  Val: ") as prog_bar:
             for batch_idx, batch in enumerate(dataloader):
+                lmodel.mes.clear()
                 batch = lmodel.batch_to_device(batch, self.device)
                 _m = lmodel.validation_step(batch)
                 metrics += _m.item() if isinstance(_m, Tensor) else _m
-                #
-                new_mes = self.lmodel.mes
+                new_mes = lmodel.mes
                 self._add_new_mes(mes, new_mes)
-                new_mes.clear()
-                log_mes = self._sum_to_mean(mes, batch_idx + 1)
+                #
+                mean_mes = self._sum_to_mean(mes, batch_idx + 1)
+                log_mes = self._get_log_mes(
+                    mean_mes, new_mes, lmodel.prog_bar_mean)
                 prog_bar.set_postfix(log_mes, refresh=False)
                 prog_bar.update()
         self._sum_to_mean(mes, len(dataloader), inplace=True)
@@ -324,12 +351,15 @@ class Trainer:
         mes = {}  # sum stat
         with tqdm(total=len(dataloader), desc="Test: ") as prog_bar:
             for batch_idx, batch in enumerate(dataloader):
+                lmodel.mes.clear()
                 batch = lmodel.batch_to_device(batch, self.device)
                 lmodel.test_step(batch)
                 new_mes = self.lmodel.mes
                 self._add_new_mes(mes, new_mes)  # LModule.log的内容
-                new_mes.clear()
-                log_mes = self._sum_to_mean(mes, batch_idx + 1)
+                #
+                mean_mes = self._sum_to_mean(mes, batch_idx + 1)
+                log_mes = self._get_log_mes(
+                    mean_mes, new_mes, lmodel.prog_bar_mean)
                 prog_bar.set_postfix(log_mes, refresh=False)
                 prog_bar.update()
         self._sum_to_mean(mes, len(dataloader), inplace=True)

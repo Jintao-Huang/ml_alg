@@ -59,8 +59,8 @@ def cosine_annealing_lr(epoch: int, T_max: int, eta_min: float, initial_lrs: Lis
 
 
 # warmup1和2的区别:
-#   1: 已有lr_schedular曲线, 然后将warmup之前的曲线进行缩放. 即: 不会改变warmup后的lr_schedular曲线. 一般采用1.
-#   2. warmup是独立的. 升到initial_lr后再进行 lr_schedular.
+#   1: 已有lr_schedular曲线, 然后将warmup之前的曲线进行缩放. 即: 不会改变warmup后的lr_schedular曲线. 
+#   2. warmup是独立的. 升到initial_lr后再进行 lr_schedular. (huggingface使用2)
 #   注意: 使用warmup后, 使用iter作为step的单位. T_max=max_epoch * len(dataloader)
 class WarmupCosineAnnealingLR(_LRScheduler):
     def __init__(self, optimizer: Optimizer, warmup: int, T_max: int, eta_min: float = 0.,

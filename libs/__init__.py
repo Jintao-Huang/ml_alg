@@ -43,7 +43,7 @@ import torch.optim as optim
 from torch.optim import lr_scheduler as lrs
 from torch.optim.lr_scheduler import _LRScheduler as LRScheduler
 import torch.nn.init as init
-from torch.nn.utils import clip_grad_norm_
+from torch.nn.utils.clip_grad import clip_grad_norm_
 from torch.utils.data import Dataset, DataLoader, random_split, IterableDataset, TensorDataset
 from torch.utils.tensorboard.writer import SummaryWriter
 #
@@ -60,10 +60,12 @@ import torchvision.models as tvm
 # import sklearn
 import pytorch_lightning as pl
 import pytorch_lightning.callbacks as plc
-# 
+#
 from transformers.pipelines import pipeline
-from transformers.models.auto.modeling_auto import AutoModel
+from transformers.models.auto.modeling_auto import AutoModel, AutoModelForSequenceClassification
 from transformers.models.auto.tokenization_auto import AutoTokenizer
+from transformers.data.data_collator import DataCollatorWithPadding
+from datasets.load import load_dataset, load_metric
 #
 from . import utils as libs_utils
 from . import ml as libs_ml

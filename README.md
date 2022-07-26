@@ -13,7 +13,8 @@
 5. `libs/ml/mini_pl.py`: pytorch-lightning的mini版本(更快, 更简洁)
 6. `libs/ml/visualize.py`: 可视化函数的集成(含tensorboard smoothing算法)
 7. `libs/ml/utils.py`: ml中的工具函数
-8. 其他文件没啥用(特别是`_`开头的文件.). 
+8. `examples/*`: 一些例子
+9. 其他文件没啥用(特别是`_`开头的文件.). 
 
 
 
