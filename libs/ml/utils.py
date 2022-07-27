@@ -1,17 +1,17 @@
 # Author: Jintao Huang
 # Email: hjt_study@qq.com
-# Date: 
+# Date:
 
 import random
 import torch
 import numpy as np
 import torch.cuda as cuda
 import time
-from typing import Optional, Callable, Tuple
+from typing import Optional, Callable, Tuple, List, Dict, Any
 from torch import Tensor
 
 
-__all__ = ["seed_everything", "time_synchronize"]
+__all__ = ["seed_everything", "time_synchronize", "remove_keys"]
 
 
 def seed_everything(seed: Optional[int] = None, gpu_dtm: bool = False) -> int:
@@ -41,6 +41,20 @@ def time_synchronize() -> float:
     # 单位: 秒
     cuda.synchronize()
     return time.perf_counter()
+
+
+def remove_keys(state_dict: Dict[str, Any], prefix_keys: List[str]) -> Dict[str, Any]:
+    """不是inplace的"""
+    res = {}
+    for k, v in state_dict.items():
+        need_saved = True
+        for pk in prefix_keys:
+            if k.startswith(pk):
+                need_saved = False
+                break
+        if need_saved:
+            res[k] = v
+    return res
 
 
 # if __name__ == "__main__":

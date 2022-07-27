@@ -9,8 +9,12 @@ from torch import Tensor
 import torch.nn.functional as F
 import torch
 
+__all__ = ["freeze_layers", "print_model_info",
+           "label_smoothing_cross_entropy", "fuse_conv_bn", "fuse_linear_bn"]
+
 
 def freeze_layers(model: Module, layer_prefix_names: List[str]) -> None:
+    """inplace"""
     for n, p in model.named_parameters():
         requires_grad = True
         for lpn in layer_prefix_names:

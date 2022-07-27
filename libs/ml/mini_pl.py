@@ -195,9 +195,30 @@ class Trainer:
         hparams = self.lmodel.hparams
         self.save_hparams(hparams if hparams is not None else {})
 
+    def check_hparams(self, hparams: Any) -> Any:
+        # 只支持List, Dict, int, float, str
+        # tuple -> list
+        # 其他的不存储. 例如: collate_fn
+        ###
+        # 树的深搜
+        if isinstance(hparams, (int, float, str)):  # bool是int的子类
+            return hparams
+        if isinstance(hparams, abc.Sequence):
+            res = []
+            for hp in hparams:
+                res.append(self.check_hparams(hp))
+        elif isinstance(hparams, abc.Mapping):
+            res = {}
+            for k, v in hparams.items():
+                res[k] = self.check_hparams(v)
+        else:
+            res = "!!ignored"
+        return res
+
     def save_hparams(self, hparams: Dict[str, Any]) -> None:
         with open(self.hparams_path, "w") as f:
-            yaml.dump(hparams, f)
+            saved_hparams = self.check_hparams(hparams)
+            yaml.dump(saved_hparams, f)
 
     @staticmethod
     def _sum_to_mean(log_mes: Dict[str, float], n: int, inplace: bool = False) -> Dict[str, float]:
