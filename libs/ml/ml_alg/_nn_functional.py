@@ -1,3 +1,7 @@
+# Author: Jintao Huang
+# Email: hjt_study@qq.com
+# Date: 
+
 import torch.nn.functional as F
 from torch import Tensor
 # 用于学习, 速度慢于F.

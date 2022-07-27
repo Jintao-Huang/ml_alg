@@ -87,12 +87,16 @@ if __name__ == "__main__":
         "dataloader_hparams": {"batch_size_train": 32, "num_workers": 4, "collate_fn": collate_fn},
         "optim_hparams": {"lr": 5e-5, "weight_decay": 1e-5},  #
         "trainer_hparams": {"max_epochs": 5, "gradient_clip_norm": 5},
-        "lrs_hparams": {...}
+        "lrs_hparams": {
+            "warmup": 100,
+            "T_max": ..., 
+            "eta_min": 1e-5
+        }
     }
     ldm = libs_ml.LDataModule(
         dataset["train"], dataset["validation"], dataset["test"], **hparams["dataloader_hparams"])
-    hparams["lrs_hparams"] = {"warmup": 100,
-                              "T_max": len(ldm.train_dataloader) * hparams["trainer_hparams"]["max_epochs"], "eta_min": 1e-5}
+    hparams["lrs_hparams"]["T_max"] = len(
+        ldm.train_dataloader) * hparams["trainer_hparams"]["max_epochs"]
     #
     model = AutoModelForSequenceClassification.from_pretrained(model_name)
     optimizer = getattr(optim, hparams["optim_name"])(

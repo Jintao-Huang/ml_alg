@@ -156,7 +156,7 @@ class MyLModule(libs_ml.LModule):
         self.old_model.to(device)
 
     def _warmup_memo(self, steps: int):
-        for _ in range(steps):
+        for _ in tqdm(range(steps), desc=f"Warmup: "):
             self.agent.step(rand_p=1)
 
     def _train_step(self, batch: Any) -> Tensor:
@@ -173,14 +173,14 @@ class MyLModule(libs_ml.LModule):
         return loss
 
     @torch.no_grad()
-    def _agent_step(self) -> float:
+    def _agent_step(self) -> Tuple[float, bool]:
         rand_p = self.get_rand_p(self.global_step)  # 从1开始
         reward, done = self.agent.step(rand_p)
         if done:
             self.episode_reward = 0
         else:
             self.episode_reward += reward
-        return reward
+        return reward, done
 
     def training_step(self, batch: Any) -> Tensor:
         # fit
@@ -193,8 +193,10 @@ class MyLModule(libs_ml.LModule):
         # train
         loss = self._train_step(batch)
         # step
-        reward = self._agent_step()
+        reward, done = self._agent_step()
         # log
+        self.log("reward", reward, prog_bar_mean=False)
+        self.log("done", done, prog_bar_mean=False)
         self.log("episode_reward", self.episode_reward)
         self.log("loss", loss)
         return loss

@@ -1,4 +1,10 @@
+# Author: Jintao Huang
+# Email: hjt_study@qq.com
+# Date: 
+
 from typing import List, Any
+
+__all__ = ["unique"]
 
 
 def unique(_list: List[Any], keep_order: bool = True) -> List[Any]:

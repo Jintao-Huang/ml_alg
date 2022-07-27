@@ -101,12 +101,16 @@ if __name__ == "__main__":
         "optim_name": "AdamW",
         "optim_hparams": {"lr": 5e-5, "weight_decay": 1e-5},
         "trainer_hparams": {"max_epochs": 10, "gradient_clip_norm": 5},
-        "lrs_hparams": {...}
+        "lrs_hparams": {
+            "warmup": 500,
+            "T_max": ...,
+            "eta_min": 1e-5
+        }
     }
     ldm = libs_ml.LDataModule(
         train_dataset, val_dataset, test_dataset, **hparams["dataloader_hparams"])
-    hparams["lrs_hparams"] = {"warmup": 500, "T_max": len(ldm.train_dataloader) * hparams["trainer_hparams"]["max_epochs"],
-                              "eta_min": 1e-5}
+    hparams["lrs_hparams"]["T_max"] = len(
+        ldm.train_dataloader) * hparams["trainer_hparams"]["max_epochs"]
     model = tvm.resnet50(**hparams["model_hparams"])
     state_dict = torch.hub.load_state_dict_from_url(
         **hparams["model_pretrain_model"])
