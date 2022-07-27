@@ -1,3 +1,6 @@
+# Author: Jintao Huang
+# Email: hjt_study@qq.com
+# Date:
 
 try:
     from .pre import *
@@ -14,7 +17,7 @@ os.makedirs(CHECKPOINTS_PATH, exist_ok=True)
 
 #
 device = torch.device(
-    "cpu") if not torch.cuda.is_available() else torch.device("cuda:0")
+    "cpu") if not torch.cuda.is_available() else torch.device("cuda")
 print("Using device", device)
 
 dataset = load_dataset("glue", "mrpc")
@@ -29,18 +32,16 @@ def tokenize_function(example):
 dataset = dataset.map(tokenize_function, batched=True)
 dataset = dataset.remove_columns(["sentence1", "sentence2", "idx"])
 dataset = dataset.rename_column("label", "labels")
-dataset.set_format("torch")
-data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
+collate_fn = DataCollatorWithPadding(tokenizer=tokenizer, return_tensors="pt")
 
 
 class MyLModule(libs_ml.LModule):
-    def __init__(self, model: Module, optim: Optimizer, hparams: Optional[Dict[str, Any]] = None) -> None:
-        super(MyLModule, self).__init__(model, optim, hparams)
+    def __init__(self, model: Module, optimizer: Optimizer, loss_fn: Module, lr_s: LRScheduler, hparams: Optional[Dict[str, Any]] = None) -> None:
+        super(MyLModule, self).__init__(model, optimizer, hparams)
         # 一般: 定义损失函数, 学习率管理器. (优化器, 模型)
         # self.optim, self.model
-        self.loss_fn = nn.CrossEntropyLoss()
-        self.lrs = libs_ml.WarmupCosineAnnealingLR(
-            optim, **hparams["lrs_hparams"])
+        self.loss_fn = loss_fn
+        self.lr_s = lr_s
 
     def _calculate_loss_acc(self, batch: Any) -> Tuple[Tensor, Tensor]:
         y = self.model(**batch)
@@ -61,8 +62,8 @@ class MyLModule(libs_ml.LModule):
 
     def optimizer_step(self) -> None:
         super(MyLModule, self).optimizer_step()
-        self.log("lr0", self.lrs.get_last_lr()[0], prog_bar_mean=False)
-        self.lrs.step()
+        self.log("lr0", self.lr_s.get_last_lr()[0], prog_bar_mean=False)
+        self.lr_s.step()
 
     def validation_step(self, batch: Any) -> Union[Tensor, float]:
         # fit
@@ -83,7 +84,7 @@ if __name__ == "__main__":
     hparams = {
         "model_name": model_name,
         "optim_name": "AdamW",
-        "dataloader_hparams": {"batch_size_train": 32, "num_workers": 4, "collate_fn": data_collator},
+        "dataloader_hparams": {"batch_size_train": 32, "num_workers": 4, "collate_fn": collate_fn},
         "optim_hparams": {"lr": 5e-5, "weight_decay": 1e-5},  #
         "trainer_hparams": {"max_epochs": 5, "gradient_clip_norm": 5},
         "lrs_hparams": {...}
@@ -97,8 +98,10 @@ if __name__ == "__main__":
     optimizer = getattr(optim, hparams["optim_name"])(
         model.parameters(), **hparams["optim_hparams"])
     runs_dir = CHECKPOINTS_PATH
-    lmodel = MyLModule(model, optimizer, hparams)
+    loss_fn = nn.CrossEntropyLoss()
+    lr_s = libs_ml.WarmupCosineAnnealingLR(optimizer, **hparams["lrs_hparams"])
+    lmodel = MyLModule(model, optimizer, loss_fn, lr_s, hparams)
     trainer = libs_ml.Trainer(
-        lmodel, True, runs_dir=runs_dir, **hparams["trainer_hparams"])
+        lmodel, device, runs_dir=runs_dir, **hparams["trainer_hparams"])
     trainer.fit(ldm.train_dataloader, ldm.val_dataloader)
     trainer.test(ldm.test_dataloader)

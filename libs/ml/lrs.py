@@ -1,6 +1,6 @@
 # Author: Jintao Huang
 # Email: hjt_study@qq.com
-# Date: 
+# Date:
 
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.optim import Optimizer
@@ -8,7 +8,8 @@ import torch
 from typing import List, Callable
 import math
 
-__all__ = ["WarmupCosineAnnealingLR", "WarmupCosineAnnealingLR2"]
+__all__ = ["get_offset_func", "cosine_annealing_lr",
+           "WarmupCosineAnnealingLR", "WarmupCosineAnnealingLR2"]
 
 
 def get_offset_func(fa: float, fb: float, ga: float, gb: float) -> Callable[[float], float]:
@@ -32,7 +33,8 @@ def cosine_annealing_lr(epoch: int, T_max: int, eta_min: float, initial_lrs: Lis
     if epoch == 0:
         return initial_lrs
     if epoch == T_max:
-        return [eta_min] * len(initial_lrs)
+        # 一般最后的lr是不使用的. step()后退出循环了. 这里只是形式. 
+        return [eta_min] * len(initial_lrs) 
     if epoch > T_max:
         raise ValueError(f"epoch: {epoch}")
     # 余弦曲线
@@ -59,7 +61,7 @@ def cosine_annealing_lr(epoch: int, T_max: int, eta_min: float, initial_lrs: Lis
 
 
 # warmup1和2的区别:
-#   1: 已有lr_schedular曲线, 然后将warmup之前的曲线进行缩放. 即: 不会改变warmup后的lr_schedular曲线. 
+#   1: 已有lr_schedular曲线, 然后将warmup之前的曲线进行缩放. 即: 不会改变warmup后的lr_schedular曲线.
 #   2. warmup是独立的. 升到initial_lr后再进行 lr_schedular. (huggingface使用2)
 #   注意: 使用warmup后, 使用iter作为step的单位. T_max=max_epoch * len(dataloader)
 class WarmupCosineAnnealingLR(_LRScheduler):
@@ -72,6 +74,7 @@ class WarmupCosineAnnealingLR(_LRScheduler):
         super(WarmupCosineAnnealingLR, self).__init__(optimizer, last_epoch)
 
     def get_lr(self) -> List[float]:
+        # lr_s.step()含两部分: self.last_epoch += 1; get_lr()
         lrs = cosine_annealing_lr(
             self.last_epoch, self.T_max, self.eta_min, self.base_lrs)
         scale = 1

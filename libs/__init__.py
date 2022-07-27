@@ -8,9 +8,10 @@ import math
 from types import SimpleNamespace
 import os
 import heapq
-from collections import deque, namedtuple
+from collections import deque, namedtuple, OrderedDict, defaultdict
 from copy import copy, deepcopy
-from typing import List, Tuple, Dict, Set, Callable, Optional, Union, Any
+from typing import List, Tuple, Dict, Set, Callable, Optional, \
+    Union, Any, Deque, Sequence, Mapping
 import sys
 import time
 import datetime
@@ -45,6 +46,7 @@ from torch.optim.lr_scheduler import _LRScheduler as LRScheduler
 import torch.nn.init as init
 from torch.nn.utils.clip_grad import clip_grad_norm_
 from torch.utils.data import Dataset, DataLoader, random_split, IterableDataset, TensorDataset
+import torch.utils.data as tud
 from torch.utils.tensorboard.writer import SummaryWriter
 #
 import torchvision.transforms.functional_tensor as tvF_t
@@ -66,6 +68,9 @@ from transformers.models.auto.modeling_auto import AutoModel, AutoModelForSequen
 from transformers.models.auto.tokenization_auto import AutoTokenizer
 from transformers.data.data_collator import DataCollatorWithPadding
 from datasets.load import load_dataset, load_metric
+#
+import gym
+from gym import Env
 #
 from . import utils as libs_utils
 from . import ml as libs_ml

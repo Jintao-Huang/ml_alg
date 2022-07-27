@@ -239,7 +239,7 @@ def make_grid2(images: Union[Tensor, ndarray], fig: Figure = None,
         axs_r = (axs[i] if nrows > 1 else axs)
         for j in range(ncols):
             idx = i * ncols + j
-            ax = (axs_r[j] if ncols > 1 else axs_r)  # type: Axes
+            ax: Axes = (axs_r[j] if ncols > 1 else axs_r)
             ax.axis("off")
             if idx >= n:
                 continue

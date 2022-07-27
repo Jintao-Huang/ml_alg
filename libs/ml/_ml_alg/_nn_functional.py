@@ -61,7 +61,8 @@ def one_hot(x: Tensor, n_classes: int = -1) -> Tensor:
     """
     if n_classes == -1:
         n_classes = x.max() + 1
-    res = torch.zeros((x.shape[0], n_classes), dtype=torch.long, device=x.device)
+    res = torch.zeros((x.shape[0], n_classes),
+                      dtype=torch.long, device=x.device)
     res[torch.arange(x.shape[0]), x] = 1
     return res
 
@@ -118,8 +119,8 @@ def binary_cross_entropy_with_logits(pred: Tensor, target: Tensor) -> Tensor:
     # -logsigmoid(x)*target-logsigmoid(-x)*(1-target)
     # logsigmoid(-x)) == log(1 - sigmoid(x))
     ###
-    p_sig = F.logsigmoid(pred)  # type: Tensor
-    pm_sig = F.logsigmoid(-pred)  # type: Tensor
+    p_sig: Tensor = F.logsigmoid(pred)
+    pm_sig: Tensor = F.logsigmoid(-pred)
     res = p_sig.mul_(target)
     res.add_(pm_sig.mul_((1-target)))
     return -res.mean()
@@ -148,8 +149,8 @@ def mse_loss(pred: Tensor, target: Tensor) -> Tensor:
 # if __name__ == "__main__":
 #     x = torch.randn((1000, 100))
 #     x2 = torch.randn((1000, 100))
-#     y = libs_utils.test_time(lambda: mse_loss(x, x2))
-#     y2 = libs_utils.test_time(lambda: F.mse_loss(x, x2))
+#     y = libs_utils.test_time(lambda: mse_loss(x, x2), number=100)
+#     y2 = libs_utils.test_time(lambda: F.mse_loss(x, x2), number=100)
 #     print(torch.allclose(y, y2))
 
 

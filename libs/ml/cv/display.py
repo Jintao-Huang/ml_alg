@@ -90,7 +90,7 @@ def draw_target_in_image(image: ndarray, boxes: ndarray, labels: ndarray,
     boxes = boxes.astype(np.int32)
     for i in reversed(range(n_boxes)):
         box = boxes[i]
-        color = colors[i]  # type: Color
+        color: Color = colors[i]
         draw_box(image, box, color, is_bgr)
     for i in reversed(range(n_boxes)):
         box = boxes[i]

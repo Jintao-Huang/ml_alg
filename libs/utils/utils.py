@@ -124,7 +124,7 @@ def xml_to_dict(fpath: str) -> Node:
     # 不处理node中的attribute
     """每个xml node是一个dict, 标题是key, 里面的内容是List. XML_NODE=Dict[str, List[XML_NODE]]"""
     tree = ET.parse(fpath)
-    root = tree.getroot()  # type: Element
+    root: Element = tree.getroot()
     return _xml_to_dict(root)
     
 

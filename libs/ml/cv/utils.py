@@ -64,7 +64,7 @@ def label_smoothing_cross_entropy(pred: Tensor, target: Tensor,
     n_labels = pred.shape[1]
     # 构造target. 将target->[N, F]. ，target[i]的第target和样本设为1-smoothing.
     # 然后加上smoothing / n_labels
-    res = F.one_hot(target, n_labels)  # type: Tensor  # long
+    res: Tensor = F.one_hot(target, n_labels)  # long
     res = res * (1-smoothing)
     res.add_(smoothing / n_labels)
     # 计算loss

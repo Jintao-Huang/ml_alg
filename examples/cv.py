@@ -1,3 +1,6 @@
+# Author: Jintao Huang
+# Email: hjt_study@qq.com
+# Date:
 
 try:
     from .pre import *
@@ -14,7 +17,7 @@ os.makedirs(CHECKPOINTS_PATH, exist_ok=True)
 
 #
 device = torch.device(
-    "cpu") if not torch.cuda.is_available() else torch.device("cuda:0")
+    "cpu") if not torch.cuda.is_available() else torch.device("cuda")
 print("Using device", device)
 
 _train_dataset = CIFAR10(root=DATASETS_PATH, train=True, download=True)
@@ -45,48 +48,46 @@ _, val_dataset = random_split(_val_dataset, [45000, 5000])
 
 
 class MyLModule(libs_ml.LModule):
-    def __init__(self, model: Module, optim: Optimizer, hparams: Optional[Dict[str, Any]] = None) -> None:
-        super(MyLModule, self).__init__(model, optim, hparams)
+    def __init__(self, model: Module, optimizer: Optimizer, loss_fn: Module, lr_s: LRScheduler, hparams: Optional[Dict[str, Any]] = None) -> None:
+        super(MyLModule, self).__init__(model, optimizer, hparams)
         # 一般: 定义损失函数, 学习率管理器. (优化器, 模型)
         # self.optim, self.model
-        self.loss_fn = nn.CrossEntropyLoss()
-        self.lrs = libs_ml.WarmupCosineAnnealingLR(
-            optim, **hparams["lrs_hparams"])
+        self.loss_fn = loss_fn
+        self.lr_s = lr_s
 
-    def training_step(self, batch: Any) -> Tensor:
-        # fit
-        # 返回的Tensor(loss)用于优化. 如果返回None, 则training_step内进行自定义optimizer_step.
-        # 此设计用于: GAN
+    def _calculate_loss_acc(self, batch: Any) -> Tuple[Tensor, Tensor]:
         x_batch, y_batch = batch
         y = self.model(x_batch)
         loss = self.loss_fn(y, y_batch)
         y_acc = y.argmax(dim=-1)
         acc = libs_ml.accuracy_score(y_acc, y_batch)
+        return loss, acc
+
+    def training_step(self, batch: Any) -> Tensor:
+        # fit
+        # 返回的Tensor(loss)用于优化. 如果返回None, 则training_step内进行自定义optimizer_step.
+        # 此设计用于: GAN
+        loss, acc = self._calculate_loss_acc(batch)
         self.log("train_loss", loss)
         self.log("train_acc", acc)
         return loss
 
     def optimizer_step(self) -> None:
         super(MyLModule, self).optimizer_step()
-        self.log("lr0", self.lrs.get_last_lr()[0], prog_bar_mean=False)
-        self.lrs.step()
+        self.log("lr0", self.lr_s.get_last_lr()[0], prog_bar_mean=False)
+        self.lr_s.step()
 
     def validation_step(self, batch: Any) -> Union[Tensor, float]:
         # fit
         # 返回的float用于模型的选择, 越高越好(e.g. acc, 若越低越好则可以返回负数)
-        x_batch, y_batch = batch
-        y = self.model(x_batch)
-        y_acc = y.argmax(dim=-1)
-        acc = libs_ml.accuracy_score(y_acc, y_batch)
+        loss, acc = self._calculate_loss_acc(batch)
+        self.log("val_loss", loss)
         self.log("val_acc", acc)
         return acc
 
     def test_step(self, batch: Any) -> None:
         # test
-        x_batch, y_batch = batch
-        y = self.model(x_batch)
-        y_acc = y.argmax(dim=-1)
-        acc = libs_ml.accuracy_score(y_acc, y_batch)
+        _, acc = self._calculate_loss_acc(batch)
         self.log("test_acc", acc)
 
 
@@ -113,8 +114,10 @@ if __name__ == "__main__":
     print(model.load_state_dict(state_dict, strict=False))
     optimizer = optim.AdamW(model.parameters(), **hparams["optim_hparams"])
     runs_dir = CHECKPOINTS_PATH
-    lmodel = MyLModule(model, optimizer, hparams)
+    loss_fn = nn.CrossEntropyLoss()
+    lr_s = libs_ml.WarmupCosineAnnealingLR(optimizer, **hparams["lrs_hparams"])
+    lmodel = MyLModule(model, optimizer, loss_fn, lr_s, hparams)
     trainer = libs_ml.Trainer(
-        lmodel, True, runs_dir=runs_dir, **hparams["trainer_hparams"])
+        lmodel, device, runs_dir=runs_dir, **hparams["trainer_hparams"])
     trainer.fit(ldm.train_dataloader, ldm.val_dataloader)
     trainer.test(ldm.test_dataloader)

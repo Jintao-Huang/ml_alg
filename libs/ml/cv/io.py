@@ -44,7 +44,7 @@ def imread(fpath: str, flags=cv.IMREAD_COLOR) -> ndarray:
 def pil_to_cv(img_pil: Image.Image, to_bgr=True) -> ndarray:
     # pil_RGB to cv_BGR
     mode = img_pil.mode
-    img = np.asarray(img_pil)  # type: ndarray
+    img: ndarray = np.asarray(img_pil)
     if mode == "RGB":
         img = cv.cvtColor(img, cv.COLOR_RGB2BGR) if to_bgr else img
     elif mode == "RGBA":
@@ -99,7 +99,7 @@ def _tensor_to_ndarray(tensor: Tensor, to_uint8: bool = True, to_bgr=False) -> n
         tensor *= 255
         tensor = tensor.to(torch.uint8)
     tensor = tensor.permute(0, 2, 3, 1)
-    arr = tensor.numpy()  # type: ndarray
+    arr: ndarray = tensor.numpy()
     return arr
 
 

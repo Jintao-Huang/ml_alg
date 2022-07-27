@@ -8,16 +8,14 @@ from torch.utils.tensorboard.writer import SummaryWriter
 from torch.utils.data import Dataset, DataLoader
 from torch.nn import Module
 from torch.optim import Optimizer
-from torch.optim.lr_scheduler import MultiStepLR
+from torch.optim.lr_scheduler import MultiStepLR, _LRScheduler as LRScheduler
 
 import os
-from typing import List, Any, Dict, Optional, Tuple, Callable, Union
+from typing import List, Any, Dict, Optional, Tuple, Callable, Union, Sequence, Mapping
 from tqdm import tqdm
 import datetime
 import yaml
 from torch.nn.utils.clip_grad import clip_grad_norm_
-from collections import abc
-
 
 # 未来会添加的功能: 多GPU, 混合精度训练. 断点续训
 #
@@ -27,17 +25,28 @@ __all__ = ["LModule", "LDataModule", "Trainer"]
 
 
 class LModule:
-    def __init__(self, model: Module, optim: Optimizer,
+    def __init__(self, model: Module, optimizer: Optimizer,
                  hparams: Optional[Dict[str, Any]] = None) -> None:
+        """hparams: 需要保存的超参数. """
         # 一般: 定义损失函数, 学习率管理器. (优化器, 模型)
         self.model = model
-        self.optim = optim
-        self.hparams = hparams
-        #
+        self.optimizer = optimizer
+        self.hparams: Dict[str, Any] = hparams if hparams is not None else {}
+        self.trainer: Optional["Trainer"] = None
 
-        self.mes = {}  # type: Dict[str, float]
-        self.prog_bar_mean = {}
-        #
+    @property
+    def global_step(self) -> int:
+        # global_step是从1开始的
+        return self.trainer.global_step if self.trainer is not None else 0
+
+    @property
+    def global_epoch(self) -> int:
+        # global_epoch是从0开始的
+        return self.trainer.global_epoch if self.trainer is not None else -1
+
+    @property
+    def device(self) -> Device:
+        return self.trainer.device if self.trainer is not None else Device("cpu")
 
     def log(self, k: str, v: Union[Tensor, float], *, prog_bar_mean=True):
         """
@@ -45,10 +54,17 @@ class LModule:
         """
         # 如何log. 我们调用lmodule的log, 将信息存储在lmodule中
         # 当单次迭代结束时, 会修改lmodule._mes, 随后加到trainer的全局log中...
+        if self.trainer is None:
+            raise ValueError(f"self.trainer: {self.trainer}")
         if isinstance(v, Tensor):
             v = v.item()
-        self.mes[k] = v
-        self.prog_bar_mean[k] = prog_bar_mean
+        self.trainer.new_mes[k] = v
+        self.trainer.prog_bar_mean[k] = prog_bar_mean
+
+    def log_dict(self, _dict: Dict[str, Union[Tensor, float]], *, prog_bar_mean=True):
+        # 参数见self.log
+        for k, v in _dict.items():
+            self.log(k, v, prog_bar_mean=prog_bar_mean)
 
     def __call__(self, *args, **kwargs):
         return self.model(*args, **kwargs)
@@ -59,8 +75,13 @@ class LModule:
     def save_checkpoint(self, ckpt_path: str) -> None:
         torch.save(self.model.state_dict(), ckpt_path)
 
-    def epoch_end(self) -> None:
-        # fit. 用于lr_schedules的处理
+    def train_epoch_start(self) -> None:
+        # [fit]用于模型to(device), 特别是有多个model的情况下会使用(dqn)
+        self.model.train()
+        self.model.to(self.device)
+
+    def train_epoch_end(self) -> None:
+        # [fit]用于lr_schedules的处理
         # 这里log的信息不会出现在prog_bar中(但会在tensorboard中).
         # log要在lrs.step之前
         pass
@@ -71,11 +92,13 @@ class LModule:
         if isinstance(batch, Tensor):
             return batch.to(device)
         #
-        if isinstance(batch, abc.Sequence):
+        if isinstance(batch, Sequence):
             res = []
             for b in batch:
                 res.append(self._batch_to_device(b, device))
-        elif isinstance(batch, abc.Mapping):
+            if isinstance(batch, tuple):
+                res = tuple(res)
+        elif isinstance(batch, Mapping):
             res = {}
             for k, v in batch.items():
                 res[k] = self._batch_to_device(v, device)
@@ -84,28 +107,29 @@ class LModule:
         return res
 
     def batch_to_device(self, batch: Any, device: Device) -> Any:
-        # fit/test.
+        # [train/val/test]
         return self._batch_to_device(batch, device)
 
     def optimizer_step(self) -> None:
-        # fit. 用于optim, lr_schedules的处理.
-        # log要在lrs.step之前. optim.step要在lrs.step之前.
-        # 已过optim.zero_grad, loss.backward
-        self.optim.step()
+        # [train]. 用于optimizer, lr_schedules的处理.
+        # log要在lrs.step之前. optimizer.step要在lrs.step之前.
+        # 已过optimizer.zero_grad, loss.backward
+        self.optimizer.step()
 
     def training_step(self, batch: Any) -> Tensor:
-        # fit
+        # [train]
         # 返回的Tensor(loss)用于优化. 如果返回None, 则training_step内进行自定义optimizer_step.
         #   此设计用于: GAN
         raise NotImplementedError
 
     def validation_step(self, batch: Any) -> Union[Tensor, float]:
-        # fit. no_grad环境
+        # [val]. no_grad环境
         # 返回的float用于模型的选择, 越高越好(e.g. acc, 若越低越好则可以返回负数)
+        #   若不提供val_dataloader, 则该函数可以不实现
         raise NotImplementedError
 
     def test_step(self, batch: Any) -> None:
-        # test. no_grad环境
+        # [test]. no_grad环境
         raise NotImplementedError
 
 
@@ -138,9 +162,9 @@ class LDataModule:
                  collate_fn: Optional[Callable[[List[Any]], Any]] = None, *,
                  shuffle_train: bool = True, pin_memory_train: bool = True) -> None:
 
-        self.train_dataloader = None  # type: DataLoader
-        self.val_dataloader = None  # type: DataLoader
-        self.test_dataloader = None  # type: DataLoader
+        self.train_dataloader: DataLoader = None
+        self.val_dataloader: DataLoader = None
+        self.test_dataloader: DataLoader = None
 
         batch_size_test = batch_size_train * 2
         # collate_fn = collate_fn if collate_fn is not None else self.default_collate_fn
@@ -160,11 +184,19 @@ class LDataModule:
 
 
 class Trainer:
-    def __init__(self, lmodel: LModule, gpus: bool, max_epochs: int, runs_dir: str, *,
+    def __init__(self, lmodel: LModule, device: Union[str, Device], max_epochs: int, runs_dir: str, *,
                  log_every_n_steps: int = 5, gradient_clip_norm: float = None, benchmark: bool = None) -> None:
-        # 现在只支持单gpu, 多gpu以后再扩展
+        """
+        log_every_n_steps: 几步需要将信息log入tensorboard. 使用global_step. 
+            这不会修改prog_bar(进度条)的显示(每个step都会更新). 
+        gradient_clip_norm: 梯度裁剪, 防止梯度爆炸
+        benchmark: # https://pytorch.org/docs/stable/backends.html#torch.backends.cudnn.torch.backends.cudnn.benchmark
+            Pytorch默认False. 该函数的benchmark行为与Pytorch Lightning行为一致 
+            True: 可以加速训练, 但是会造成不可复现. 
+        """
         self.lmodel = lmodel
-        self.device = Device("cuda") if gpus else Device("cpu")
+        self.lmodel.trainer = self
+        self.device = Device(device) if isinstance(device, str) else device
         self.max_epochs = max_epochs
         self.log_every_n_steps = log_every_n_steps
         self.gradient_clip_norm = gradient_clip_norm
@@ -187,13 +219,16 @@ class Trainer:
         #
         self.logger = SummaryWriter(self.tb_dir)
         self.best_metrics = -1e10  # model save
-        self.best_ckpt_path = None  # type: str
-        self.last_ckpt_path = None  # type: str
+        self.best_ckpt_path: str = None
+        self.last_ckpt_path: str = None
         self.global_step = 0
         self.global_epoch = -1
         #
         hparams = self.lmodel.hparams
-        self.save_hparams(hparams if hparams is not None else {})
+        self.save_hparams(hparams)
+        # 用于log. 含义见LModule.log
+        self.new_mes: Dict[str, float] = {}
+        self.prog_bar_mean = {}
 
     def check_hparams(self, hparams: Any) -> Any:
         # 只支持List, Dict, int, float, str
@@ -203,11 +238,11 @@ class Trainer:
         # 树的深搜
         if isinstance(hparams, (int, float, str)):  # bool是int的子类
             return hparams
-        if isinstance(hparams, abc.Sequence):
+        if isinstance(hparams, Sequence):
             res = []
             for hp in hparams:
                 res.append(self.check_hparams(hp))
-        elif isinstance(hparams, abc.Mapping):
+        elif isinstance(hparams, Mapping):
             res = {}
             for k, v in hparams.items():
                 res[k] = self.check_hparams(v)
@@ -239,10 +274,10 @@ class Trainer:
         elif mode == "last" and self.last_ckpt_path is not None:
             os.remove(self.last_ckpt_path)
 
-    def _epoch_end(self, mes: Dict[str, float], metric: float) -> None:
+    def _epoch_end(self, mes: Dict[str, float], metric: Optional[float]) -> None:
         # 1. 模型保存
         ckpt_dir = self.ckpt_dir
-        if metric > self.best_metrics:
+        if metric is not None and metric > self.best_metrics:
             # 保存
             self._remove_ckpt("best")
             self.best_metrics = metric
@@ -280,8 +315,7 @@ class Trainer:
     def _train_epoch(self, dataloader: DataLoader) -> Dict[str, float]:
         lmodel = self.lmodel
         model = lmodel.model
-        model.train()
-        model.to(self.device)
+        lmodel.train_epoch_start()
         #
         mes = {}
         #
@@ -289,48 +323,49 @@ class Trainer:
                   desc=f"Epoch {self.global_epoch}") as prog_bar:
             for batch_idx, batch in enumerate(dataloader):
                 self.global_step += 1
-                lmodel.mes.clear()
+                self.new_mes.clear()
                 batch = lmodel.batch_to_device(batch, self.device)
                 loss = lmodel.training_step(batch)
                 if loss is not None:
-                    lmodel.optim.zero_grad()
+                    # set_to_none可以增加时间/内存性能. 该行为与Pytorch Lightning默认行为不一致
+                    lmodel.optimizer.zero_grad(set_to_none=True)
                     loss.backward()
                     if self.gradient_clip_norm is not None:
                         clip_grad_norm_(
                             model.parameters(), max_norm=self.gradient_clip_norm, error_if_nonfinite=True)
                     lmodel.optimizer_step()
                 #
-                new_mes = lmodel.mes
-                self._add_new_mes(mes, new_mes)
+                self._add_new_mes(mes, self.new_mes)
                 # tensorboard
                 if self.global_step % self.log_every_n_steps == 0:
-                    self._logger_add_scalars(new_mes, self.global_step)
+                    self._logger_add_scalars(self.new_mes, self.global_step)
                 #
                 mean_mes = self._sum_to_mean(mes, batch_idx + 1)
                 log_mes = self._get_log_mes(
-                    mean_mes, new_mes, lmodel.prog_bar_mean)
+                    mean_mes, self.new_mes, self.prog_bar_mean)
                 prog_bar.set_postfix(log_mes, refresh=False)
                 prog_bar.update()
             self._sum_to_mean(mes, len(dataloader), inplace=True)
-
+            # 后处理
+            self.new_mes.clear()
+            lmodel.train_epoch_end()
+            self._logger_add_scalars(self.new_mes, self.global_epoch)
+            mes.update(self.new_mes)
         return mes
 
     def _train(self, train_dataloader: DataLoader, val_dataloader: DataLoader) -> None:
-        lmodel = self.lmodel
         for _ in range(self.global_epoch + 1, self.max_epochs):
             self.global_epoch += 1
             mes = self._train_epoch(train_dataloader)
             #
-            metrics, val_mes = self._val(val_dataloader)
-            mes.update(val_mes)
-            # 后处理
-            lmodel.mes.clear()
-            lmodel.epoch_end()
-            new_mes = lmodel.mes
-            self._logger_add_scalars(new_mes, self.global_epoch)
-            mes.update(new_mes)
-            #
-            self._epoch_end(mes, metrics)
+            if val_dataloader is not None:
+                metrics, val_mes = self._val(val_dataloader)
+                mes.update(val_mes)
+            else:
+                # 只保存最后的模型, 而不保存最好的模型(用于dqn). 
+                #   不使用train_loss作为best_ckpt的原因: train_loss一定随着epoch增加而越来越小. 所以不需要. 
+                metrics = None  
+            self._epoch_end(mes, metrics)  # 保存模型和results
 
     @torch.no_grad()
     def _val(self, dataloader: DataLoader) -> Tuple[float, Dict[str, float]]:
@@ -339,22 +374,20 @@ class Trainer:
         #
         model.eval()
         model.to(self.device)
-        metrics = 0.  # sum stat
-
         #
+        metrics = 0.  # sum stat
         mes = {}
         with tqdm(total=len(dataloader), desc="  Val: ") as prog_bar:
             for batch_idx, batch in enumerate(dataloader):
-                lmodel.mes.clear()
+                self.new_mes.clear()
                 batch = lmodel.batch_to_device(batch, self.device)
                 _m = lmodel.validation_step(batch)
                 metrics += _m.item() if isinstance(_m, Tensor) else _m
-                new_mes = lmodel.mes
-                self._add_new_mes(mes, new_mes)
+                self._add_new_mes(mes, self.new_mes)
                 #
                 mean_mes = self._sum_to_mean(mes, batch_idx + 1)
                 log_mes = self._get_log_mes(
-                    mean_mes, new_mes, lmodel.prog_bar_mean)
+                    mean_mes, self.new_mes, self.prog_bar_mean)
                 prog_bar.set_postfix(log_mes, refresh=False)
                 prog_bar.update()
         self._sum_to_mean(mes, len(dataloader), inplace=True)
@@ -372,15 +405,14 @@ class Trainer:
         mes = {}  # sum stat
         with tqdm(total=len(dataloader), desc="Test: ") as prog_bar:
             for batch_idx, batch in enumerate(dataloader):
-                lmodel.mes.clear()
+                self.new_mes.clear()
                 batch = lmodel.batch_to_device(batch, self.device)
                 lmodel.test_step(batch)
-                new_mes = self.lmodel.mes
-                self._add_new_mes(mes, new_mes)  # LModule.log的内容
+                self._add_new_mes(mes, self.new_mes)  # LModule.log的内容
                 #
                 mean_mes = self._sum_to_mean(mes, batch_idx + 1)
                 log_mes = self._get_log_mes(
-                    mean_mes, new_mes, lmodel.prog_bar_mean)
+                    mean_mes, self.new_mes, self.prog_bar_mean)
                 prog_bar.set_postfix(log_mes, refresh=False)
                 prog_bar.update()
         self._sum_to_mean(mes, len(dataloader), inplace=True)
@@ -402,7 +434,7 @@ class Trainer:
 
 
 if __name__ == "__main__":
-    # 更多的examples见 `https://github.com/Jintao-Huang/ml_alg/blob/main/tutorials/pl`
+    # 更多的examples见 `https://github.com/Jintao-Huang/ml_alg/blob/main/examples`
     import torch.nn as nn
     import torch.optim as optim
     try:
@@ -423,20 +455,20 @@ if __name__ == "__main__":
     optimizer = optim.SGD(model.parameters(), 0.1, 0.9)
 
     class MyLModule(LModule):
-        def __init__(self, model: Module, optim: Optimizer) -> None:
+        def __init__(self, model: Module, optim: Optimizer, loss_fn: Module, lr_s: LRScheduler) -> None:
             super(MyLModule, self).__init__(model, optim, {"model": "MLP_2"})
-            self.loss_fn = nn.BCEWithLogitsLoss()
-            self.lrs = MultiStepLR(optim, [10, 50], 0.1)
+            self.loss_fn = loss_fn
+            self.lr_s = lr_s
 
         def epoch_end(self) -> None:
             # fit. 用于lr_schedules的处理
-            self.log("lr0", self.lrs.get_last_lr()[0])
-            self.lrs.step()
+            self.log("lr0", self.lr_s.get_last_lr()[0])
+            self.lr_s.step()
 
         def training_step(self, batch: Any) -> Tensor:
             x_batch, y_batch = batch
             y = self.model(x_batch)[:, 0]
-            loss = self.loss_fn(y, y_batch.float())  # type: Tensor
+            loss: Tensor = self.loss_fn(y, y_batch.float())
             self.log("train_loss", loss)
             return loss
 
@@ -460,9 +492,11 @@ if __name__ == "__main__":
     os.makedirs(RUNS_DIR, exist_ok=True)
     #
     runs_dir = os.path.join(RUNS_DIR, "test_mini_pl")
-    lmodel = MyLModule(model, optimizer)
+    loss_fn = nn.BCEWithLogitsLoss()
+    lr_s = MultiStepLR(optimizer, [10, 50], 0.1)
+    lmodel = MyLModule(model, optimizer, loss_fn, lr_s)
     #
-    trainer = Trainer(lmodel, True, 100, runs_dir)
+    trainer = Trainer(lmodel, 'cuda', 100, runs_dir)
     trainer.fit(ldm.train_dataloader, ldm.val_dataloader)
     trainer.test(ldm.test_dataloader)
     del lmodel.model
