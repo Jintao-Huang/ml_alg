@@ -16,18 +16,20 @@ from xml.etree.ElementTree import ElementTree, Element
 __all__ = ["test_time", "download_files", "calculate_hash", "xml_to_dict"]
 
 
-def test_time(func: Callable[[], Any], number: int = 1, warm_up: int = 0, timer: Optional[Callable[[], float]] = None) -> Any:
+def test_time(func: Callable[[], Any], number: int = 1, warm_up: int = 0, 
+              timer: Optional[Callable[[], float]] = None) -> Any:
     # timer: e.g. time_synchronize
     timer = timer if timer is not None else time.perf_counter
     #
     ts = []
+    res = None
     # 预热
     for _ in range(warm_up):
-        func()
+        res = func()
     #
     for _ in range(number):
         t1 = timer()
-        func()
+        res = func()
         t2 = timer()
         ts.append(t2 - t1)
     # 打印平均, 标准差, 最大, 最小
@@ -39,8 +41,6 @@ def test_time(func: Callable[[], Any], number: int = 1, warm_up: int = 0, timer:
     # print
     print(
         f"time[number={number}]: {mean:.6f}±{std:.6f} |max: {max_:.6f} |min: {min_:.6f}")
-    # 
-    res = func()
     return res
 
 

@@ -17,11 +17,10 @@ import datetime
 import yaml
 from torch.nn.utils.clip_grad import clip_grad_norm_
 
-# 未来会添加的功能: 多GPU, 混合精度训练. 断点续训
+# 未来会添加的功能: 多GPU, 混合精度训练. 断点续训. 梯度累加
 #
 
 __all__ = ["LModule", "LDataModule", "Trainer"]
-# 这里的batch_idx[+1], epoch_idx[+0]
 
 
 class LModule:
@@ -75,12 +74,12 @@ class LModule:
     def save_checkpoint(self, ckpt_path: str) -> None:
         torch.save(self.model.state_dict(), ckpt_path)
 
-    def train_epoch_start(self) -> None:
+    def training_epoch_start(self) -> None:
         # [fit]用于模型to(device), 特别是有多个model的情况下会使用(dqn)
         self.model.train()
         self.model.to(self.device)
 
-    def train_epoch_end(self) -> None:
+    def training_epoch_end(self) -> None:
         # [fit]用于lr_schedules的处理
         # 这里log的信息不会出现在prog_bar中(但会在tensorboard中).
         # log要在lrs.step之前
@@ -90,7 +89,12 @@ class LModule:
         # tree的深搜. 对python object(int, float)报错
         #   处理list, tuple, dict, Tensor
         if isinstance(batch, Tensor):
-            return batch.to(device)
+            # https://pytorch-lightning.readthedocs.io/en/stable/_modules/pytorch_lightning/utilities/apply_func.html?highlight=non_blocking#
+            # 同pytorch-lightning
+            non_blocking = False
+            if device not in (Device("cpu"), "cpu"):
+                non_blocking = True
+            return batch.to(device=device, non_blocking=non_blocking)
         #
         if isinstance(batch, Sequence):
             res = []
@@ -203,13 +207,15 @@ class Trainer:
 
         #
         time = datetime.datetime.now().strftime("%Y:%m:%d-%H:%M:%S.%f")
-        self.ckpt_dir = os.path.join(runs_dir, time, "checkpoints")
+        runs_dir = os.path.join(runs_dir, time)
+        print(f"runs_dir: {runs_dir}")
+        self.ckpt_dir = os.path.join(runs_dir, "checkpoints")
         self.tb_dir = os.path.join(
-            runs_dir, time, "runs")  # tensorboard
+            runs_dir, "runs")  # tensorboard
         self.hparams_path = os.path.join(
-            runs_dir, time, "hparams.yaml")
+            runs_dir, "hparams.yaml")
         self.result_path = os.path.join(
-            runs_dir, time, "result.yaml")
+            runs_dir, "result.yaml")
         os.makedirs(self.ckpt_dir, exist_ok=True)
         os.makedirs(self.tb_dir, exist_ok=True)
         #
@@ -315,7 +321,7 @@ class Trainer:
     def _train_epoch(self, dataloader: DataLoader) -> Dict[str, float]:
         lmodel = self.lmodel
         model = lmodel.model
-        lmodel.train_epoch_start()
+        lmodel.training_epoch_start()
         #
         mes = {}
         #
@@ -348,7 +354,7 @@ class Trainer:
             self._sum_to_mean(mes, len(dataloader), inplace=True)
             # 后处理
             self.new_mes.clear()
-            lmodel.train_epoch_end()
+            lmodel.training_epoch_end()
             self._logger_add_scalars(self.new_mes, self.global_epoch)
             mes.update(self.new_mes)
         return mes
@@ -362,9 +368,9 @@ class Trainer:
                 metrics, val_mes = self._val(val_dataloader)
                 mes.update(val_mes)
             else:
-                # 只保存最后的模型, 而不保存最好的模型(用于dqn). 
-                #   不使用train_loss作为best_ckpt的原因: train_loss一定随着epoch增加而越来越小. 所以不需要. 
-                metrics = None  
+                # 只保存最后的模型, 而不保存最好的模型(用于dqn).
+                #   不使用train_loss作为best_ckpt的原因: train_loss一定随着epoch增加而越来越小. 所以不需要.
+                metrics = None
             self._epoch_end(mes, metrics)  # 保存模型和results
 
     @torch.no_grad()
