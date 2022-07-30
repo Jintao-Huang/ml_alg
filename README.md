@@ -9,13 +9,14 @@
 1. `libs/utils/*`: 一些工具函数的库.
 2. `libs/ml/cv/*`: CV中常用的工具函数
 3. `libs/ml/nlp/*`: NLP中常用的工具函数
-4. `libs/ml/lrs.py`: warmup的实现
-5. `libs/ml/metrics.py`: ml的metrics的torch实现
-6. `libs/ml/mini_pl.py`: pytorch-lightning的mini版本(更快, 更简洁)
-7. `libs/ml/visualize.py`: 可视化函数的集成(含tensorboard smoothing算法)
-8. `libs/ml/utils.py`: ml中的工具函数
-9. `examples/*`: 一些例子
-10. 其他文件没啥用(特别是`_`开头的文件.). 
+4. `libs/ml/ml_alg/*`: 机器学习中的算法实现(没啥实用性, 学习用)
+5. `libs/ml/lrs.py`: warmup的实现
+6. `libs/ml/metrics.py`: ml的metrics的torch实现
+7. `libs/ml/mini_pl.py`: pytorch-lightning的mini版本(更快, 更简洁)
+8. `libs/ml/visualize.py`: 可视化函数的集成(含tensorboard smoothing算法)
+9. `libs/ml/utils.py`: ml中的工具函数
+10. `examples/*`: 一些例子
+11. 其他文件没啥用(特别是`_`开头的文件.). 
 
 
 ## 环境:

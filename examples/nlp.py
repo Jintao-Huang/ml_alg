@@ -54,7 +54,6 @@ class MyLModule(libs_ml.LModule):
     def training_step(self, batch: Any) -> Tensor:
         # fit
         # 返回的Tensor(loss)用于优化. 如果返回None, 则training_step内进行自定义optimizer_step.
-        # 此设计用于: GAN
         loss, acc = self._calculate_loss_acc(batch)
         self.log("train_loss", loss)
         self.log("train_acc", acc)

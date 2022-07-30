@@ -60,7 +60,7 @@ if __name__ == "__main__":
 #     return torch.eye(n_classes, dtype=torch.long, device=x.device)[x]
 
 def one_hot(x: Tensor, n_classes: int = -1) -> Tensor:
-    """推荐.
+    """
     x: Tensor[long]. [N]
     """
     if n_classes == -1:

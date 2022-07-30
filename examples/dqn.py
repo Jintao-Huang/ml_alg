@@ -10,11 +10,9 @@ except ImportError:
 
 """
 探索和训练是解耦的. 
-1. 每一个iter. 会进行一次训练. 训练使用的数据集是从随机采样的数据.
-2. 同时Agent也会进行一次探索. 探索会使用旧的网络. 并采取行动. 从state变为next_state. 随后存入memory. 
-刚开始时会进行预热. 填部分的memory入memory_pool. Agent的探索过程, 与Trainer的参数无关. 使用Agent构建的参数. 
-3. 模型训练会使用new_model和old_model. 在计算next_state的reward预测使用old_model. 
-    探索和训练使用new_model
+1. 每一个iter. 会进行一次训练. 训练使用的数据集是从记忆库(memory pool)中随机采样的.
+2. 同时Agent也会进行一次探索. 使用某些策略决策并采取行动(随机或模型决策). 从state变为next_state. 随后存入记忆库. 
+  刚开始时会进行预热. 填部分的记忆入记忆库. 
 """
 
 
@@ -137,6 +135,8 @@ class MyLModule(libs_ml.LModule):
         super(MyLModule, self).__init__(model, optim, hparams)
         # 一般: 定义损失函数, 学习率管理器. (优化器, 模型)
         # self.optim, self.model
+        # 模型训练会使用new_model和old_model. 在计算next_state的reward预测使用old_model. 
+        #   探索和训练使用new_model. 原因是: 消除关联性. 每sync_steps步, 进行同步
         self.old_model = deepcopy(self.model)
         self.loss_fn = loss_fn
         self.agent = agent
@@ -144,14 +144,14 @@ class MyLModule(libs_ml.LModule):
         #
         self.warmup_memory_steps = self.hparams["warmup_memory_steps"]
         self.sync_steps = self.hparams["sync_steps"]
-        self.gamma = self.hparams["gamma"]
+        self.gamma = self.hparams["gamma"]  # reward的衰减系数
 
         #
         self._warmup_memo(self.warmup_memory_steps)
-        self.episode_reward = 0
+        self.episode_reward = 0  # 一局的reward
 
-    def train_epoch_start(self) -> None:
-        super(MyLModule, self).train_epoch_start()
+    def training_epoch_start(self) -> None:
+        super(MyLModule, self).training_epoch_start()
         self.old_model.train()
         self.old_model.to(device)
 
@@ -185,7 +185,6 @@ class MyLModule(libs_ml.LModule):
     def training_step(self, batch: Any) -> Tensor:
         # fit
         # 返回的Tensor(loss)用于优化. 如果返回None, 则training_step内进行自定义optimizer_step.
-        # 此设计用于: GAN
         if self.global_step % self.sync_steps == 0:
             # load_state_dict是copy
             self.old_model.load_state_dict(self.model.state_dict())
@@ -219,7 +218,7 @@ if __name__ == "__main__":
             "eta_min": 0,
             "T_max": ...
         },
-        "sync_steps": 20,
+        "sync_steps": 20,  # old_model的同步的频率
         "warmup_memory_steps": 1000,  # 预热memory
         "gamma": 0.99,  # reward衰减
 
