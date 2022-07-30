@@ -446,8 +446,7 @@ if __name__ == "__main__":
     try:
         from . import MLP_L2, XORDataset, accuracy_score
     except ImportError:
-        from models import MLP_L2
-        from datasets import XORDataset
+        from _trash import MLP_L2, XORDataset
         from metrics import accuracy_score
     #
 
