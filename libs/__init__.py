@@ -11,7 +11,7 @@ import heapq
 from collections import deque, namedtuple, OrderedDict, defaultdict
 from copy import copy, deepcopy
 from typing import List, Tuple, Dict, Set, Callable, Optional, \
-    Union, Any, Deque, Sequence, Mapping
+    Union, Any, Deque, Sequence, Mapping, Iterable, Iterator
 import sys
 import time
 import datetime
@@ -60,8 +60,8 @@ import torchvision.datasets as tvd
 from torchvision.utils import make_grid
 import torchvision.models as tvm
 # import sklearn
-import pytorch_lightning as pl
-import pytorch_lightning.callbacks as plc
+# import pytorch_lightning as pl
+# import pytorch_lightning.callbacks as plc
 #
 from transformers.pipelines import pipeline
 from transformers.models.auto.modeling_auto import AutoModel, AutoModelForSequenceClassification

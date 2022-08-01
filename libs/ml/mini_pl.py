@@ -44,10 +44,10 @@ class LModule:
         return self.trainer.global_epoch if self.trainer is not None else -1
 
     @property
-    def device(self) -> Device:
-        return self.trainer.device if self.trainer is not None else Device("cpu")
+    def device(self) -> Optional[Device]:
+        return self.trainer.device if self.trainer is not None else None
 
-    def log(self, k: str, v: Union[Tensor, float], *, prog_bar_mean=True):
+    def log(self, k: str, v: Union[Tensor, float], *, prog_bar_mean=True) -> None:
         """
         prog_bar_mean: 在prog_bar中显示的是整个epoch的均值. (一般loss, acc用均值. lr不用均值)
         """
@@ -60,12 +60,12 @@ class LModule:
         self.trainer.new_mes[k] = v
         self.trainer.prog_bar_mean[k] = prog_bar_mean
 
-    def log_dict(self, _dict: Dict[str, Union[Tensor, float]], *, prog_bar_mean=True):
+    def log_dict(self, _dict: Dict[str, Union[Tensor, float]], *, prog_bar_mean=True) -> None:
         # 参数见self.log
         for k, v in _dict.items():
             self.log(k, v, prog_bar_mean=prog_bar_mean)
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args, **kwargs) -> Any:
         return self.model(*args, **kwargs)
 
     def load_from_checkpoint(self, ckpt_path: str) -> None:
@@ -265,8 +265,8 @@ class Trainer:
     def _sum_to_mean(log_mes: Dict[str, float], n: int, inplace: bool = False) -> Dict[str, float]:
         if not inplace:
             log_mes = log_mes.copy()
-        for k, v in log_mes.items():
-            log_mes[k] = v / n
+        for k in log_mes.keys():
+            log_mes[k] /= n
         return log_mes
 
     def _logger_add_scalars(self, mes: Dict[str, float], step: int) -> None:
@@ -283,7 +283,7 @@ class Trainer:
     def _epoch_end(self, mes: Dict[str, float], metric: Optional[float]) -> None:
         # 1. 模型保存
         ckpt_dir = self.ckpt_dir
-        if metric is not None and metric > self.best_metrics:
+        if metric is not None and metric >= self.best_metrics:  # 含等于
             # 保存
             self._remove_ckpt("best")
             self.best_metrics = metric
@@ -444,12 +444,13 @@ if __name__ == "__main__":
     import torch.nn as nn
     import torch.optim as optim
     try:
-        from . import MLP_L2, XORDataset, accuracy_score
+        from . import MLP_L2, XORDataset, accuracy_score, seed_everything
     except ImportError:
         from _trash import MLP_L2, XORDataset
         from metrics import accuracy_score
+        from utils import seed_everything
     #
-
+    seed_everything(4)
     train_dataset = XORDataset(512)
     val_dataset = XORDataset(256)
     test_dataset = XORDataset(256)
@@ -506,6 +507,6 @@ if __name__ == "__main__":
     trainer.test(ldm.test_dataloader)
     del lmodel.model
     lmodel.model = MLP_L2(2, 4, 1)
-    lmodel.load_from_checkpoint(trainer.best_ckpt_path)
+    lmodel.load_from_checkpoint(trainer.last_ckpt_path)
     #
     trainer.test(ldm.test_dataloader)
