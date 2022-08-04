@@ -12,15 +12,16 @@ __all__ = ["accuracy_score", "confusion_matrix", "precision_recall_fscore",
 
 # y_pred在前, 保持与torch的loss一致
 
-
 """
-下面的指标都是在[0..1]之间
-tp: t=1,p=1
+tp: t=1,p=1. 或t=p=i或sum_i{t=p=i}
 fp: t=0, p=1
 tn: t=0, p=0
 fn: t=1, p=0
+ti: t=i或sum_i{t=i}
+pi: p=i或sum_i{t=i}
 
 #
+下面的指标都是在[0..1]之间
 acc = (tp+tn) / (tp+tn+fp+fn)
 prec = (tp) / (tp+fp)
   prec=(t=1,p=1) / (p=1)
@@ -98,16 +99,17 @@ def precision_recall_fscore(y_pred: Tensor, y_true: Tensor,
     """
     # micro: 先平均(总的tp, 总的fp), 然后计算metrics(prec, recall, fscore)
     # macro: 先计算各个的metrics, 再求平均
-    if average == "micro":  # 类似于accuracy: (prec=recall=fscore=accuracy)
-        tp = torch.count_nonzero(y_true == y_pred)
-        t = p = y_pred.shape[0]
+    if average == "micro":  
+        # 类似于accuracy: (prec=recall=fscore=accuracy)
+        tp = torch.count_nonzero(y_true == y_pred)  # sum{t=p=i}
+        t = p = y_pred.shape[0]  # sum{t=i}, sum{p=i}
         prec, recall = _precision(tp, p), _recall(tp, t)
         fscore = _fscore(prec, recall, beta)
         return prec, recall, fscore
     cm = confusion_matrix(y_pred, y_true, normalize=None)
-    tp = cm.diag()
-    ti = cm.sum(dim=1)  # t==i的个数
-    pi = cm.sum(dim=0)  # p==i的个数
+    tp = cm.diag()  # t=p=i
+    ti = cm.sum(dim=1)  # t=i
+    pi = cm.sum(dim=0)  # p=i
     prec, recall = _precision(tp, pi), _recall(tp, ti)
     fscore = _fscore(prec, recall, beta)
     if average == None:
@@ -292,7 +294,7 @@ def mean_squared_error(y_pred: Tensor, y_true: Tensor, *, reduction="mean",
 #
 
 def _calculate_tps_fps(y_pred: Tensor, y_true: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
-    """返回tps, fps, threshold. y_pred可以未排序
+    """返回tps, fps, threshold. y_pred可以未排序. (只适用于2分类任务)
     return: tps, fps, threshold. tps: p=1,t=1. fps: p=1,t=0
     """
     # 以y_pred的某一个数为threshold时, {该数}以及左边的数为p=1, 右边的数为p=0

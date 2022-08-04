@@ -24,33 +24,36 @@ def freeze_layers(model: Module, layer_prefix_names: List[str]) -> None:
         p.requires_grad_(requires_grad)
 
 
-def print_model_info(model: Module, inputs: Tuple[Any, ...]) -> None:
+def print_model_info(model: Module, inputs: Tuple[Any, ...] = None) -> None:
     n_params = sum(p.numel() for p in model.parameters())
     n_grads = sum(p.numel() for p in model.parameters() if p.requires_grad)
     # FLOPs
-    macs, _ = profile(model, inputs, verbose=False)
-    flops = macs * 2
     #
     n_params /= 1e6
     n_grads /= 1e6
-    flops /= 1e9
     s = [
         f"{model.__class__.__name__}: ",
         f"{len(list(model.modules()))} layers, ",
         f"{n_params:.4f}M parameters, ",
-        f"{n_grads:.4f}M grads, ",
-        f"{flops:.4f}G FLOPs"
+        f"{n_grads:.4f}M grads",
     ]
+    if inputs is not None:
+        macs, _ = profile(model, inputs, verbose=False)
+        flops = macs * 2
+        flops /= 1e9
+        s += f", {flops:.4f}G FLOPs"
+
     print("".join(s))
 
 
-# if __name__ == "__main__":
-#     from torchvision.models import resnet50
-#     import torch
+if __name__ == "__main__":
+    from torchvision.models import resnet50
+    import torch
 
-#     model = resnet50()
-#     input = torch.randn(1, 3, 224, 224)
-#     print_model_info(model, (input, ))
+    model = resnet50()
+    input = torch.randn(1, 3, 224, 224)
+    print_model_info(model, (input, ))
+    print_model_info(model)
 
 
 def label_smoothing_cross_entropy(pred: Tensor, target: Tensor,
