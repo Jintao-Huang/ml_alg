@@ -11,7 +11,7 @@ from torch.optim import Optimizer
 from torch.optim.lr_scheduler import MultiStepLR, _LRScheduler as LRScheduler
 
 import os
-from typing import List, Any, Dict, Optional, Tuple, Callable, Union, Sequence, Mapping
+from typing import List, Any, Dict, Optional, Tuple, Callable, Union, Sequence, Mapping, Literal
 from tqdm import tqdm
 import datetime
 import yaml
@@ -69,7 +69,8 @@ class LModule:
         return self.model(*args, **kwargs)
 
     def load_from_checkpoint(self, ckpt_path: str) -> None:
-        self.model.load_state_dict(torch.load(ckpt_path))
+        device = next(self.model.parameters()).device
+        self.model.load_state_dict(torch.load(ckpt_path, map_location=device))
 
     def save_checkpoint(self, ckpt_path: str) -> None:
         torch.save(self.model.state_dict(), ckpt_path)
@@ -318,8 +319,7 @@ class Trainer:
                 res[k] = new_mes[k]
         return res
 
-    def _train_epoch(self, dataloader: DataLoader) -> Dict[str, float]:
-        lmodel = self.lmodel
+    def _train_epoch(self, lmodel: LModule, dataloader: DataLoader) -> Dict[str, float]:
         model = lmodel.model
         lmodel.training_epoch_start()
         #
@@ -359,13 +359,13 @@ class Trainer:
             mes.update(self.new_mes)
         return mes
 
-    def _train(self, train_dataloader: DataLoader, val_dataloader: DataLoader) -> None:
+    def _train(self, lmodel: LModule, train_dataloader: DataLoader, val_dataloader: DataLoader) -> None:
         for _ in range(self.global_epoch + 1, self.max_epochs):
             self.global_epoch += 1
-            mes = self._train_epoch(train_dataloader)
+            mes = self._train_epoch(lmodel, train_dataloader)
             #
             if val_dataloader is not None:
-                metrics, val_mes = self._val(val_dataloader)
+                metrics, val_mes = self._val(lmodel, val_dataloader)
                 mes.update(val_mes)
             else:
                 # 只保存最后的模型, 而不保存最好的模型(用于dqn).
@@ -374,8 +374,7 @@ class Trainer:
             self._epoch_end(mes, metrics)  # 保存模型和results
 
     @torch.no_grad()
-    def _val(self, dataloader: DataLoader) -> Tuple[float, Dict[str, float]]:
-        lmodel = self.lmodel
+    def _val(self, lmodel: LModule, dataloader: DataLoader) -> Tuple[float, Dict[str, float]]:
         model = lmodel.model
         #
         model.eval()
@@ -401,8 +400,7 @@ class Trainer:
         return metrics / len(dataloader), mes
 
     @ torch.no_grad()
-    def _test(self, dataloader: DataLoader) -> Dict[str, float]:
-        lmodel = self.lmodel
+    def _test(self, lmodel: LModule, dataloader: DataLoader) -> Dict[str, float]:
         model = lmodel.model
         #
         model.eval()
@@ -428,14 +426,24 @@ class Trainer:
     def fit(self, train_dataloader: DataLoader, val_dataloader: DataLoader) -> None:
         # 主要内容: 记录训练的过程, 包括train每个迭代的信息; val每个epoch的信息
         device_r = next(self.lmodel.model.parameters()).device
-        self._train(train_dataloader, val_dataloader)
+        self._train(self.lmodel, train_dataloader, val_dataloader)
         self.lmodel.model.to(device_r)
 
-    def test(self, dataloader: DataLoader) -> Dict[str, float]:
+    def test(self, dataloader: DataLoader, model_type: Literal["last", "best"] = "last") -> Dict[str, float]:
         # 主要内容: 不需要记录信息, 只需要打印测试结果即可.
+        if model_type == "best":
+            assert self.best_ckpt_path is not None
+            self.lmodel.load_from_checkpoint(self.best_ckpt_path)
+        elif model_type != "last":
+            raise ValueError(f"model_type: {model_type}")
+
         device_r = next(self.lmodel.model.parameters()).device
-        mes = self._test(dataloader)
+        mes = self._test(self.lmodel, dataloader)
         self.lmodel.model.to(device_r)
+        #
+        if model_type == "best":  # 复原
+            assert self.last_ckpt_path is not None
+            self.lmodel.load_from_checkpoint(self.last_ckpt_path)
         return mes
 
 
@@ -505,8 +513,4 @@ if __name__ == "__main__":
     trainer = Trainer(lmodel, 'cuda', 100, runs_dir)
     trainer.fit(ldm.train_dataloader, ldm.val_dataloader)
     trainer.test(ldm.test_dataloader)
-    del lmodel.model
-    lmodel.model = MLP_L2(2, 4, 1)
-    lmodel.load_from_checkpoint(trainer.last_ckpt_path)
-    #
-    trainer.test(ldm.test_dataloader)
+    trainer.test(ldm.test_dataloader, "best")

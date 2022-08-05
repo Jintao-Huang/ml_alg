@@ -108,3 +108,4 @@ if __name__ == "__main__":
         lmodel, device, runs_dir=runs_dir, **hparams["trainer_hparams"])
     trainer.fit(ldm.train_dataloader, ldm.val_dataloader)
     trainer.test(ldm.test_dataloader)
+    trainer.test(ldm.test_dataloader, "best")

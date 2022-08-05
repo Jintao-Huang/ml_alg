@@ -8,7 +8,7 @@ import math
 from types import SimpleNamespace
 import os
 import heapq
-from collections import deque, namedtuple, OrderedDict, defaultdict
+from collections import deque, namedtuple, OrderedDict, defaultdict, Counter
 from copy import copy, deepcopy
 from typing import List, Tuple, Dict, Set, Callable, Optional, \
     Union, Any, Deque, Sequence, Mapping, Iterable, Iterator
@@ -59,9 +59,10 @@ import torchvision.transforms as tvt
 import torchvision.datasets as tvd
 from torchvision.utils import make_grid
 import torchvision.models as tvm
-# import sklearn
-# import pytorch_lightning as pl
-# import pytorch_lightning.callbacks as plc
+#
+import sklearn
+import pytorch_lightning as pl
+import pytorch_lightning.callbacks as plc
 #
 from transformers.pipelines import pipeline
 from transformers.models.auto.modeling_auto import AutoModel, AutoModelForSequenceClassification
