@@ -4,6 +4,7 @@
 
 import torch.nn.functional as F
 from torch import Tensor
+from typing import List, Tuple, Optional
 # 用于学习, 速度慢于F.
 # 没有显示说明, 就不是inplace的
 

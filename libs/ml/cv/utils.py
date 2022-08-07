@@ -2,12 +2,13 @@
 # Email: hjt_study@qq.com
 # Date:
 
-from typing import List, Tuple, Any, Dict
+from typing import List, Tuple, Any, Dict, Optional
 from torch.nn import Module
-from thop import profile
 from torch import Tensor
 import torch.nn.functional as F
 import torch
+import torch.nn as nn
+from copy import deepcopy
 
 __all__ = ["freeze_layers", "print_model_info",
            "label_smoothing_cross_entropy", "fuse_conv_bn", "fuse_linear_bn"]
@@ -24,7 +25,7 @@ def freeze_layers(model: Module, layer_prefix_names: List[str]) -> None:
         p.requires_grad_(requires_grad)
 
 
-def print_model_info(model: Module, inputs: Tuple[Any, ...] = None) -> None:
+def print_model_info(model: Module, inputs: Optional[Tuple[Any, ...]] = None) -> None:
     n_params = sum(p.numel() for p in model.parameters())
     n_grads = sum(p.numel() for p in model.parameters() if p.requires_grad)
     # FLOPs
@@ -38,7 +39,8 @@ def print_model_info(model: Module, inputs: Tuple[Any, ...] = None) -> None:
         f"{n_grads:.4f}M grads",
     ]
     if inputs is not None:
-        macs, _ = profile(model, inputs, verbose=False)
+        from thop import profile
+        macs, _ = profile(deepcopy(model), inputs, verbose=False)
         flops = macs * 2
         flops /= 1e9
         s += f", {flops:.4f}G FLOPs"
@@ -54,6 +56,7 @@ if __name__ == "__main__":
     input = torch.randn(1, 3, 224, 224)
     print_model_info(model, (input, ))
     print_model_info(model)
+    print_model_info(model, (input, ))
 
 
 def label_smoothing_cross_entropy(pred: Tensor, target: Tensor,
