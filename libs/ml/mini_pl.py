@@ -254,7 +254,7 @@ class Trainer:
             for k, v in hparams.items():
                 res[k] = self.check_hparams(v)
         else:
-            res = "!!ignored"
+            res = str(hparams)
         return res
 
     def save_hparams(self, hparams: Dict[str, Any]) -> None:

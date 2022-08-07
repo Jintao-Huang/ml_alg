@@ -91,7 +91,6 @@ class MyLModule(libs_ml.LModule):
 
 
 if __name__ == "__main__":
-    libs_ml.seed_everything(42, gpu_dtm=False)
     hparams = {
         "model_name": "resnet50",
         "model_hparams": {"num_classes": 10},
@@ -110,18 +109,26 @@ if __name__ == "__main__":
         train_dataset, val_dataset, test_dataset, **hparams["dataloader_hparams"])
     hparams["lrs_hparams"]["T_max"] = len(
         ldm.train_dataloader) * hparams["trainer_hparams"]["max_epochs"]
-    model = tvm.resnet50(**hparams["model_hparams"])
-    state_dict = torch.hub.load_state_dict_from_url(
-        **hparams["model_pretrain_model"])
-    state_dict = libs_ml.remove_keys(state_dict, ["fc"])
-    print(model.load_state_dict(state_dict, strict=False))
-    optimizer = optim.AdamW(model.parameters(), **hparams["optim_hparams"])
+
     runs_dir = CHECKPOINTS_PATH
     loss_fn = nn.CrossEntropyLoss()
-    lr_s = libs_ml.WarmupCosineAnnealingLR(optimizer, **hparams["lrs_hparams"])
-    lmodel = MyLModule(model, optimizer, loss_fn, lr_s, hparams)
-    trainer = libs_ml.Trainer(
-        lmodel, device, runs_dir=runs_dir, **hparams["trainer_hparams"])
-    trainer.fit(ldm.train_dataloader, ldm.val_dataloader)
-    trainer.test(ldm.test_dataloader)
-    trainer.test(ldm.test_dataloader, "best")
+
+    def collect_res(seed):
+        libs_ml.seed_everything(seed, gpu_dtm=False)
+        model = tvm.resnet50(**hparams["model_hparams"])
+        state_dict = torch.hub.load_state_dict_from_url(
+            **hparams["model_pretrain_model"])
+        state_dict = libs_ml.remove_keys(state_dict, ["fc"])
+        print(model.load_state_dict(state_dict, strict=False))
+        optimizer = optim.AdamW(model.parameters(), **hparams["optim_hparams"])
+        lr_s = libs_ml.WarmupCosineAnnealingLR(
+            optimizer, **hparams["lrs_hparams"])
+
+        lmodel = MyLModule(model, optimizer, loss_fn, lr_s, hparams)
+        trainer = libs_ml.Trainer(
+            lmodel, device, runs_dir=runs_dir, **hparams["trainer_hparams"])
+        trainer.fit(ldm.train_dataloader, ldm.val_dataloader)
+        res = trainer.test(ldm.test_dataloader, "best")
+        return res
+    res = libs_ml.multi_runs(collect_res, 5, seed=42)
+    print(res)

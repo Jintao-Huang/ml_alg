@@ -70,7 +70,7 @@ class WarmupCosineAnnealingLR(_LRScheduler):
         # warmup一般使用iter_idx(epoch)作为T_max进行控制
         self.warmup = warmup
         self.T_max = T_max
-        self.eta_min = eta_min
+        self.eta_min = eta_min  # initial_lr -> eta_min
         super(WarmupCosineAnnealingLR, self).__init__(optimizer, last_epoch)
 
     def get_lr(self) -> List[float]:
