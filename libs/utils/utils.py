@@ -219,8 +219,8 @@ def update_cite_num(fpath: str, ask: bool = True) -> int:
     return 0
 
 
-if __name__ == "__main__":
-    update_cite_num(
-        "/home/jintao/Desktop/Transformer-xl/Hierarchy/【2103】Transformer in Transformer[295].pdf")
-    update_cite_num(
-        "/home/jintao/Desktop/2022-4-28[ET]/paper/PTM/【2014_】GloVe[29360].pdf")
+# if __name__ == "__main__":
+#     update_cite_num(
+#         "/home/jintao/Desktop/Transformer-xl/Hierarchy/【2103】Transformer in Transformer[295].pdf")
+#     update_cite_num(
+#         "/home/jintao/Desktop/2022-4-28[ET]/paper/PTM/【2014_】GloVe[29360].pdf")

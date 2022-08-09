@@ -20,9 +20,9 @@ def seed_everything(seed: Optional[int] = None, gpu_dtm: bool = False) -> int:
     """gpu_dtm: gpu_deterministic"""
     # 返回seed
     if seed is None:
-        seed_min = np.iinfo(np.uint32).min
+        # seed_min = np.iinfo(np.uint32).min
         seed_max = np.iinfo(np.uint32).max
-        seed = random.randint(seed_min, seed_max)
+        seed = random.randint(0, seed_max)
 
     random.seed(seed)
     np.random.seed(seed)
@@ -32,6 +32,7 @@ def seed_everything(seed: Optional[int] = None, gpu_dtm: bool = False) -> int:
         # https://pytorch.org/docs/stable/backends.html#torch.backends.cudnn.torch.backends.cudnn.benchmark
         # True: cudnn只选择deterministic的卷积算法
         torch.backends.cudnn.deterministic = True
+        torch.use_deterministic_algorithms(True)  # 应该可以不加?
         # True: cuDNN从多个卷积算法中进行benchmark, 选择最快的
         # 若deterministic=True, 则benchmark一定为False
         torch.backends.cudnn.benchmark = False
@@ -58,23 +59,26 @@ def remove_keys(state_dict: Dict[str, Any], prefix_keys: List[str]) -> Dict[str,
             res[k] = v
     return res
 
+if __name__ == "__main__":
+    import sys
+    import os
+    _ROOT_DIR = "/home/jintao/Desktop/coding/python/ml_alg"
+    if not os.path.isdir(_ROOT_DIR):
+        raise IOError(f"_ROOT_DIR: {_ROOT_DIR}")
+    sys.path.append(_ROOT_DIR)
+    from libs import *
 
 # if __name__ == "__main__":
 #     # test seed_everything
-#     s = seed_everything(3268574154)
+#     s = seed_everything(3234335211)
 #     print(s)
-#     print(np.random.random())
-#     print()
 #     # test time_synchronize
-#     x = torch.rand(10000, 10000, device='cuda')
-#     y = x @ x
-#     t1 = time_synchronize()
-#     y = x @ x
-#     t2 = time_synchronize()
-#     print(t2 - t1)
+#     x = torch.randn(10000, 10000, device='cuda')
+#     res = libs_utils.test_time(lambda: x@x, 10, 0, time_synchronize)
+#     print(res[1, :100])
 
 def gen_seed_list(n: int, seed: Optional[int] = None,) -> List[int]:
-    max_ = np.iinfo(np.int32).max
+    max_ = np.iinfo(np.uint32).max
     random_state = np.random.RandomState(seed)
     return random_state.randint(0, max_, n).tolist()
 

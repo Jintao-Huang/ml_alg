@@ -10,11 +10,12 @@
 2. `libs/ml/cv/*`: CV中常用的工具函数
 3. `libs/ml/nlp/*`: NLP中常用的工具函数
 4. `libs/ml/ml_alg/*`: 机器学习中的算法实现(没啥实用性, 学习用)
+   1. 其中`_nn_functional.py`实现torch.nn.functional包中的算法. libtorch(c++)版本见https://github.com/Jintao-Huang/alg_ac/ml_libs/
 5. `libs/ml/lrs.py`: warmup的实现
 6. `libs/ml/metrics.py`: ml的metrics的torch实现
 7. `libs/ml/mini_pl.py`: pytorch-lightning的mini版本(更快, 更简洁)
 8. `libs/ml/visualize.py`: 可视化函数的集成(含tensorboard smoothing算法)
-9. `libs/ml/utils.py`: ml中的工具函数
+9.  `libs/ml/utils.py`: ml中的工具函数
 10. `examples/*`: 一些例子
 11. 其他文件没啥用(特别是`_`开头的文件.). 
 
