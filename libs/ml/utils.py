@@ -32,7 +32,7 @@ def seed_everything(seed: Optional[int] = None, gpu_dtm: bool = False) -> int:
         # https://pytorch.org/docs/stable/backends.html#torch.backends.cudnn.torch.backends.cudnn.benchmark
         # True: cudnn只选择deterministic的卷积算法
         torch.backends.cudnn.deterministic = True
-        torch.use_deterministic_algorithms(True)  # 应该可以不加?
+        # torch.use_deterministic_algorithms(True)  # 会报错
         # True: cuDNN从多个卷积算法中进行benchmark, 选择最快的
         # 若deterministic=True, 则benchmark一定为False
         torch.backends.cudnn.benchmark = False
