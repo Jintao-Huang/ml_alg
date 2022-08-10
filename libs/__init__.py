@@ -23,6 +23,8 @@ from pprint import pprint
 from numpy import ndarray
 import numpy as np
 import pandas as pd
+from pandas import DataFrame, Series
+Number = Union[int, float]
 
 #
 import matplotlib.pyplot as plt

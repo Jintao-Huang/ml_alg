@@ -127,8 +127,9 @@ if __name__ == "__main__":
         lmodel = MyLModule(model, optimizer, loss_fn, lr_s, hparams)
         trainer = libs_ml.Trainer(
             lmodel, device, runs_dir=runs_dir, **hparams["trainer_hparams"])
-        trainer.fit(ldm.train_dataloader, ldm.val_dataloader)
-        res = trainer.test(ldm.test_dataloader, "best")
+        res = trainer.fit(ldm.train_dataloader, ldm.val_dataloader)
+        res2 = trainer.test(ldm.test_dataloader)
+        res.update(res2)
         return res
     res = libs_ml.multi_runs(collect_res, 5, seed=42)
-    print(res)
+    # pprint(res)

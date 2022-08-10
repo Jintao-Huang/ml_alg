@@ -106,6 +106,5 @@ if __name__ == "__main__":
     lmodel = MyLModule(model, optimizer, loss_fn, lr_s, hparams)
     trainer = libs_ml.Trainer(
         lmodel, device, runs_dir=runs_dir, **hparams["trainer_hparams"])
-    trainer.fit(ldm.train_dataloader, ldm.val_dataloader)
-    trainer.test(ldm.test_dataloader)
-    trainer.test(ldm.test_dataloader, "best")
+    print(trainer.fit(ldm.train_dataloader, ldm.val_dataloader))
+    print(trainer.test(ldm.test_dataloader))

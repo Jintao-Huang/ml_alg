@@ -59,6 +59,7 @@ def remove_keys(state_dict: Dict[str, Any], prefix_keys: List[str]) -> Dict[str,
             res[k] = v
     return res
 
+
 if __name__ == "__main__":
     import sys
     import os
@@ -76,6 +77,7 @@ if __name__ == "__main__":
 #     x = torch.randn(10000, 10000, device='cuda')
 #     res = libs_utils.test_time(lambda: x@x, 10, 0, time_synchronize)
 #     print(res[1, :100])
+
 
 def gen_seed_list(n: int, seed: Optional[int] = None,) -> List[int]:
     max_ = np.iinfo(np.uint32).max
@@ -104,6 +106,14 @@ def multi_runs(collect_res: Callable[[int], Dict[str, float]], n: int, seed: Opt
     # 计算mean, std等.
     res: Dict[str, Dict[str, Any]] = {}
     res_str: List = []
+    res_str.append(
+        f"[RUNS_MES] n_runs: {n} |time: {t} |seed_list: {seed_list}"
+    )
+    res["runs_mes"] = {
+        "n_runs": n,
+        "time": t,
+        "seed_list": seed_list
+    }
     for k, v_list in result.items():
         v_list = np.array(v_list)
         mean = v_list.mean()
@@ -111,15 +121,12 @@ def multi_runs(collect_res: Callable[[int], Dict[str, float]], n: int, seed: Opt
         max_ = v_list.max()
         min_ = v_list.min()
         res_str.append(
-            f"{k}[n={n}]: {mean:.6f}±{std:.6f} |max: {max_:.6f} |min: {min_:.6f}| time: {t}| seed_list: {seed_list}")
+            f"  {k}: {mean:.6f}±{std:.6f} |max: {max_:.6f} |min: {min_:.6f}")
         res[k] = {
-            "n": n,
             "mean": mean,
             "std": std,
             "max_": max_,
             "min_": min_,
-            "time": t,
-            "seed_list": seed_list,
         }
     print("\n".join(res_str))
     return res
