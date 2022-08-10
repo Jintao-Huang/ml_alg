@@ -22,8 +22,8 @@ class MLP_L2(Module):
         return self.model(x)
 
 
-if __name__ == "__main__":
-    model = MLP_L2(2, 4, 1)
-    print(model)
-    for name, param in model.named_parameters():
-        print(f"Parameter {name}, shape {param.shape}")
+# if __name__ == "__main__":
+#     model = MLP_L2(2, 4, 1)
+#     print(model)
+#     for name, param in model.named_parameters():
+#         print(f"Parameter {name}, shape {param.shape}")

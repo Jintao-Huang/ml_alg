@@ -9,6 +9,8 @@ import torch.nn.functional as F
 import torch
 import torch.nn as nn
 from copy import deepcopy
+import logging
+logger = logging.getLogger(__name__)
 
 __all__ = ["freeze_layers", "print_model_info",
            "label_smoothing_cross_entropy", "fuse_conv_bn", "fuse_linear_bn"]
@@ -45,18 +47,18 @@ def print_model_info(model: Module, inputs: Optional[Tuple[Any, ...]] = None) ->
         flops /= 1e9
         s += f", {flops:.4f}G FLOPs"
 
-    print("".join(s))
+    logger.info("".join(s))
 
 
-if __name__ == "__main__":
-    from torchvision.models import resnet50
-    import torch
+# if __name__ == "__main__":
+#     from torchvision.models import resnet50
+#     import torch
 
-    model = resnet50()
-    input = torch.randn(1, 3, 224, 224)
-    print_model_info(model, (input, ))
-    print_model_info(model)
-    print_model_info(model, (input, ))
+#     model = resnet50()
+#     input = torch.randn(1, 3, 224, 224)
+#     print_model_info(model, (input, ))
+#     print_model_info(model)
+#     print_model_info(model, (input, ))
 
 
 def label_smoothing_cross_entropy(pred: Tensor, target: Tensor,
@@ -91,8 +93,8 @@ if __name__ == "__main__":
 # if __name__ == "__main__":
 #     x = torch.randn((1000, 100))
 #     x2 = torch.randint(0, 100, (1000,))
-#     y3 = libs_utils.test_time(lambda: F.cross_entropy(x, x2), number=10)
-#     y = libs_utils.test_time(lambda: label_smoothing_cross_entropy(x, x2, smoothing=0.9), number=10, warm_up=5)
+#     y3 = libs_ml.test_time(lambda: F.cross_entropy(x, x2), number=10)
+#     y = libs_ml.test_time(lambda: label_smoothing_cross_entropy(x, x2, smoothing=0.9), number=10, warm_up=5)
 #     print(y, y3)
 
 

@@ -1,6 +1,6 @@
 # Author: Jintao Huang
 # Email: hjt_study@qq.com
-# Date: 
+# Date:
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -18,13 +18,33 @@ import math
 from torchvision.utils import make_grid as _make_grid
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
 
-
-__all__ = ["plot_classification_map", "visualize_samples",
-           "plot_lines", "plot_subplots", "make_grid", "normalize", "make_grid2", 
+__all__ = ["bincount", "plot_classification_map", "visualize_samples",
+           "plot_lines", "plot_subplots", "make_grid", "normalize", "make_grid2",
            "tensorboard_smoothing", "config_ax", "read_tensorboard_file"]
 
 
-@torch.no_grad()
+def bincount(x: ndarray, n_bin: int = None, step: int = None,
+                  min_: int = None, max_: int = None,
+                  show: bool = True) -> ndarray:
+    """for debug. 
+    n_bin, step必须提供一个参数. n_bin表示桶的个数, step表示bin的宽度. 
+    """
+    min_ = min_ if min_ is not None else x.min()
+    max_ = max_ if max_ is not None else x.max()
+    if n_bin is not None:
+        assert step is None
+        step = math.ceil((max_ - min_) / n_bin)
+    assert step is not None
+    x = np.divide(x, step).astype(np.int32)
+    bc = np.bincount(x)
+    if show:
+        plt.figure(figsize=(8, 6))
+        plt.plot(np.arange(bc.shape[0]) * step, bc)
+        plt.show()
+    return bc
+
+
+@ torch.no_grad()
 def plot_classification_map(model: Module, device: Device,
                             extent: Tuple[float, float, float, float], n_labels: int, ax: Axes) -> None:
     """只支持输入为2D的情形"""
@@ -272,7 +292,8 @@ def make_grid2(images: Union[Tensor, ndarray], fig: Figure = None,
 
 
 def config_ax(ax: Axes, title: str = None, xlabel: str = None, ylabel: str = None,
-              xlim: Tuple[float, float] = None, ylim: Tuple[float, float] = None,
+              xlim: Tuple[float, float] = None,
+              ylim: Tuple[float, float] = None,
               xticks: List[float] = None, xticks_labels: List[str] = None,
               yticks: List[float] = None, yticks_labels: List[str] = None,
               xticks_rotate90=False) -> None:
@@ -347,5 +368,3 @@ def tensorboard_smoothing(values: List[float], smooth: float = 0.9) -> List[floa
 #     plot_loss()
 #     plt.savefig("runs/images/1.png", dpi=200, bbox_inches='tight')
 #     # plt.show()
-
-

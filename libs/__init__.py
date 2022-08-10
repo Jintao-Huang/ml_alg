@@ -18,7 +18,7 @@ import datetime
 # import random
 from tqdm import tqdm
 from pprint import pprint
-
+import logging
 #
 from numpy import ndarray
 import numpy as np
@@ -78,3 +78,5 @@ from gym import Env
 #
 from . import utils as libs_utils
 from . import ml as libs_ml
+# logging.basicConfig(level=logging.INFO, format="[%(levelname)s: %(asctime)s - %(pathname)s:%(lineno)d] \n  %(message)s ")  
+logging.basicConfig(level=logging.INFO, format="[%(levelname)s: %(asctime)s - %(filename)s:%(lineno)d] %(message)s ")  

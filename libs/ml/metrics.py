@@ -194,28 +194,28 @@ if __name__ == "__main__":
 #     # test einsum 的speed
 #     X = torch.randn(2000, 2000)
 #     Y = X.T.contiguous()
-#     a = libs_utils.test_time(lambda: X@Y)
-#     a = libs_utils.test_time(lambda: X@X.T)
+#     a = libs_ml.test_time(lambda: X@Y)
+#     a = libs_ml.test_time(lambda: X@X.T)
 #     Y = X.T.contiguous()
-#     b = libs_utils.test_time(lambda: torch.einsum("ij,ij->i", X, Y))
-#     c = libs_utils.test_time(lambda: torch.einsum("ij,ji->i", X, X))  # 慢!
+#     b = libs_ml.test_time(lambda: torch.einsum("ij,ij->i", X, Y))
+#     c = libs_ml.test_time(lambda: torch.einsum("ij,ji->i", X, X))  # 慢!
 #     print(torch.allclose(b, c, rtol=1e-4, atol=1e-4))
 #     #
 #     print()
-#     libs_utils.test_time(lambda: torch.einsum("ij,ij->ij", X, Y))
-#     libs_utils.test_time(lambda: X ** 2)  # 慢!
-#     libs_utils.test_time(lambda: X * X)
+#     libs_ml.test_time(lambda: torch.einsum("ij,ij->ij", X, Y))
+#     libs_ml.test_time(lambda: X ** 2)  # 慢!
+#     libs_ml.test_time(lambda: X * X)
 
 # if __name__ == "__main__":
 #     # test inplace. 速度类似. 见max
 #     X = torch.randn(2000, 2000)
-#     libs_utils.test_time(lambda: torch.sqrt(X), number=1)
-#     libs_utils.test_time(lambda: torch.sqrt_(X), number=1)
+#     libs_ml.test_time(lambda: torch.sqrt(X), number=1)
+#     libs_ml.test_time(lambda: torch.sqrt_(X), number=1)
 
 
 # if __name__ == "__main__":
-#     libs_utils.test_time(lambda: torch.zeros((2000, 2000)))
-#     libs_utils.test_time(lambda: torch.zeros((2000, 2000)))
+#     libs_ml.test_time(lambda: torch.zeros((2000, 2000)))
+#     libs_ml.test_time(lambda: torch.zeros((2000, 2000)))
 
 
 # if __name__ == "__main__":
@@ -224,8 +224,8 @@ if __name__ == "__main__":
 #     x_np = x.numpy()
 #     y_np = y.numpy()
 #     from sklearn.metrics import euclidean_distances as _euclidean_distances
-#     a = libs_utils.test_time(lambda: euclidean_distances(x, y), number=20)
-#     b = libs_utils.test_time(
+#     a = libs_ml.test_time(lambda: euclidean_distances(x, y), number=20)
+#     b = libs_ml.test_time(
 #         lambda: _euclidean_distances(x_np, y_np), number=20)  # 慢!
 #     print(a, b)
 #     print(torch.allclose(a, torch.from_numpy(b), rtol=1e-4, atol=1e-4))
@@ -261,34 +261,34 @@ def mean_squared_error(y_pred: Tensor, y_true: Tensor, *, reduction="mean",
 #     y = torch.randn(1000, 2000)
 #     x_np = x.numpy()
 #     y_np = y.numpy()
-#     a = libs_utils.test_time(lambda: torch.nn.MSELoss(
+#     a = libs_ml.test_time(lambda: torch.nn.MSELoss(
 #         reduction="none")(x, y), number=10)
-#     b = libs_utils.test_time(lambda: torch.nn.MSELoss(
+#     b = libs_ml.test_time(lambda: torch.nn.MSELoss(
 #         reduction="mean")(x, y), number=10)
-#     c = libs_utils.test_time(lambda: _mean_squared_error(  # 慢!
+#     c = libs_ml.test_time(lambda: _mean_squared_error(  # 慢!
 #         y_np, x_np, multioutput="raw_values"), number=10)
-#     d = libs_utils.test_time(lambda: _mean_squared_error(  # 慢!
+#     d = libs_ml.test_time(lambda: _mean_squared_error(  # 慢!
 #         y_np, x_np, multioutput="uniform_average"), number=10)
-#     e = libs_utils.test_time(
+#     e = libs_ml.test_time(
 #         lambda: mean_squared_error(x, y, reduction="none"), number=10)
-#     f = libs_utils.test_time(
+#     f = libs_ml.test_time(
 #         lambda: mean_squared_error(x, y, reduction="mean"), number=10)
 #     print(torch.allclose(a, e, atol=1e-6))
 #     print(torch.allclose(b, f))
 
 
 # if __name__ == "__main__":
-#     # a = libs_utils.test_time(lambda:  torch.randn(1000, 2000))
-#     # a = libs_utils.test_time(lambda:  torch.zeros(1000, 2000))  # 慢20倍
-#     # a = libs_utils.test_time(lambda:  torch.empty(1000, 2000))
+#     # a = libs_ml.test_time(lambda:  torch.randn(1000, 2000))
+#     # a = libs_ml.test_time(lambda:  torch.zeros(1000, 2000))  # 慢20倍
+#     # a = libs_ml.test_time(lambda:  torch.empty(1000, 2000))
 #     a = torch.zeros(1000, 2000)
-#     # libs_utils.test_time(lambda:  a.add_(100))
-#     # libs_utils.test_time(lambda:  a + 100)  # 慢2倍
-#     x = libs_utils.test_time(lambda:  torch.empty(1000, 2000))
-#     libs_utils.test_time(lambda:  x.zero_())
-#     libs_utils.test_time(lambda:  x.add_(10.2))
-#     libs_utils.test_time(lambda:  x.mul_(10.2))
-#     libs_utils.test_time(lambda:  x.div_(10.123))
+#     # libs_ml.test_time(lambda:  a.add_(100))
+#     # libs_ml.test_time(lambda:  a + 100)  # 慢2倍
+#     x = libs_ml.test_time(lambda:  torch.empty(1000, 2000))
+#     libs_ml.test_time(lambda:  x.zero_())
+#     libs_ml.test_time(lambda:  x.add_(10.2))
+#     libs_ml.test_time(lambda:  x.mul_(10.2))
+#     libs_ml.test_time(lambda:  x.div_(10.123))
 
 
 #
@@ -354,17 +354,17 @@ def average_precision_score(y_pred: Tensor, y_true: Tensor) -> Tensor:
 #         average_precision_score as _average_precision_score
 #     y_pred = torch.rand(1000)
 #     y_true = torch.randint(0, 2, (1000,)).long()
-#     b = libs_utils.test_time(
+#     b = libs_ml.test_time(
 #         lambda: average_precision_score(y_pred, y_true), number=10)
-#     b2 = libs_utils.test_time(
+#     b2 = libs_ml.test_time(
 #         lambda: _average_precision_score(y_true, y_pred), number=10)
 #     print(torch.allclose(b, torch.tensor(b2, dtype=torch.float)))
 #     #
 #     y_pred = torch.tensor([0.1, 0.2, 0.2, 0.5, 0.5, 0.5, 0.7, 0.8, 0.9, 0.97])
 #     y_true = torch.randint(0, 2, (10,))
-#     a = libs_utils.test_time(
+#     a = libs_ml.test_time(
 #         lambda: precision_recall_curve(y_pred, y_true), number=10)
-#     a2 = libs_utils.test_time(
+#     a2 = libs_ml.test_time(
 #         lambda: _precision_recall_curve(y_true, y_pred), number=10)
 
 #     print(a)
@@ -423,9 +423,9 @@ def roc_auc_score(y_pred: Tensor, y_true: Tensor) -> Tensor:
 #     from sklearn.metrics import roc_auc_score as _roc_auc_score, roc_curve as _roc_curve
 #     # y_pred = torch.rand(1000)
 #     # y_true = torch.randint(0, 2, (1000,)).long()
-#     # a = libs_utils.test_time(
+#     # a = libs_ml.test_time(
 #     #     lambda: roc_auc_score(y_pred, y_true), number=10)
-#     # a2 = libs_utils.test_time(
+#     # a2 = libs_ml.test_time(
 #     #     lambda: _roc_auc_score(y_true, y_pred), number=10)
 #     # print(torch.allclose(a, torch.tensor(a2, dtype=torch.float)))
 
@@ -433,9 +433,9 @@ def roc_auc_score(y_pred: Tensor, y_true: Tensor) -> Tensor:
 #     y_pred = torch.tensor([0.1, 0.2, 0.2, 0.5, 0.5, 0.5, 0.7, 0.8, 0.9, 0.97])
 #     y_true = torch.randint(0, 2, (10,))
 
-#     b = libs_utils.test_time(
+#     b = libs_ml.test_time(
 #         lambda: roc_curve(y_pred, y_true), number=10)
-#     b2 = libs_utils.test_time(
+#     b2 = libs_ml.test_time(
 #         lambda: _roc_curve(y_true, y_pred), number=10)
 #     print(b)
 #     print(b2)

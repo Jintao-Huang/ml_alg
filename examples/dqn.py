@@ -7,6 +7,7 @@ try:
 except ImportError:
     from pre import *
 
+logger = logging.getLogger(__name__)
 
 """
 探索和训练是解耦的. 
@@ -27,8 +28,7 @@ os.makedirs(CHECKPOINTS_PATH, exist_ok=True)
 #
 device = torch.device(
     "cpu") if not torch.cuda.is_available() else torch.device("cuda")
-print("Using device", device)
-
+logger.info(f"Using device: {device}")
 
 class DQN(nn.Module):
     def __init__(self, obs_size: int, n_actions: int, hidden_size: int = 128):

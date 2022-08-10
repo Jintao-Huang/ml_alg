@@ -7,6 +7,8 @@ try:
 except ImportError:
     from pre import *
 
+logger = logging.getLogger(__name__)
+
 CIFAR10 = tvd.CIFAR10
 RUNS_DIR = os.path.join(RUNS_DIR, "cv")
 DATASETS_PATH = os.environ.get(
@@ -18,12 +20,12 @@ os.makedirs(CHECKPOINTS_PATH, exist_ok=True)
 #
 device = torch.device(
     "cpu") if not torch.cuda.is_available() else torch.device("cuda")
-print("Using device", device)
+logger.info(f"Using device: {device}")
 
 _train_dataset = CIFAR10(root=DATASETS_PATH, train=True, download=True)
 DATA_MEANS = (_train_dataset.data / 255.0).mean(axis=(0, 1, 2))
 DATA_STD = (_train_dataset.data / 255.0).std(axis=(0, 1, 2))
-print(DATA_MEANS, DATA_STD)
+logger.info((DATA_MEANS, DATA_STD))
 test_transform = tvt.Compose(
     [tvt.ToTensor(), tvt.Normalize(DATA_MEANS, DATA_STD)])
 train_transform = tvt.Compose(
@@ -119,7 +121,7 @@ if __name__ == "__main__":
         state_dict = torch.hub.load_state_dict_from_url(
             **hparams["model_pretrain_model"])
         state_dict = libs_ml.remove_keys(state_dict, ["fc"])
-        print(model.load_state_dict(state_dict, strict=False))
+        logger.info(model.load_state_dict(state_dict, strict=False))
         optimizer = optim.AdamW(model.parameters(), **hparams["optim_hparams"])
         lr_s = libs_ml.WarmupCosineAnnealingLR(
             optimizer, **hparams["lrs_hparams"])

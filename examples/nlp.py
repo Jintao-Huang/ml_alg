@@ -7,6 +7,7 @@ try:
 except ImportError:
     from pre import *
 
+logger = logging.getLogger(__name__)
 
 RUNS_DIR = os.path.join(RUNS_DIR, "nlp")
 DATASETS_PATH = os.environ.get(
@@ -18,7 +19,7 @@ os.makedirs(CHECKPOINTS_PATH, exist_ok=True)
 #
 device = torch.device(
     "cpu") if not torch.cuda.is_available() else torch.device("cuda")
-print("Using device", device)
+logger.info(f"Using device: {device}")
 
 dataset = load_dataset("glue", "mrpc")
 model_name = "bert-base-uncased"
@@ -106,5 +107,5 @@ if __name__ == "__main__":
     lmodel = MyLModule(model, optimizer, loss_fn, lr_s, hparams)
     trainer = libs_ml.Trainer(
         lmodel, device, runs_dir=runs_dir, **hparams["trainer_hparams"])
-    print(trainer.fit(ldm.train_dataloader, ldm.val_dataloader))
-    print(trainer.test(ldm.test_dataloader))
+    logger.info(trainer.fit(ldm.train_dataloader, ldm.val_dataloader))
+    logger.info(trainer.test(ldm.test_dataloader))

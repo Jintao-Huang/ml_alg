@@ -10,10 +10,48 @@ import time
 from typing import Optional, Callable, Tuple, List, Dict, Any
 from torch import Tensor
 from collections import defaultdict
+from numpy import ndarray
+import logging
 
+logger = logging.getLogger(__name__)
 
-__all__ = ["seed_everything", "time_synchronize",
+__all__ = ["stat", "test_time", "seed_everything", "time_synchronize",
            "remove_keys", "gen_seed_list", "multi_runs"]
+
+
+def stat(x: ndarray) -> Tuple[Tuple[float, float, float, float], str]:
+    """统计. 返回: (mean, std, max_, min_), stat_str"""
+    mean = x.mean().item()
+    std = x.std().item()
+    max_ = x.max().item()
+    min_ = x.min().item()
+    stat_str = f"{mean:.6f}±{std:.6f} |max: {max_:.6f} |min: {min_:.6f}"
+    return (mean, std, max_, min_), stat_str
+
+
+def test_time(func: Callable[[], Any], number: int = 1, warm_up: int = 0,
+              timer: Optional[Callable[[], float]] = None) -> Any:
+    # timer: e.g. time_synchronize
+    timer = timer if timer is not None else time.perf_counter
+    #
+    ts = []
+    res = None
+    # 预热
+    for _ in range(warm_up):
+        res = func()
+    #
+    for _ in range(number):
+        t1 = timer()
+        res = func()
+        t2 = timer()
+        ts.append(t2 - t1)
+    # 打印平均, 标准差, 最大, 最小
+    ts = np.array(ts)
+    _, stat_str = stat(ts)
+    # print
+    logger.info(
+        f"time[number={number}]: {stat_str}")
+    return res
 
 
 def seed_everything(seed: Optional[int] = None, gpu_dtm: bool = False) -> int:
@@ -36,7 +74,7 @@ def seed_everything(seed: Optional[int] = None, gpu_dtm: bool = False) -> int:
         # True: cuDNN从多个卷积算法中进行benchmark, 选择最快的
         # 若deterministic=True, 则benchmark一定为False
         torch.backends.cudnn.benchmark = False
-    print(f"Global seed set to {seed}")
+    logger.info(f"Global seed set to {seed}")
     return seed
 
 
@@ -75,7 +113,7 @@ if __name__ == "__main__":
 #     print(s)
 #     # test time_synchronize
 #     x = torch.randn(10000, 10000, device='cuda')
-#     res = libs_utils.test_time(lambda: x@x, 10, 0, time_synchronize)
+#     res = test_time(lambda: x@x, 10, 0, time_synchronize)
 #     print(res[1, :100])
 
 
@@ -116,17 +154,14 @@ def multi_runs(collect_res: Callable[[int], Dict[str, float]], n: int, seed: Opt
     }
     for k, v_list in result.items():
         v_list = np.array(v_list)
-        mean = v_list.mean()
-        std = v_list.std()
-        max_ = v_list.max()
-        min_ = v_list.min()
+        (mean, std, max_, min_), stat_str = stat(v_list)
         res_str.append(
-            f"  {k}: {mean:.6f}±{std:.6f} |max: {max_:.6f} |min: {min_:.6f}")
+            f"  {k}: {stat_str}")
         res[k] = {
             "mean": mean,
             "std": std,
             "max_": max_,
             "min_": min_,
         }
-    print("\n".join(res_str))
+    logger.info("\n".join(res_str))
     return res

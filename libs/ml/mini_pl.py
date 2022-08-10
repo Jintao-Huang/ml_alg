@@ -19,6 +19,9 @@ from tqdm import tqdm
 import datetime
 import yaml
 from torch.nn.utils.clip_grad import clip_grad_norm_
+import logging
+
+logger = logging.getLogger(__name__)
 
 # 未来会添加的功能: 多GPU, 混合精度训练. 断点续训. 梯度累加
 # 约定: epoch_idx/global_epoch, batch_idx从0开始. global_step从1开始.
@@ -214,7 +217,7 @@ class Trainer:
         #
         time = datetime.datetime.now().strftime("%Y:%m:%d-%H:%M:%S.%f")
         runs_dir = os.path.join(runs_dir, time)
-        print(f"runs_dir: {runs_dir}")
+        logger.info(f"runs_dir: {runs_dir}")
         self.ckpt_dir = os.path.join(runs_dir, "checkpoints")
         self.tb_dir = os.path.join(
             runs_dir, "runs")  # tensorboard
@@ -259,7 +262,7 @@ class Trainer:
             for k, v in hparams.items():
                 res[k] = self.check_hparams(v)
         else:
-            res = str(hparams)
+            res = repr(hparams)
         return res
 
     def save_hparams(self, hparams: Dict[str, Any]) -> None:
@@ -387,6 +390,8 @@ class Trainer:
             is_best = self._epoch_end(mes, metrics)  # 保存模型和results
             if is_best:
                 best_mes = mes
+                best_mes.update({"global_epoch": self.global_epoch,
+                                 "global_step": self.global_step})
         return best_mes
 
     @torch.no_grad()
@@ -545,5 +550,5 @@ if __name__ == "__main__":
     lmodel = MyLModule(model, optimizer, loss_fn, lr_s)
     #
     trainer = Trainer(lmodel, 'cuda', 100, runs_dir)
-    print(trainer.fit(ldm.train_dataloader, ldm.val_dataloader))
-    print(trainer.test(ldm.test_dataloader))
+    logger.info(trainer.fit(ldm.train_dataloader, ldm.val_dataloader))
+    logger.info(trainer.test(ldm.test_dataloader))

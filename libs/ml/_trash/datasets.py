@@ -32,8 +32,8 @@ class XORDataset(Dataset):
         return self.n_samples
         
 
-if __name__ == "__main__":
-    dataset = XORDataset(200, 0.1)
-    data, labels = dataset.data, dataset.labels
-    print(data.shape, labels.shape)
-    print(data[:10], labels[:10])
+# if __name__ == "__main__":
+#     dataset = XORDataset(200, 0.1)
+#     data, labels = dataset.data, dataset.labels
+#     print(data.shape, labels.shape)
+#     print(data[:10], labels[:10])
