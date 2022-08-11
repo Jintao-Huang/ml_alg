@@ -18,9 +18,7 @@ os.makedirs(DATASETS_PATH, exist_ok=True)
 os.makedirs(CHECKPOINTS_PATH, exist_ok=True)
 
 #
-device = torch.device(
-    "cpu") if not torch.cuda.is_available() else torch.device("cuda")
-logger.info(f"Using device: {device}")
+device = [0]
 
 _train_dataset = CIFAR10(root=DATASETS_PATH, train=True, download=True)
 DATA_MEANS = (_train_dataset.data / 255.0).mean(axis=(0, 1, 2))
@@ -92,19 +90,19 @@ class MyLModule(libs_ml.LModule):
 
 
 if __name__ == "__main__":
-    max_epochs = 10
-    batch_size = 32
+    max_epochs = 20
+    batch_size = 128
     n_accumulate_grad = 4
     hparams = {
         "model_name": "resnet50",
         "model_hparams": {"num_classes": 10},
         "model_pretrain_model": {"url": tvm.ResNet50_Weights.DEFAULT.url},
-        "dataloader_hparams": {"batch_size_train": 32, "num_workers": 4},
+        "dataloader_hparams": {"batch_size_train": batch_size, "num_workers": 4},
         "optim_name": "AdamW",
         "optim_hparams": {"lr": 1e-4, "weight_decay": 1e-4},
-        "trainer_hparams": {"max_epochs": 10, "gradient_clip_norm": 5, "amp": False, "n_accumulate_grad": n_accumulate_grad},
+        "trainer_hparams": {"max_epochs": max_epochs, "gradient_clip_norm": 5, "amp": True, "n_accumulate_grad": n_accumulate_grad},
         "lrs_hparams": {
-            "warmup": 200,
+            "warmup": 100,
             "T_max": ...,
             "eta_min": 1e-5
         }

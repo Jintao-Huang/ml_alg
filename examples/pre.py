@@ -8,4 +8,3 @@ from libs import *
 
 RUNS_DIR = os.path.join(_ROOT_DIR, "runs")
 os.makedirs(RUNS_DIR, exist_ok=True)
-os.environ["CUDA_VISIBLE_DEVICES"] = '0'

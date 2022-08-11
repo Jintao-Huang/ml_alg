@@ -13,19 +13,37 @@ import numpy as np
 import torch.cuda as cuda
 import time
 from typing import Optional, Callable, Tuple, List, Dict, Any
-from torch import Tensor
+from torch import Tensor, device as Device
 from collections import defaultdict
 from numpy import ndarray
 import logging
 from torch.utils.data import Dataset
+import os
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["split_dataset", "stat", "test_time", "seed_everything", "time_synchronize",
+__all__ = ["select_device", "split_dataset", "stat",
+           "test_time", "seed_everything", "time_synchronize",
            "remove_keys", "gen_seed_list", "multi_runs",
            #
            "freeze_layers", "print_model_info",
            "label_smoothing_cross_entropy", "fuse_conv_bn", "fuse_linear_bn"]
+
+
+def select_device(device_list: List[int]) -> Device:
+    """
+    device: e.g. []: 代表"cpu", [0], [0, 1, 2]
+    """
+    logger.info(f"Using device: {device_list}")
+    if len(device_list) == 0:
+        os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+        device: str = "cpu"
+    else:
+        os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(
+            [str(d) for d in device_list])
+        assert torch.cuda.is_available() and torch.cuda.device_count() >= len(device_list)
+        device = "cuda:0"
+    return torch.device(device)
 
 
 def split_dataset(dataset: Dataset, n_list: List[int], split_keys: List[str], seed: int = 42) -> List[Dataset]:

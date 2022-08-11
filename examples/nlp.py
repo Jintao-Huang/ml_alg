@@ -17,9 +17,7 @@ os.makedirs(DATASETS_PATH, exist_ok=True)
 os.makedirs(CHECKPOINTS_PATH, exist_ok=True)
 
 #
-device = torch.device(
-    "cpu") if not torch.cuda.is_available() else torch.device("cuda")
-logger.info(f"Using device: {device}")
+device = [0]
 
 dataset = load_dataset("glue", "mrpc")
 model_name = "bert-base-uncased"
@@ -90,7 +88,7 @@ if __name__ == "__main__":
         "optim_hparams": {"lr": 5e-5, "weight_decay": 1e-4},  #
         "trainer_hparams": {"max_epochs": max_epochs, "gradient_clip_norm": 5, "amp": True, "n_accumulate_grad": n_accumulate_grad},
         "lrs_hparams": {
-            "warmup": 50,
+            "warmup": 30,
             "T_max": ...,
             "eta_min": 1e-5
         }

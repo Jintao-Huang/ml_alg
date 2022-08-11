@@ -2,9 +2,9 @@
 # Email: hjt_study@qq.com
 # Date:
 try:
-    from .utils import print_model_info
+    from .utils import print_model_info, select_device
 except ImportError:
-    from utils import print_model_info
+    from utils import print_model_info, select_device
 import torch
 from torch import device as Device, Tensor
 from torch.utils.tensorboard.writer import SummaryWriter
@@ -21,7 +21,9 @@ import yaml
 from torch.nn.utils.clip_grad import clip_grad_norm_
 import logging
 from torch.cuda.amp.grad_scaler import GradScaler
-from torch.cuda.amp.autocast_mode import autocast
+from torch import autocast
+from torch.nn.parallel import DataParallel
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -194,18 +196,20 @@ class LDataModule:
 
 
 class Trainer:
-    def __init__(self, lmodel: LModule, device: Union[str, Device], max_epochs: int, runs_dir: str, *,
+    def __init__(self, lmodel: LModule, device: List[int], max_epochs: int, runs_dir: str, *,
                  n_accumulate_grad: int = 1, amp: bool = False,
                  log_every_n_steps: int = 5, prog_bar_n_steps: int = 1,
                  gradient_clip_norm: Optional[float] = None, benchmark: Optional[bool] = None) -> None:
         """
-        n_accumulate_grad: 梯度累加. 使用sum累加, 而不是mean. 
+        device: 若传入多个device, 则使用DP. (暂时不支持DDP). 
+            e.g. []: 代表"cpu", [0], [0, 1, 2]
+        n_accumulate_grad: 梯度累加. 使用mean累加, 而不是sum. 
             与多gpu训练效果基本一致的. 
             在不使用BN的情况下, 与batch_size*n_accumulate_grad训练的效果基本一致. 
             note: 因为会改变optimizer_step()调用的频率. 所以适当调整optimizer_step()中调用的lr_scheduler的参数. (e.g. warmup, T_max等)
-            note: 由于梯度累加造成的梯度增大, 可能对gradient_clip_norm, optim中的weight_decay的设置具有影响. 
         amp: 是否使用混合精度训练. 
             作用: 加快训练速度, 减少显存消耗. 略微(或不)下降性能 (因为可以提高batch size). 
+            note: 建议在大型/超大型模型中使用. 小模型并不会加快训练速度. (有些环境可能不支持amp, 若训练出现nan, 请使amp=False)
         log_every_n_steps: 几步需要将信息log入tensorboard. 使用global_step % log_every_n_steps. 
             这不会修改prog_bar(进度条)的显示(每个step都会更新). 
         prog_bar_n_steps: 进度条的显示的频率. 使用batch_idx % prog_bar_n_steps
@@ -216,7 +220,9 @@ class Trainer:
         """
         self.lmodel = lmodel
         self.lmodel.trainer = self
-        self.device = Device(device) if isinstance(device, str) else device
+        self.device = select_device(device)
+        if len(device) > 1:
+            lmodel.model = DataParallel(lmodel.model)
         self.max_epochs = max_epochs
         self.n_accumulate_grad = n_accumulate_grad
         self.amp = amp
@@ -224,8 +230,9 @@ class Trainer:
         self.prog_bar_n_steps = prog_bar_n_steps
         self.gradient_clip_norm = gradient_clip_norm
         #
-        time = datetime.datetime.now().strftime("%Y-%m-%d:%H:%M:%S.%f")
-        runs_dir = os.path.join(runs_dir, time)
+        time = datetime.datetime.now().strftime("%Y:%m:%d-%H:%M:%S.%f")
+        v = self._get_version(runs_dir)
+        runs_dir = os.path.join(runs_dir, f"v{v}-{time}")
         logger.info(f"runs_dir: {runs_dir}")
         self.ckpt_dir = os.path.join(runs_dir, "checkpoints")
         self.tb_dir = os.path.join(
@@ -244,6 +251,7 @@ class Trainer:
         self.logger = SummaryWriter(self.tb_dir)
         self.scaler = GradScaler(enabled=amp)
         self.best_metrics = -1e10  # model save
+        self.best_epoch_idx: int = None
         self.best_ckpt_path: str = None
         self.last_ckpt_path: str = None
         self.global_step = 0
@@ -254,6 +262,18 @@ class Trainer:
         # 用于log. 含义见LModule.log
         self.new_mes: Dict[str, float] = {}
         self.prog_bar_mean = {}
+
+    @staticmethod
+    def _get_version(runs_dir):
+        fnames = os.listdir(runs_dir)
+        v_list = [-1]
+        for fname in fnames:
+            m = re.match(r"v(\d+)", fname)
+            if m is None:
+                continue
+            v = m.group(1)
+            v_list.append(int(v))
+        return max(v_list) + 1
 
     def check_hparams(self, hparams: Any) -> Any:
         # 只支持List, Dict, int, float, str
@@ -309,6 +329,7 @@ class Trainer:
             self.best_metrics = metric
             ckpt_fname = f"best-epoch={self.global_epoch}-metrics={metric}.ckpt"
             self.best_ckpt_path = os.path.join(ckpt_dir, ckpt_fname)
+            self.best_epoch_idx = self.global_epoch
             self.lmodel.save_checkpoint(self.best_ckpt_path)
             print(f"- best model, saving model `{ckpt_fname}`")
             is_best = True
@@ -353,8 +374,9 @@ class Trainer:
                 self.global_step += 1
                 batch = lmodel.batch_to_device(batch, self.device)
                 self.new_mes.clear()
-                with autocast(enabled=self.amp):
+                with autocast(device_type=self.device.type, enabled=self.amp):
                     loss = lmodel.training_step(batch)
+                    loss.div_(self.n_accumulate_grad)
                 # log
                 # log lr
                 for i, lr in enumerate([group['lr'] for group in lmodel.optimizer.param_groups]):
@@ -368,6 +390,7 @@ class Trainer:
                 # 优化
                 if self.global_step % self.n_accumulate_grad == 0:
                     if self.gradient_clip_norm is not None:
+                        # grad裁剪需要下面这行.
                         scaler.unscale_(lmodel.optimizer)
                         # amp=True的nan情况会自行调节scaler, error_if_nonfinite=False
                         clip_grad_norm_(
@@ -393,7 +416,7 @@ class Trainer:
     def _train(self, lmodel: LModule, train_dataloader: DataLoader, val_dataloader: DataLoader) -> Dict[str, float]:
         model = lmodel.model
         print_model_info(model, None)
-        best_mes = {}
+        best_mes: Dict[str, float] = {}
         for _ in range(self.global_epoch + 1, self.max_epochs):
             self.global_epoch += 1
             mes = self._train_epoch(lmodel, train_dataloader)
@@ -441,13 +464,14 @@ class Trainer:
         return metrics / len(dataloader), mes
 
     @ torch.no_grad()
-    def _test(self, lmodel: LModule, dataloader: DataLoader, *, desc="Test: ") -> Dict[str, float]:
+    def _test(self, lmodel: LModule, dataloader: DataLoader, *, model_type: Literal["last", "best"] = "last") -> Dict[str, float]:
         model = lmodel.model
         #
         model.eval()
         model.to(self.device)
         #
         mes = {}  # sum stat
+        desc = "Test Last: " if model_type == "last" else "Test Best: "
         with tqdm(total=len(dataloader), desc=desc) as prog_bar:
             for batch_idx, batch in enumerate(dataloader):
                 batch = lmodel.batch_to_device(batch, self.device)
@@ -463,7 +487,9 @@ class Trainer:
                     prog_bar.update(self.prog_bar_n_steps)
             prog_bar.update(prog_bar.total - prog_bar.n)
         self._sum_to_mean(mes, len(dataloader), inplace=True)
-        self._logger_add_scalars(mes, self.global_epoch)
+        epoch_idx = self.global_epoch if model_type == "last" else self.best_epoch_idx
+        # 要先前再后, 不然会覆盖.
+        self._logger_add_scalars(mes, epoch_idx)
         return mes
 
     def fit(self, train_dataloader: DataLoader, val_dataloader: DataLoader) -> Dict[str, float]:
@@ -485,21 +511,19 @@ class Trainer:
 
     def test(self, dataloader: DataLoader) -> Dict[str, float]:
         """返回best, last model的test的log信息"""
-        # 测试last, best.
-        # test "last"
-        device_r = next(self.lmodel.model.parameters()).device
-        #
-        mes = self._test(self.lmodel, dataloader, desc="Test Last: ")
-        mes = self.key_add_suffix(mes, "_last")
         # test "best"
+        mes = {}
+        device_r = next(self.lmodel.model.parameters()).device
         if self.best_ckpt_path is not None:  # 复原
             assert self.last_ckpt_path is not None  # 一般都满足
             self.lmodel.load_from_checkpoint(self.best_ckpt_path)
-            mes2 = self._test(self.lmodel, dataloader, desc="Test Best: ")
-            mes2 = self.key_add_suffix(mes2, "_best")
-            mes.update(mes2)
+            mes = self._test(self.lmodel, dataloader, model_type="best")
+            mes = self.key_add_suffix(mes, "_best")
             self.lmodel.load_from_checkpoint(self.last_ckpt_path)
-        #
+        # test "last"
+        mes2 = self._test(self.lmodel, dataloader, model_type="last")
+        mes2 = self.key_add_suffix(mes2, "_last")
+        mes.update(mes2)
         self.lmodel.model.to(device_r)
         return mes
 
@@ -515,6 +539,7 @@ if __name__ == "__main__":
         from metrics import accuracy_score
         from utils import seed_everything
     #
+    logging.basicConfig(level=logging.INFO, format="[%(levelname)s: %(filename)s:%(lineno)d] %(message)s ")  
     seed_everything(2)
     train_dataset = XORDataset(512)
     val_dataset = XORDataset(256)
@@ -566,6 +591,6 @@ if __name__ == "__main__":
     lr_s = MultiStepLR(optimizer, [10, 50], 0.1)
     lmodel = MyLModule(model, optimizer, loss_fn, lr_s)
     #
-    trainer = Trainer(lmodel, 'cuda', 100, runs_dir)
+    trainer = Trainer(lmodel, [], 100, runs_dir)
     logger.info(trainer.fit(ldm.train_dataloader, ldm.val_dataloader))
     logger.info(trainer.test(ldm.test_dataloader))

@@ -26,9 +26,7 @@ os.makedirs(DATASETS_PATH, exist_ok=True)
 os.makedirs(CHECKPOINTS_PATH, exist_ok=True)
 
 #
-device = torch.device(
-    "cpu") if not torch.cuda.is_available() else torch.device("cuda")
-logger.info(f"Using device: {device}")
+device = [0]
 
 
 class DQN(nn.Module):
