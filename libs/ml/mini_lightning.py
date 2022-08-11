@@ -21,7 +21,7 @@ import yaml
 from torch.nn.utils.clip_grad import clip_grad_norm_
 import logging
 from torch.cuda.amp.grad_scaler import GradScaler
-from torch import autocast
+from torch.amp.autocast_mode import autocast
 from torch.nn.parallel import DataParallel
 import re
 
@@ -203,6 +203,7 @@ class Trainer:
         """
         device: 若传入多个device, 则使用DP. (暂时不支持DDP). 
             e.g. []: 代表"cpu", [0], [0, 1, 2]
+            note: 推荐在大型/超大型模型中使用. 小模型并不会加快训练速度. (瓶颈在gpu之间的通信)
         n_accumulate_grad: 梯度累加. 使用mean累加, 而不是sum. 
             (使用sum可能会对weight_decay, gradient_clip_norm的取值产生影响)
             与多gpu训练效果基本一致的. 
@@ -211,7 +212,7 @@ class Trainer:
             note: 增大了total_batch_size可以适当增加学习率
         amp: 是否使用混合精度训练. 
             作用: 加快训练速度, 减少显存消耗. 略微(或不)下降性能 (因为可以提高batch size). 
-            note: 建议在大型/超大型模型中使用. 小模型并不会加快训练速度. (有些环境可能不支持amp)
+            note: 推荐在大型/超大型模型中使用. 小模型并不会加快训练速度. (有些环境可能不支持amp)
         log_every_n_steps: 几步需要将信息log入tensorboard. 使用global_step % log_every_n_steps. 
             这不会修改prog_bar(进度条)的显示(每个step都会更新). 
         prog_bar_n_steps: 进度条的显示的频率
@@ -588,7 +589,7 @@ if __name__ == "__main__":
     RUNS_DIR = os.path.join(_ROOT_DIR, "runs")
     os.makedirs(RUNS_DIR, exist_ok=True)
     #
-    runs_dir = os.path.join(RUNS_DIR, "test_mini_pl")
+    runs_dir = os.path.join(RUNS_DIR, "test_mini_lightning")
     loss_fn = nn.BCEWithLogitsLoss()
     lr_s = MultiStepLR(optimizer, [10, 50], 0.1)
     lmodel = MyLModule(model, optimizer, loss_fn, lr_s)
