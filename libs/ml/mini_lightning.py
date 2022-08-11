@@ -237,6 +237,7 @@ class Trainer:
         v = self._get_version(runs_dir)
         runs_dir = os.path.join(runs_dir, f"v{v}-{time}")
         logger.info(f"runs_dir: {runs_dir}")
+        # 
         self.ckpt_dir = os.path.join(runs_dir, "checkpoints")
         self.tb_dir = os.path.join(
             runs_dir, "runs")  # tensorboard
@@ -268,7 +269,10 @@ class Trainer:
 
     @staticmethod
     def _get_version(runs_dir):
-        fnames = os.listdir(runs_dir)
+        if os.path.isdir(runs_dir):
+            fnames = os.listdir(runs_dir)
+        else:
+            fnames = []
         v_list = [-1]
         for fname in fnames:
             m = re.match(r"v(\d+)", fname)
