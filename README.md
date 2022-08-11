@@ -17,9 +17,11 @@
    1. 其中`_nn_functional.py`实现torch.nn.functional包中的算法. libtorch(c++)版本见: https://github.com/Jintao-Huang/alg_ac/tree/main/ml_libs
 5. `libs/ml/lrs.py`: warmup的实现
 6. `libs/ml/metrics.py`: ml的metrics的torch实现
-7. `libs/ml/mini_pl.py`: pytorch-lightning的mini版本(更快, 更简洁)
+7. `libs/ml/mini_pl.py`: mini-lightning
+   1. pytorch-lightning的mini版本(更快, 更简洁, 更灵活). 
+   2. 支持amp, dp, 梯度累加, warmup, lr_scheduler, 梯度裁剪, tensorboard, 模型和超参数和结果保存等.
 8. `libs/ml/visualize.py`: 可视化函数的集成(含tensorboard smoothing算法)
-9. `libs/ml/utils.py`: ml中的工具函数
+9.  `libs/ml/utils.py`: ml中的工具函数
 10. `examples/*`: 一些例子. 包括cv, nlp, dqn. 
 11. 其他文件没啥用(特别是`_`开头的文件.). 
 

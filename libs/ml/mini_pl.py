@@ -204,16 +204,18 @@ class Trainer:
         device: 若传入多个device, 则使用DP. (暂时不支持DDP). 
             e.g. []: 代表"cpu", [0], [0, 1, 2]
         n_accumulate_grad: 梯度累加. 使用mean累加, 而不是sum. 
+            (使用sum可能会对weight_decay, gradient_clip_norm的取值产生影响)
             与多gpu训练效果基本一致的. 
             在不使用BN的情况下, 与batch_size*n_accumulate_grad训练的效果基本一致. 
             note: 因为会改变optimizer_step()调用的频率. 所以适当调整optimizer_step()中调用的lr_scheduler的参数. (e.g. warmup, T_max等)
+            note: 增大了total_batch_size可以适当增加学习率
         amp: 是否使用混合精度训练. 
             作用: 加快训练速度, 减少显存消耗. 略微(或不)下降性能 (因为可以提高batch size). 
-            note: 建议在大型/超大型模型中使用. 小模型并不会加快训练速度. (有些环境可能不支持amp, 若训练出现nan, 请使amp=False)
+            note: 建议在大型/超大型模型中使用. 小模型并不会加快训练速度. (有些环境可能不支持amp)
         log_every_n_steps: 几步需要将信息log入tensorboard. 使用global_step % log_every_n_steps. 
             这不会修改prog_bar(进度条)的显示(每个step都会更新). 
-        prog_bar_n_steps: 进度条的显示的频率. 使用batch_idx % prog_bar_n_steps
-        gradient_clip_norm: 梯度裁剪, 防止梯度爆炸
+        prog_bar_n_steps: 进度条的显示的频率
+        gradient_clip_norm: 梯度裁剪, 防止梯度爆炸(INF, NAN)
         benchmark: https://pytorch.org/docs/stable/backends.html#torch.backends.cudnn.torch.backends.cudnn.benchmark
             Pytorch默认False. 该函数的benchmark行为与Pytorch Lightning行为一致 
             True: 可以加速训练, 但是会造成不可复现. 
