@@ -67,7 +67,7 @@ class MyLModule(libs_ml.LModule):
 
     def training_step(self, batch: Any) -> Tensor:
         # fit
-        # 返回的Tensor(loss)用于优化. 如果返回None, 则training_step内进行自定义optimizer_step.
+        # 返回的Tensor(loss)用于优化
         loss, acc = self._calculate_loss_acc(batch)
         self.log("train_loss", loss)
         self.log("train_acc", acc)
@@ -75,7 +75,6 @@ class MyLModule(libs_ml.LModule):
 
     def optimizer_step(self) -> None:
         super(MyLModule, self).optimizer_step()
-        self.log("lr0", self.lr_s.get_last_lr()[0], prog_bar_mean=False)
         self.lr_s.step()
 
     def validation_step(self, batch: Any) -> Union[Tensor, float]:
@@ -93,24 +92,28 @@ class MyLModule(libs_ml.LModule):
 
 
 if __name__ == "__main__":
+    max_epochs = 10
+    batch_size = 32
+    n_accumulate_grad = 4
     hparams = {
         "model_name": "resnet50",
         "model_hparams": {"num_classes": 10},
         "model_pretrain_model": {"url": tvm.ResNet50_Weights.DEFAULT.url},
         "dataloader_hparams": {"batch_size_train": 32, "num_workers": 4},
         "optim_name": "AdamW",
-        "optim_hparams": {"lr": 5e-5, "weight_decay": 1e-5},
-        "trainer_hparams": {"max_epochs": 10, "gradient_clip_norm": 5},
+        "optim_hparams": {"lr": 1e-4, "weight_decay": 1e-4},
+        "trainer_hparams": {"max_epochs": 10, "gradient_clip_norm": 5, "amp": False, "n_accumulate_grad": n_accumulate_grad},
         "lrs_hparams": {
-            "warmup": 500,
+            "warmup": 200,
             "T_max": ...,
             "eta_min": 1e-5
         }
     }
+    hparams["lrs_hparams"]["T_max"] = len(
+        train_dataset) // batch_size * max_epochs // n_accumulate_grad
+    #
     ldm = libs_ml.LDataModule(
         train_dataset, val_dataset, test_dataset, **hparams["dataloader_hparams"])
-    hparams["lrs_hparams"]["T_max"] = len(
-        ldm.train_dataloader) * hparams["trainer_hparams"]["max_epochs"]
 
     runs_dir = CHECKPOINTS_PATH
     loss_fn = nn.CrossEntropyLoss()

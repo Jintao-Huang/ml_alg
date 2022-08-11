@@ -54,7 +54,7 @@ class MyLModule(libs_ml.LModule):
 
     def training_step(self, batch: Any) -> Tensor:
         # fit
-        # 返回的Tensor(loss)用于优化. 如果返回None, 则training_step内进行自定义optimizer_step.
+        # 返回的Tensor(loss)用于优化
         loss, acc = self._calculate_loss_acc(batch)
         self.log("train_loss", loss)
         self.log("train_acc", acc)
@@ -62,7 +62,6 @@ class MyLModule(libs_ml.LModule):
 
     def optimizer_step(self) -> None:
         super(MyLModule, self).optimizer_step()
-        self.log("lr0", self.lr_s.get_last_lr()[0], prog_bar_mean=False)
         self.lr_s.step()
 
     def validation_step(self, batch: Any) -> Union[Tensor, float]:
@@ -81,22 +80,26 @@ class MyLModule(libs_ml.LModule):
 
 if __name__ == "__main__":
     libs_ml.seed_everything(42, gpu_dtm=False)
+    max_epochs = 5
+    batch_size = 32
+    n_accumulate_grad = 4
     hparams = {
         "model_name": model_name,
         "optim_name": "AdamW",
-        "dataloader_hparams": {"batch_size_train": 32, "num_workers": 4, "collate_fn": collate_fn},
-        "optim_hparams": {"lr": 5e-5, "weight_decay": 1e-5},  #
-        "trainer_hparams": {"max_epochs": 5, "gradient_clip_norm": 5},
+        "dataloader_hparams": {"batch_size_train": batch_size, "num_workers": 4, "collate_fn": collate_fn},
+        "optim_hparams": {"lr": 5e-5, "weight_decay": 1e-4},  #
+        "trainer_hparams": {"max_epochs": max_epochs, "gradient_clip_norm": 5, "amp": True, "n_accumulate_grad": n_accumulate_grad},
         "lrs_hparams": {
-            "warmup": 100,
-            "T_max": ..., 
+            "warmup": 50,
+            "T_max": ...,
             "eta_min": 1e-5
         }
     }
+    hparams["lrs_hparams"]["T_max"] = len(
+        dataset["train"]) // batch_size * max_epochs // n_accumulate_grad
+    #
     ldm = libs_ml.LDataModule(
         dataset["train"], dataset["validation"], dataset["test"], **hparams["dataloader_hparams"])
-    hparams["lrs_hparams"]["T_max"] = len(
-        ldm.train_dataloader) * hparams["trainer_hparams"]["max_epochs"]
     #
     model = AutoModelForSequenceClassification.from_pretrained(model_name)
     optimizer = getattr(optim, hparams["optim_name"])(

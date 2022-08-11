@@ -71,6 +71,8 @@ from transformers.pipelines import pipeline
 from transformers.models.auto.modeling_auto import AutoModel, AutoModelForSequenceClassification
 from transformers.models.auto.tokenization_auto import AutoTokenizer
 from transformers.data.data_collator import DataCollatorWithPadding
+from transformers.tokenization_utils_base import PreTrainedTokenizerBase
+from transformers.modeling_utils import PreTrainedModel
 from datasets.load import load_dataset, load_metric
 #
 import gym
@@ -79,4 +81,4 @@ from gym import Env
 from . import utils as libs_utils
 from . import ml as libs_ml
 # logging.basicConfig(level=logging.INFO, format="[%(levelname)s: %(asctime)s - %(pathname)s:%(lineno)d] \n  %(message)s ")  
-logging.basicConfig(level=logging.INFO, format="[%(levelname)s: %(asctime)s - %(filename)s:%(lineno)d] %(message)s ")  
+logging.basicConfig(level=logging.INFO, format="[%(levelname)s: %(filename)s:%(lineno)d] %(message)s ")  

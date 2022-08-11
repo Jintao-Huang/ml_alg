@@ -1,4 +1,6 @@
-
+# Author: Jintao Huang
+# Email: hjt_study@qq.com
+# Date:
 
 from typing import List, Literal, Dict, Tuple, Union
 from torch import Tensor
@@ -16,13 +18,14 @@ BPW: LM的metrics, 越低越好.
 BPC: LM的metrics, 越低越好.
 """
 
+
+__all__ = []
+
 if __name__ == "__main__":
     from torchmetrics.text.rouge import ROUGEScore
     import torchmetrics.functional.text.bleu as bleu
     import torchmetrics.functional.text.rouge as rouge
     from pprint import pprint
-
-__all__ = []
 
 
 def _create_ngrams(tokens: List[str], n: int) -> Counter[Tuple[str, ...]]:

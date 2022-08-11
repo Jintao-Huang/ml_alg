@@ -2,9 +2,9 @@
 # Email: hjt_study@qq.com
 # Date:
 try:
-    from .cv import print_model_info
+    from .utils import print_model_info
 except ImportError:
-    from cv import print_model_info
+    from utils import print_model_info
 import torch
 from torch import device as Device, Tensor
 from torch.utils.tensorboard.writer import SummaryWriter
@@ -20,10 +20,13 @@ import datetime
 import yaml
 from torch.nn.utils.clip_grad import clip_grad_norm_
 import logging
+from torch.cuda.amp.grad_scaler import GradScaler
+from torch.cuda.amp.autocast_mode import autocast
 
 logger = logging.getLogger(__name__)
 
-# 未来会添加的功能: 多GPU, 混合精度训练. 断点续训. 梯度累加
+# 未来会添加的功能: 多GPU, 断点续训
+#   暂时取消对GAN的支持.
 # 约定: epoch_idx/global_epoch, batch_idx从0开始. global_step从1开始.
 __all__ = ["LModule", "LDataModule", "Trainer"]
 
@@ -32,7 +35,7 @@ class LModule:
     def __init__(self, model: Module, optimizer: Optimizer,
                  hparams: Optional[Dict[str, Any]] = None) -> None:
         """hparams: 需要保存的超参数. """
-        # 一般: 定义损失函数, 学习率管理器. (优化器, 模型)
+        # 一般: 定义loss_fn, lrs. (optim, model)
         self.model = model
         self.optimizer = optimizer
         self.hparams: Dict[str, Any] = hparams if hparams is not None else {}
@@ -53,7 +56,7 @@ class LModule:
         return self.trainer.device if self.trainer is not None else None
 
     def log(self, k: str, v: Union[Tensor, float], *, prog_bar_mean=True) -> None:
-        """
+        """只在training_step, validation_step, test_step函数中log才有效. 
         prog_bar_mean: 在prog_bar中显示的是整个epoch的均值. (一般loss, acc用均值. lr不用均值)
         """
         # 如何log. 我们调用lmodule的log, 将信息存储在lmodule中
@@ -87,8 +90,6 @@ class LModule:
 
     def training_epoch_end(self) -> None:
         # [fit]用于lr_schedules的处理
-        # 这里log的信息不会出现在prog_bar中(但会在tensorboard中).
-        # log要在lrs.step之前
         pass
 
     def _batch_to_device(self, batch: Any, device: Device) -> Any:
@@ -122,14 +123,13 @@ class LModule:
 
     def optimizer_step(self) -> None:
         # [train]. 用于optimizer, lr_schedules的处理.
-        # log要在lrs.step之前. optimizer.step要在lrs.step之前.
-        # 已过optimizer.zero_grad, loss.backward
-        self.optimizer.step()
+        # 已过loss.backward
+        # note: amp导致的不优化情况(e.g. grad中含nan), 会导致lrs的UserWarning警告.
+        self.trainer.scaler.step(self.optimizer)
 
     def training_step(self, batch: Any) -> Tensor:
         # [train]
-        # 返回的Tensor(loss)用于优化. 如果返回None, 则training_step内进行自定义optimizer_step.
-        #   此设计用于: GAN
+        # 返回的Tensor(loss)用于优化
         raise NotImplementedError
 
     def validation_step(self, batch: Any) -> Union[Tensor, float]:
@@ -195,9 +195,17 @@ class LDataModule:
 
 class Trainer:
     def __init__(self, lmodel: LModule, device: Union[str, Device], max_epochs: int, runs_dir: str, *,
-                 log_every_n_steps: int = 5, prog_bar_n_steps: int = 10,
+                 n_accumulate_grad: int = 1, amp: bool = False,
+                 log_every_n_steps: int = 5, prog_bar_n_steps: int = 1,
                  gradient_clip_norm: Optional[float] = None, benchmark: Optional[bool] = None) -> None:
         """
+        n_accumulate_grad: 梯度累加. 使用sum累加, 而不是mean. 
+            与多gpu训练效果基本一致的. 
+            在不使用BN的情况下, 与batch_size*n_accumulate_grad训练的效果基本一致. 
+            note: 因为会改变optimizer_step()调用的频率. 所以适当调整optimizer_step()中调用的lr_scheduler的参数. (e.g. warmup, T_max等)
+            note: 由于梯度累加造成的梯度增大, 可能对gradient_clip_norm, optim中的weight_decay的设置具有影响. 
+        amp: 是否使用混合精度训练. 
+            作用: 加快训练速度, 减少显存消耗. 略微(或不)下降性能 (因为可以提高batch size). 
         log_every_n_steps: 几步需要将信息log入tensorboard. 使用global_step % log_every_n_steps. 
             这不会修改prog_bar(进度条)的显示(每个step都会更新). 
         prog_bar_n_steps: 进度条的显示的频率. 使用batch_idx % prog_bar_n_steps
@@ -210,12 +218,13 @@ class Trainer:
         self.lmodel.trainer = self
         self.device = Device(device) if isinstance(device, str) else device
         self.max_epochs = max_epochs
+        self.n_accumulate_grad = n_accumulate_grad
+        self.amp = amp
         self.log_every_n_steps = log_every_n_steps
         self.prog_bar_n_steps = prog_bar_n_steps
         self.gradient_clip_norm = gradient_clip_norm
-
         #
-        time = datetime.datetime.now().strftime("%Y:%m:%d-%H:%M:%S.%f")
+        time = datetime.datetime.now().strftime("%Y-%m-%d:%H:%M:%S.%f")
         runs_dir = os.path.join(runs_dir, time)
         logger.info(f"runs_dir: {runs_dir}")
         self.ckpt_dir = os.path.join(runs_dir, "checkpoints")
@@ -233,6 +242,7 @@ class Trainer:
             if torch.backends.cudnn.deterministic else benchmark
         #
         self.logger = SummaryWriter(self.tb_dir)
+        self.scaler = GradScaler(enabled=amp)
         self.best_metrics = -1e10  # model save
         self.best_ckpt_path: str = None
         self.last_ckpt_path: str = None
@@ -333,43 +343,51 @@ class Trainer:
     def _train_epoch(self, lmodel: LModule, dataloader: DataLoader) -> Dict[str, float]:
         model = lmodel.model
         lmodel.training_epoch_start()
+        scaler = self.scaler
         #
         mes = {}
         #
-        with tqdm(total=len(dataloader),
+        with tqdm(total=len(dataloader) // self.n_accumulate_grad,
                   desc=f"Epoch {self.global_epoch}") as prog_bar:
             for batch_idx, batch in enumerate(dataloader):
                 self.global_step += 1
-                self.new_mes.clear()
                 batch = lmodel.batch_to_device(batch, self.device)
-                loss = lmodel.training_step(batch)
-                if loss is not None:
-                    # set_to_none可以增加时间/内存性能. 该行为与Pytorch Lightning默认行为不一致
-                    lmodel.optimizer.zero_grad(set_to_none=True)
-                    loss.backward()
-                    if self.gradient_clip_norm is not None:
-                        clip_grad_norm_(
-                            model.parameters(), max_norm=self.gradient_clip_norm, error_if_nonfinite=True)
-                    lmodel.optimizer_step()
-                #
+                self.new_mes.clear()
+                with autocast(enabled=self.amp):
+                    loss = lmodel.training_step(batch)
+                # log
+                # log lr
+                for i, lr in enumerate([group['lr'] for group in lmodel.optimizer.param_groups]):
+                    lmodel.log(f"lr{i}", lr, prog_bar_mean=False)
                 self._add_new_mes(mes, self.new_mes)
                 # tensorboard
                 if self.global_step % self.log_every_n_steps == 0:
                     self._logger_add_scalars(self.new_mes, self.global_step)
                 #
-                mean_mes = self._sum_to_mean(mes, batch_idx + 1)
-                log_mes = self._get_log_mes(
-                    mean_mes, self.new_mes, self.prog_bar_mean)
-                prog_bar.set_postfix(log_mes, refresh=False)
-                if (batch_idx + 1) % self.prog_bar_n_steps == 0:
-                    prog_bar.update(self.prog_bar_n_steps)
+                scaler.scale(loss).backward()
+                # 优化
+                if self.global_step % self.n_accumulate_grad == 0:
+                    if self.gradient_clip_norm is not None:
+                        scaler.unscale_(lmodel.optimizer)
+                        # amp=True的nan情况会自行调节scaler, error_if_nonfinite=False
+                        clip_grad_norm_(
+                            model.parameters(), max_norm=self.gradient_clip_norm, error_if_nonfinite=not self.amp)
+                    lmodel.optimizer_step()
+                    scaler.update()
+                    # set_to_none可以增加时间/内存性能. 该行为与Pytorch Lightning默认行为不一致
+                    lmodel.optimizer.zero_grad(set_to_none=True)
+                    #
+                    mean_mes = self._sum_to_mean(mes, batch_idx + 1)
+                    log_mes = self._get_log_mes(
+                        mean_mes, self.new_mes, self.prog_bar_mean)
+                    prog_bar.set_postfix(log_mes, refresh=False)
+                    if (batch_idx + 1) // self.n_accumulate_grad % self.prog_bar_n_steps == 0:
+                        prog_bar.update(self.prog_bar_n_steps)
+
             prog_bar.update(prog_bar.total - prog_bar.n)
         self._sum_to_mean(mes, len(dataloader), inplace=True)
         # 后处理
-        self.new_mes.clear()
         lmodel.training_epoch_end()
-        self._logger_add_scalars(self.new_mes, self.global_epoch)
-        mes.update(self.new_mes)
         return mes
 
     def _train(self, lmodel: LModule, train_dataloader: DataLoader, val_dataloader: DataLoader) -> Dict[str, float]:
@@ -405,8 +423,8 @@ class Trainer:
         mes = {}
         with tqdm(total=len(dataloader), desc="  Val: ") as prog_bar:
             for batch_idx, batch in enumerate(dataloader):
-                self.new_mes.clear()
                 batch = lmodel.batch_to_device(batch, self.device)
+                self.new_mes.clear()
                 _m = lmodel.validation_step(batch)
                 metrics += _m.item() if isinstance(_m, Tensor) else _m
                 self._add_new_mes(mes, self.new_mes)
@@ -423,17 +441,17 @@ class Trainer:
         return metrics / len(dataloader), mes
 
     @ torch.no_grad()
-    def _test(self, lmodel: LModule, dataloader: DataLoader) -> Dict[str, float]:
+    def _test(self, lmodel: LModule, dataloader: DataLoader, *, desc="Test: ") -> Dict[str, float]:
         model = lmodel.model
         #
         model.eval()
         model.to(self.device)
         #
         mes = {}  # sum stat
-        with tqdm(total=len(dataloader), desc="Test: ") as prog_bar:
+        with tqdm(total=len(dataloader), desc=desc) as prog_bar:
             for batch_idx, batch in enumerate(dataloader):
-                self.new_mes.clear()
                 batch = lmodel.batch_to_device(batch, self.device)
+                self.new_mes.clear()
                 lmodel.test_step(batch)
                 self._add_new_mes(mes, self.new_mes)  # LModule.log的内容
                 #
@@ -467,17 +485,17 @@ class Trainer:
 
     def test(self, dataloader: DataLoader) -> Dict[str, float]:
         """返回best, last model的test的log信息"""
-        # 测试"best" and "last"的model
+        # 测试last, best.
         # test "last"
         device_r = next(self.lmodel.model.parameters()).device
         #
-        mes = self._test(self.lmodel, dataloader)
+        mes = self._test(self.lmodel, dataloader, desc="Test Last: ")
         mes = self.key_add_suffix(mes, "_last")
         # test "best"
         if self.best_ckpt_path is not None:  # 复原
             assert self.last_ckpt_path is not None  # 一般都满足
             self.lmodel.load_from_checkpoint(self.best_ckpt_path)
-            mes2 = self._test(self.lmodel, dataloader)
+            mes2 = self._test(self.lmodel, dataloader, desc="Test Best: ")
             mes2 = self.key_add_suffix(mes2, "_best")
             mes.update(mes2)
             self.lmodel.load_from_checkpoint(self.last_ckpt_path)
@@ -497,7 +515,7 @@ if __name__ == "__main__":
         from metrics import accuracy_score
         from utils import seed_everything
     #
-    seed_everything(4)
+    seed_everything(2)
     train_dataset = XORDataset(512)
     val_dataset = XORDataset(256)
     test_dataset = XORDataset(256)
@@ -513,9 +531,8 @@ if __name__ == "__main__":
             self.loss_fn = loss_fn
             self.lr_s = lr_s
 
-        def epoch_end(self) -> None:
+        def training_epoch_end(self) -> None:
             # fit. 用于lr_schedules的处理
-            self.log("lr0", self.lr_s.get_last_lr()[0])
             self.lr_s.step()
 
         def training_step(self, batch: Any) -> Tensor:

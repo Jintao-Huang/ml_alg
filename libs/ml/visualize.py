@@ -25,7 +25,7 @@ __all__ = ["bincount", "plot_classification_map", "visualize_samples",
 
 def bincount(x: ndarray, n_bin: int = None, step: int = None,
                   min_: int = None, max_: int = None,
-                  show: bool = True) -> ndarray:
+                  show: bool = False) -> ndarray:
     """for debug. 
     n_bin, step必须提供一个参数. n_bin表示桶的个数, step表示bin的宽度. 
     """

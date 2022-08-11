@@ -30,6 +30,7 @@ device = torch.device(
     "cpu") if not torch.cuda.is_available() else torch.device("cuda")
 logger.info(f"Using device: {device}")
 
+
 class DQN(nn.Module):
     def __init__(self, obs_size: int, n_actions: int, hidden_size: int = 128):
         super(DQN, self).__init__()
@@ -135,7 +136,7 @@ class MyLModule(libs_ml.LModule):
         super(MyLModule, self).__init__(model, optim, hparams)
         # 一般: 定义损失函数, 学习率管理器. (优化器, 模型)
         # self.optim, self.model
-        # 模型训练会使用new_model和old_model. 在计算next_state的reward预测使用old_model. 
+        # 模型训练会使用new_model和old_model. 在计算next_state的reward预测使用old_model.
         #   探索和训练使用new_model. 原因是: 消除关联性. 每sync_steps步, 进行同步
         self.old_model = deepcopy(self.model)
         self.loss_fn = loss_fn
@@ -184,7 +185,7 @@ class MyLModule(libs_ml.LModule):
 
     def training_step(self, batch: Any) -> Tensor:
         # fit
-        # 返回的Tensor(loss)用于优化. 如果返回None, 则training_step内进行自定义optimizer_step.
+        # 返回的Tensor(loss)用于优化
         if self.global_step % self.sync_steps == 0:
             # load_state_dict是copy
             self.old_model.load_state_dict(self.model.state_dict())

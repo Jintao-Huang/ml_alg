@@ -1,3 +1,7 @@
+# Author: Jintao Huang
+# Email: hjt_study@qq.com
+# Date:
+
 import torch
 from typing import Tuple, Union
 import numpy as np
