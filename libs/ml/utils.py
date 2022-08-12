@@ -30,19 +30,22 @@ __all__ = ["select_device", "split_dataset", "stat",
            "label_smoothing_cross_entropy", "fuse_conv_bn", "fuse_linear_bn"]
 
 
-def select_device(device_list: List[int]) -> Device:
+def select_device(device_ids: List[int]) -> Device:
     """
     device: e.g. []: 代表"cpu", [0], [0, 1, 2]
     """
-    logger.info(f"Using device: {device_list}")
-    if len(device_list) == 0:
+    log_s = "Using device: "
+    if len(device_ids) == 0:
         os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
         device: str = "cpu"
+        log_s += device
     else:
         os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(
-            [str(d) for d in device_list])
-        assert torch.cuda.is_available() and torch.cuda.device_count() >= len(device_list)
+            [str(d) for d in device_ids])
+        assert torch.cuda.is_available() and torch.cuda.device_count() >= len(device_ids)
+        log_s += f"cuda:{','.join([str(d) for d in device_ids])}"  # e.g. "cuda:1,7,8"
         device = "cuda:0"
+    logger.info(log_s)
     return torch.device(device)
 
 
@@ -130,6 +133,9 @@ def seed_everything(seed: Optional[int] = None, gpu_dtm: bool = False) -> int:
         # True: cuDNN从多个卷积算法中进行benchmark, 选择最快的
         # 若deterministic=True, 则benchmark一定为False
         torch.backends.cudnn.benchmark = False
+        logger.info(
+            f"Setting deterministic: {True}, benchmark: {False}")
+
     logger.info(f"Global seed set to {seed}")
     return seed
 
@@ -235,17 +241,21 @@ def freeze_layers(model: Module, layer_prefix_names: List[str]) -> None:
 
 
 def print_model_info(model: Module, inputs: Optional[Tuple[Any, ...]] = None) -> None:
+    n_layers = len(list(model.modules()))
     n_params = sum(p.numel() for p in model.parameters())
     n_grads = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    n_buffers = sum(p.numel() for p in model.buffers())
     # FLOPs
     #
     n_params /= 1e6
     n_grads /= 1e6
+    n_buffers /= 1e6
     s = [
         f"{model.__class__.__name__}: ",
-        f"{len(list(model.modules()))} layers, ",
-        f"{n_params:.4f}M parameters, ",
-        f"{n_grads:.4f}M grads",
+        f"{n_layers} Layers, ",
+        f"{n_params:.4f}M Params, ",
+        f"{n_grads:.4f}M Grads, ",  # Trainable Params(no freeze)
+        f"{n_buffers:.4f}M Buffers",
     ]
     if inputs is not None:
         from thop import profile
@@ -253,7 +263,7 @@ def print_model_info(model: Module, inputs: Optional[Tuple[Any, ...]] = None) ->
         flops = macs * 2
         flops /= 1e9
         s += f", {flops:.4f}G FLOPs"
-
+    s += '.'
     logger.info("".join(s))
 
 

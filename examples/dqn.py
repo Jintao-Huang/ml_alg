@@ -210,7 +210,7 @@ if __name__ == "__main__":
         "optim_name": "AdamW",
         "dataloader_hparams": {"batch_size_train": 32},
         "optim_hparams": {"lr": 1e-2, "weight_decay": 1e-5},  #
-        "trainer_hparams": {"max_epochs": 10, "gradient_clip_norm": 5},
+        "trainer_hparams": {"max_epochs": 10, "gradient_clip_norm": 100},
         #
         "rand_p": {
             "eta_max": 1,

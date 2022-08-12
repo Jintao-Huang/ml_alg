@@ -100,7 +100,12 @@ if __name__ == "__main__":
         "dataloader_hparams": {"batch_size_train": batch_size, "num_workers": 4},
         "optim_name": "AdamW",
         "optim_hparams": {"lr": 1e-4, "weight_decay": 1e-4},
-        "trainer_hparams": {"max_epochs": max_epochs, "gradient_clip_norm": 5, "amp": True, "n_accumulate_grad": n_accumulate_grad},
+        "trainer_hparams": {
+            "max_epochs": max_epochs, 
+            "gradient_clip_norm": 20, 
+            "amp": True, 
+            "n_accumulate_grad": n_accumulate_grad
+        },
         "lrs_hparams": {
             "warmup": 100,
             "T_max": ...,

@@ -11,12 +11,12 @@
 
 
 ## 文件功能介绍
-1. `libs/utils/*`: 一些工具函数的库.
+1. `libs/utils/*`: 一些工具函数的实现
 2. `libs/ml/cv/*`: CV中常用的工具函数
 3. `libs/ml/nlp/*`: NLP中常用的工具函数
 4. `libs/ml/ml_alg/*`: 机器学习中的算法实现(没啥实用性, 学习用)
    1. 其中`_nn_functional.py`实现torch.nn.functional包中的算法. libtorch(c++)版本见: https://github.com/Jintao-Huang/alg_ac/tree/main/ml_libs
-5. `libs/ml/lrs.py`: warmup的实现
+5. `libs/ml/lrs.py`: lr_scheduler, warmup的实现
 6. `libs/ml/metrics.py`: ml的metrics的torch实现
 7. `libs/ml/mini_lightning.py`: mini-lightning
    1. pytorch-lightning的mini版本(更快, 更简洁, 更灵活). 

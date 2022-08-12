@@ -78,7 +78,7 @@ class WarmupCosineAnnealingLR(_CosineAnnealingLR):
         # lr_s.step()含两部分: self.last_epoch += 1; get_lr()
         lrs = super(WarmupCosineAnnealingLR, self).get_lr()
         scale = 1
-        if self.last_epoch <= self.warmup:
+        if self.last_epoch < self.warmup:
             scale = self.last_epoch / self.warmup
         return [lr * scale for lr in lrs]
 
@@ -97,7 +97,7 @@ class WarmupCosineAnnealingLR2(_CosineAnnealingLR):
 
     def get_lr(self) -> List[float]:
         last_epoch = self.last_epoch
-        if last_epoch <= self.warmup:
+        if last_epoch < self.warmup:
             scale = last_epoch / self.warmup  # k=1/self.warmup
             return [lr * scale for lr in self.base_lrs]
         lrs = super(WarmupCosineAnnealingLR2, self).get_lr(
