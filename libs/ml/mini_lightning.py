@@ -149,18 +149,6 @@ class LModule:
         raise NotImplementedError
 
 
-# if __name__ == "__main__":
-#     x = {"tensor": torch.tensor([1, 2]), 0: [
-#         torch.tensor([1, 2]), (torch.tensor([1]),)]}
-#     print(LModule(None, None)._batch_to_device(x, Device('cuda')))
-#     try:
-#         x[0].append(1)
-#         print(LModule(None, None)._batch_to_device(x, Device('cuda')))
-#     except TypeError as e:
-#         print(e)
-#     exit(0)
-
-
 class LDataModule:
     # @staticmethod
     # def default_collate_fn(batch: List[Any]) -> Tuple[Tensor]:
@@ -290,7 +278,7 @@ class Trainer:
         self.save_hparams(hparams)
         # 用于log. 含义见LModule.log
         self.new_mes: Dict[str, float] = {}
-        self.prog_bar_mean = {}
+        self.prog_bar_mean: Dict[str, bool] = {}
         # 用于梯度裁剪中, 对于found_inf的处理. 跳过本次更新. (amp=True情况下不工作. amp会对inf进行处理.)
         self.found_inf = False
 
@@ -473,12 +461,12 @@ class Trainer:
                 #   不使用train_loss作为best_ckpt的原因: train_loss一定随着epoch增加而越来越小. 所以不需要.
                 metrics = None
             is_best = self._epoch_end(mes, metrics)  # 保存模型和results
+            mes.update({"global_epoch": self.global_epoch,
+                        "global_step": self.global_step})
             if is_best:
                 best_mes = mes
-                best_mes.update({"global_epoch": self.global_epoch,
-                                 "global_step": self.global_step})
         if not best_mes:
-            best_mes = mes
+            best_mes = mes  # last
         return best_mes
 
     @torch.no_grad()
