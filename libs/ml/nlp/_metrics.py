@@ -226,7 +226,9 @@ def perplexity(
 # if __name__ == "__main__":
 #     # bpw
 #     loss = -torch.log(torch.tensor(0.6))
-#     print(perplexity(loss))
+#     loss2 = -torch.log(torch.tensor(0.05))
+#     print(loss, perplexity(loss))
+#     print(loss2, perplexity(loss2))
 #     # bpc
 #     cpw = 5.6
 #     print(perplexity(loss * cpw))

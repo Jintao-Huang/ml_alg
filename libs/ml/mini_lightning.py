@@ -162,25 +162,28 @@ class LDataModule:
     #             res.append(torch.tensor(x))  # e.g. labels
     #     return tuple(res)
 
-    def __init__(self, train_dataset: Optional[Dataset], val_dataset: Optional[Dataset], test_dataset: Optional[Dataset],
-                 batch_size_train: int, num_workers: int = 0,
-                 collate_fn: Optional[Callable[[List[Any]], Any]] = None, *,
-                 shuffle_train: bool = True, pin_memory_train: bool = True) -> None:
+    def __init__(
+        self, train_dataset: Optional[Dataset], val_dataset: Optional[Dataset], test_dataset: Optional[Dataset],
+        batch_size: int, 
+        num_workers: int = 0,
+        collate_fn: Optional[Callable[[List[Any]], Any]] = None,
+        *,
+        drop_last_train: bool = True,
+        shuffle_train: bool = True,
+        pin_memory_train: bool = True
+    ) -> None:
 
         self.train_dataloader: DataLoader = None
         self.val_dataloader: DataLoader = None
         self.test_dataloader: DataLoader = None
-
-        batch_size_test = batch_size_train * 2
-        # collate_fn = collate_fn if collate_fn is not None else self.default_collate_fn
         #
         if train_dataset:
-            self.train_dataloader = DataLoader(train_dataset, batch_size_train, shuffle=shuffle_train,
+            self.train_dataloader = DataLoader(train_dataset, batch_size, shuffle=shuffle_train,
                                                num_workers=num_workers, pin_memory=pin_memory_train,
-                                               drop_last=True, collate_fn=collate_fn)
+                                               drop_last=drop_last_train, collate_fn=collate_fn)
         for dataset, loader_name in zip([val_dataset, test_dataset], ["val_dataloader", "test_dataloader"]):
             if dataset:
-                loader = DataLoader(dataset, batch_size_test, shuffle=False,
+                loader = DataLoader(dataset, batch_size, shuffle=False,
                                     num_workers=num_workers, pin_memory=False,
                                     drop_last=False, collate_fn=collate_fn)
                 setattr(self, loader_name, loader)
@@ -190,7 +193,7 @@ class Trainer:
     def __init__(
         self, lmodel: LModule, device_ids: List[int],
         max_epochs: int, runs_dir: str,
-        n_accumulate_grad: int = 1, 
+        n_accumulate_grad: int = 1,
         amp: bool = False,
         gradient_clip_norm: Optional[float] = None,
         *,
@@ -578,7 +581,7 @@ class Trainer:
 if __name__ == "__main__":
     import torch.nn as nn
     import torch.optim as optim
-    # 
+    #
     from _trash import MLP_L2, XORDataset
     from metrics import accuracy_score
     from utils import seed_everything

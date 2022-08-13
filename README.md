@@ -25,7 +25,7 @@
 8. `libs/ml/cv/*`: CV中常用的工具函数
 9. `libs/ml/nlp/*`: NLP中常用的工具函数
 10. `libs/ml/ml_alg/*`: 机器学习中的算法实现(没啥实用性, 学习用)
-   1. 其中`_nn_functional.py`实现torch.nn.functional包中的算法. libtorch(c++)版本见: https://github.com/Jintao-Huang/alg_ac/tree/main/ml_libs
+   1. 其中`_nn_functional.py`实现torch.nn.functional包中的算法.
 11. 其他文件没啥用(特别是`_`开头的文件.). 
 
 
