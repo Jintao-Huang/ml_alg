@@ -206,7 +206,7 @@ if __name__ == "__main__":
         "env_name": "CartPole-v1",
         "model_hidden_size": 128,
         "optim_name": "AdamW",
-        "dataloader_hparams": {"batch_size_train": 32},
+        "dataloader_hparams": {"batch_size": 32},
         "optim_hparams": {"lr": 1e-2, "weight_decay": 1e-5},  #
         "trainer_hparams": {"max_epochs": 10, "gradient_clip_norm": 100},
         #

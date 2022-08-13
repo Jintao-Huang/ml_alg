@@ -95,7 +95,7 @@ if __name__ == "__main__":
         "model_name": "resnet50",
         "model_hparams": {"num_classes": 10},
         "model_pretrain_model": {"url": tvm.ResNet50_Weights.DEFAULT.url},
-        "dataloader_hparams": {"batch_size_train": batch_size, "num_workers": 4},
+        "dataloader_hparams": {"batch_size": batch_size, "num_workers": 4},
         "optim_name": "AdamW",
         "optim_hparams": {"lr": 1e-4, "weight_decay": 1e-4},
         "trainer_hparams": {

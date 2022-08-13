@@ -3,7 +3,7 @@
 # Date:
 
 from pre import *
-
+from transformers.models.auto.modeling_auto import AutoModelForSequenceClassification
 logger = logging.getLogger(__name__)
 
 RUNS_DIR = os.path.join(RUNS_DIR, "nlp")
@@ -81,7 +81,7 @@ if __name__ == "__main__":
     hparams = {
         "model_name": model_name,
         "optim_name": "AdamW",
-        "dataloader_hparams": {"batch_size_train": batch_size, "num_workers": 4, "collate_fn": collate_fn},
+        "dataloader_hparams": {"batch_size": batch_size, "num_workers": 4, "collate_fn": collate_fn},
         "optim_hparams": {"lr": 5e-5, "weight_decay": 1e-4},  #
         "trainer_hparams": {
             "max_epochs": max_epochs,
@@ -90,7 +90,7 @@ if __name__ == "__main__":
             "n_accumulate_grad": n_accumulate_grad
         },
         "lrs_hparams": {
-            "warmup": 30,
+            "warmup": 30,  # 30 * 4
             "T_max": ...,
             "eta_min": 1e-5
         }
