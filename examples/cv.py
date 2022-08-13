@@ -2,10 +2,8 @@
 # Email: hjt_study@qq.com
 # Date:
 
-try:
-    from .pre import *
-except ImportError:
-    from pre import *
+
+from pre import *
 
 logger = logging.getLogger(__name__)
 

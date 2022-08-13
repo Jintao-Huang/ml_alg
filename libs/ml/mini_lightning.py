@@ -4,6 +4,7 @@
 try:
     from .utils import print_model_info, select_device
 except ImportError:
+    # for debug
     from utils import print_model_info, select_device
 import torch
 from torch import device as Device, Tensor
@@ -186,12 +187,17 @@ class LDataModule:
 
 
 class Trainer:
-    def __init__(self, lmodel: LModule, device_ids: List[int],
-                 max_epochs: int, runs_dir: str, *,
-                 n_accumulate_grad: int = 1, amp: bool = False,
-                 log_every_n_steps: int = 5, prog_bar_n_steps: int = 1,
-                 gradient_clip_norm: Optional[float] = None,
-                 benchmark: Optional[bool] = None) -> None:
+    def __init__(
+        self, lmodel: LModule, device_ids: List[int],
+        max_epochs: int, runs_dir: str,
+        n_accumulate_grad: int = 1, 
+        amp: bool = False,
+        gradient_clip_norm: Optional[float] = None,
+        *,
+        log_every_n_steps: int = 5,
+        prog_bar_n_steps: int = 1,
+        benchmark: Optional[bool] = None
+    ) -> None:
         """
         device_ids: 若传入多个device_ids, 则使用DP. (暂时不支持DDP). 
             e.g. []: 代表"cpu", [0], [0, 1, 2]
@@ -211,11 +217,12 @@ class Trainer:
             作用: 加快训练速度, 减少显存消耗. 略微(或不)下降性能 (因为可以提高batch size). 
             note: 推荐在大型/超大型模型中使用. 小模型并不会加快训练速度. (有些环境可能不支持amp)
             Refer: https://pytorch.org/docs/stable/notes/amp_examples.html
-        log_every_n_steps: 几步需要将信息log入tensorboard. 使用global_step % . 
-        prog_bar_n_steps: 进度条的显示的频率. batch_idx % .
         gradient_clip_norm: 梯度裁剪(norm裁剪), 防止梯度爆炸. 一般设置为5, 10, 20.
             note: 在梯度裁剪的基础上加了INF的检查. 这可以提高训练的稳定性. 
                 若在梯度裁剪中发现INF. 则会跳过本次更新. (amp=True情况下, 此检查由amp处理)
+        *
+        log_every_n_steps: 几步需要将信息log入tensorboard. 使用global_step % . 
+        prog_bar_n_steps: 进度条的显示的频率. batch_idx % .
         benchmark: https://pytorch.org/docs/stable/backends.html#torch.backends.cudnn.torch.backends.cudnn.benchmark
             Pytorch默认False. 若该函数的benchmark行为与Pytorch Lightning行为一致 
             benchmark=True: 可以加速训练, 但是会造成不可复现. 
@@ -571,12 +578,10 @@ class Trainer:
 if __name__ == "__main__":
     import torch.nn as nn
     import torch.optim as optim
-    try:
-        from . import MLP_L2, XORDataset, accuracy_score, seed_everything
-    except ImportError:
-        from _trash import MLP_L2, XORDataset
-        from metrics import accuracy_score
-        from utils import seed_everything
+    # 
+    from _trash import MLP_L2, XORDataset
+    from metrics import accuracy_score
+    from utils import seed_everything
     #
     logging.basicConfig(
         level=logging.INFO, format="[%(levelname)s: %(filename)s:%(lineno)d] %(message)s ")

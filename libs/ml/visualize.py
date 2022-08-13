@@ -118,10 +118,8 @@ def visualize_samples(data: Union[Tensor, ndarray], labels: Union[Tensor, ndarra
 
 
 # if __name__ == "__main__":
-#     try:
-#         from . import XORDataset, MLP_L2
-#     except ImportError:
-#         from _trash import MLP_L2, XORDataset
+
+#     from _trash import MLP_L2, XORDataset
 
 #     dataset = XORDataset(200)
 #     fig, ax = plt.subplots(figsize=(4, 4), dpi=200)
