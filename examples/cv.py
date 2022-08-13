@@ -18,7 +18,7 @@ os.makedirs(DATASETS_PATH, exist_ok=True)
 os.makedirs(CHECKPOINTS_PATH, exist_ok=True)
 
 #
-device = [0]
+device_ids = [0]
 
 _train_dataset = CIFAR10(root=DATASETS_PATH, train=True, download=True)
 DATA_MEANS = (_train_dataset.data / 255.0).mean(axis=(0, 1, 2))
@@ -112,8 +112,7 @@ if __name__ == "__main__":
             "eta_min": 1e-5
         }
     }
-    hparams["lrs_hparams"]["T_max"] = len(
-        train_dataset) // batch_size * max_epochs // n_accumulate_grad
+    hparams["lrs_hparams"]["T_max"] = math.ceil(len(train_dataset) // batch_size  / n_accumulate_grad) * max_epochs
     #
     ldm = libs_ml.LDataModule(
         train_dataset, val_dataset, test_dataset, **hparams["dataloader_hparams"])
@@ -134,7 +133,7 @@ if __name__ == "__main__":
 
         lmodel = MyLModule(model, optimizer, loss_fn, lr_s, hparams)
         trainer = libs_ml.Trainer(
-            lmodel, device, runs_dir=runs_dir, **hparams["trainer_hparams"])
+            lmodel, device_ids, runs_dir=runs_dir, **hparams["trainer_hparams"])
         res = trainer.fit(ldm.train_dataloader, ldm.val_dataloader)
         res2 = trainer.test(ldm.test_dataloader)
         res.update(res2)

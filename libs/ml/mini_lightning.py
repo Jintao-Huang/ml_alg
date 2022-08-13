@@ -8,7 +8,7 @@ except ImportError:
 import torch
 from torch import device as Device, Tensor
 from torch.utils.tensorboard.writer import SummaryWriter
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, DistributedSampler
 from torch.nn import Module
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import MultiStepLR, _LRScheduler as LRScheduler
@@ -22,12 +22,13 @@ from torch.nn.utils.clip_grad import clip_grad_norm_
 import logging
 from torch.cuda.amp.grad_scaler import GradScaler
 from torch.amp.autocast_mode import autocast
-from torch.nn.parallel import DataParallel
+from torch.nn.parallel import DataParallel as DP, DistributedDataParallel as DDP
 import re
+import torch.distributed as dist
 
 logger = logging.getLogger(__name__)
 
-# 未来会添加的功能: resume_from_checkpoint, sync_batchnorm, ddp, auto_lr_find, auto_scale_batch_size
+# 未来会添加的功能: resume_from_checkpoint, ddp, auto_lr_find, sync_bn
 #   暂时取消对GAN的支持.
 # 约定: epoch_idx/global_epoch, batch_idx从0开始. global_step从1开始.
 __all__ = ["LModule", "LDataModule", "Trainer"]
@@ -93,7 +94,7 @@ class LModule:
 
     def training_epoch_end(self) -> None:
         # [fit]用于lr_schedules的处理
-        pass
+        return
 
     def _batch_to_device(self, batch: Any, device: Device) -> Any:
         # tree的深搜. 对python object(int, float)报错
@@ -129,6 +130,7 @@ class LModule:
         # 已过loss.backward
         # note: 第一步的amp/found_inf导致的不优化情况, 可能会导致lrs的UserWarning警告.
         if self.trainer.amp or not self.trainer.found_inf:
+            # 在amp=False情况下, 使用`self.optimizer.step()`是一样的.
             self.trainer.scaler.step(self.optimizer)
 
     def training_step(self, batch: Any) -> Tensor:
@@ -187,14 +189,12 @@ class LDataModule:
             self.train_dataloader = DataLoader(train_dataset, batch_size_train, shuffle=shuffle_train,
                                                num_workers=num_workers, pin_memory=pin_memory_train,
                                                drop_last=True, collate_fn=collate_fn)
-        if val_dataset:
-            self.val_dataloader = DataLoader(val_dataset, batch_size_test, shuffle=False,
-                                             num_workers=num_workers, pin_memory=False,
-                                             drop_last=False, collate_fn=collate_fn)
-        if test_dataset:
-            self.test_dataloader = DataLoader(test_dataset, batch_size_test, shuffle=False,
-                                              num_workers=num_workers, pin_memory=False,
-                                              drop_last=False, collate_fn=collate_fn)
+        for dataset, loader_name in zip([val_dataset, test_dataset], ["val_dataloader", "test_dataloader"]):
+            if dataset:
+                loader = DataLoader(dataset, batch_size_test, shuffle=False,
+                                    num_workers=num_workers, pin_memory=False,
+                                    drop_last=False, collate_fn=collate_fn)
+                setattr(self, loader_name, loader)
 
 
 class Trainer:
@@ -209,23 +209,25 @@ class Trainer:
             e.g. []: 代表"cpu", [0], [0, 1, 2]
             note: DP: 推荐在大型/超大型模型中使用. 小模型并不会加快训练速度. (瓶颈在gpu之间的通信)
                 batch_size会被拆分到各个gpu中. 请确保batch_size % n_gpus == 0. 
+            note: DP会对lmodel.model进行赋值: `lmodel.model = DP(lmodel.model)`
         n_accumulate_grad: 梯度累加. 
             使用mean累加, 而不是sum. 
-                参考: https://pytorch-lightning.readthedocs.io/en/latest/_modules/pytorch_lightning/loops/optimization/optimizer_loop.html 
-                    (搜索: self.trainer.accumulate_grad_batches)
+                Refer: https://pytorch-lightning.readthedocs.io/en/latest/_modules/pytorch_lightning/loops/optimization/optimizer_loop.html (搜索: self.trainer.accumulate_grad_batches)
                 (使用sum可能会对weight_decay, gradient_clip_norm的取值产生影响)
             与多gpu训练效果基本一致的. 
                 在不使用BN的情况下, 与batch_size*n_accumulate_grad训练的效果基本一致. 
             note: 因为会改变optimizer_step()调用的频率. 所以适当调整optimizer_step()中调用的lr_scheduler的参数. (e.g. warmup, T_max等)
             note: 增大了total_batch_size可以适当增加学习率
-            note: 使用batch_idx % , 批次最后的未更新的grad会到batch结束时更新. 与pytorch lightning行为相同. 
+            note: 使用batch_idx % , 批次最后的未更新的grad会到epoch结束时更新. 与pytorch lightning行为相同. 
         amp: 是否使用混合精度训练. 
             作用: 加快训练速度, 减少显存消耗. 略微(或不)下降性能 (因为可以提高batch size). 
             note: 推荐在大型/超大型模型中使用. 小模型并不会加快训练速度. (有些环境可能不支持amp)
+            Refer: https://pytorch.org/docs/stable/notes/amp_examples.html
         log_every_n_steps: 几步需要将信息log入tensorboard. 使用global_step % . 
         prog_bar_n_steps: 进度条的显示的频率. batch_idx % .
-        gradient_clip_norm: 梯度裁剪(norm裁剪), 防止梯度爆炸(INF, NAN). 一般设置为5, 10, 20.
-            note: 若在梯度裁剪中发现INF. 则会跳过本次更新. (amp=True情况下, 此跳过更新功能由amp处理.)
+        gradient_clip_norm: 梯度裁剪(norm裁剪), 防止梯度爆炸. 一般设置为5, 10, 20.
+            note: 在梯度裁剪的基础上加了INF的检查. 这可以提高训练的稳定性. 
+                若在梯度裁剪中发现INF. 则会跳过本次更新. (amp=True情况下, 此检查由amp处理)
         benchmark: https://pytorch.org/docs/stable/backends.html#torch.backends.cudnn.torch.backends.cudnn.benchmark
             Pytorch默认False. 若该函数的benchmark行为与Pytorch Lightning行为一致 
             benchmark=True: 可以加速训练, 但是会造成不可复现. 
@@ -237,18 +239,21 @@ class Trainer:
         self.device_ids = device_ids
         self.device = select_device(device_ids)
         if len(device_ids) > 1:
-            lmodel.model = DataParallel(lmodel.model)
+            lmodel.model = DP(lmodel.model)
+
+        logger.info(f"Using DP: {len(device_ids) > 1}")
         self.max_epochs = max_epochs
         self.n_accumulate_grad = n_accumulate_grad
         self.amp = amp
         if amp:
             logger.info(f"Using amp: {amp}")
+
         self.log_every_n_steps = log_every_n_steps
         self.prog_bar_n_steps = prog_bar_n_steps
         self.gradient_clip_norm = gradient_clip_norm
         self.benchmark = benchmark
         #
-        time = datetime.datetime.now().strftime("%Y:%m:%d-%H:%M:%S.%f")
+        time = datetime.datetime.now().strftime("%Y:%m:%d-%H:%M:%S")  # .%f
         v = self._get_version(runs_dir)
         runs_dir = os.path.join(runs_dir, f"v{v}-{time}")
         logger.info(f"runs_dir: {runs_dir}")
@@ -275,9 +280,9 @@ class Trainer:
         self.logger = SummaryWriter(self.tb_dir)
         self.scaler = GradScaler(enabled=amp)
         self.best_metrics = -1e10  # model save
-        self.best_epoch_idx: int = None
-        self.best_ckpt_path: str = None
-        self.last_ckpt_path: str = None
+        self.best_epoch_idx: int = -1
+        self.best_ckpt_path: str = ""
+        self.last_ckpt_path: str = ""
         self.global_step = 0
         self.global_epoch = -1
         #
@@ -344,9 +349,9 @@ class Trainer:
             self.logger.add_scalar(k, v, global_step=step)
 
     def _remove_ckpt(self, mode: str) -> None:
-        if mode == "best" and self.best_ckpt_path is not None:
+        if mode == "best" and self.best_ckpt_path:
             os.remove(self.best_ckpt_path)
-        elif mode == "last" and self.last_ckpt_path is not None:
+        elif mode == "last" and self.last_ckpt_path:
             os.remove(self.last_ckpt_path)
 
     def _epoch_end(self, mes: Dict[str, float], metric: Optional[float]) -> bool:
@@ -445,13 +450,17 @@ class Trainer:
         lmodel.training_epoch_end()
         return mes
 
-    def _train(self, lmodel: LModule, train_dataloader: DataLoader, val_dataloader: DataLoader) -> Dict[str, float]:
+    def _train(self, lmodel: LModule, train_dataloader: DataLoader, val_dataloader: Optional[DataLoader]) -> Dict[str, float]:
         if len(self.device_ids) > 1:
+            # DP并不会因为 无法平均拆分inputs而崩溃. 但这里为了规范性, 进行检查.
             assert train_dataloader.batch_size % len(self.device_ids) == 0
-            assert val_dataloader.batch_size % len(self.device_ids) == 0
+            assert val_dataloader is None or val_dataloader.batch_size % len(
+                self.device_ids) == 0
         model = lmodel.model
         print_model_info(model, None)
         best_mes: Dict[str, float] = {}
+        mes = {}
+        #
         for _ in range(self.global_epoch + 1, self.max_epochs):
             self.global_epoch += 1
             mes = self._train_epoch(lmodel, train_dataloader)
@@ -468,6 +477,8 @@ class Trainer:
                 best_mes = mes
                 best_mes.update({"global_epoch": self.global_epoch,
                                  "global_step": self.global_step})
+        if not best_mes:
+            best_mes = mes
         return best_mes
 
     @torch.no_grad()
@@ -528,7 +539,7 @@ class Trainer:
         self._logger_add_scalars(mes, epoch_idx)
         return mes
 
-    def fit(self, train_dataloader: DataLoader, val_dataloader: DataLoader) -> Dict[str, float]:
+    def fit(self, train_dataloader: DataLoader, val_dataloader: Optional[DataLoader]) -> Dict[str, float]:
         """返回val中metrics最好的log信息(含train和val). """
         device_r = next(self.lmodel.model.parameters()).device
         best_mes = self._train(self.lmodel, train_dataloader, val_dataloader)
@@ -547,14 +558,14 @@ class Trainer:
 
     def test(self, dataloader: DataLoader, only_best: bool = True) -> Dict[str, float]:
         """返回best, last model的test的log信息
-        only_best: 只测试best. 理论上测试集不能作为验证集的作用使用, 所以默认为True. 
+        only_best: 只测试best. 理论上测试集不能作为验证集的作用使用. 所以默认为True. 
         """
         # note: 若先last, 后best, 则last会在tensorboard中被覆盖. 所以这里先best, 后last.
         # test "best"
         mes = {}
         device_r = next(self.lmodel.model.parameters()).device
-        if self.best_ckpt_path is not None:  # 复原
-            assert self.last_ckpt_path is not None  # 一般都满足
+        if self.best_ckpt_path:  # 复原
+            assert self.last_ckpt_path  # 一般都满足
             self.lmodel.load_from_checkpoint(self.best_ckpt_path)
             mes = self._test(self.lmodel, dataloader, model_type="best")
             mes = self.key_add_suffix(mes, "_best")
@@ -633,5 +644,5 @@ if __name__ == "__main__":
     lmodel = MyLModule(model, optimizer, loss_fn, lr_s)
     #
     trainer = Trainer(lmodel, [], 100, runs_dir)
-    logger.info(trainer.fit(ldm.train_dataloader, ldm.val_dataloader))
-    logger.info(trainer.test(ldm.test_dataloader))
+    logger.info(trainer.fit(ldm.train_dataloader, None))
+    logger.info(trainer.test(ldm.test_dataloader, False))

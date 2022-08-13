@@ -17,7 +17,7 @@ os.makedirs(DATASETS_PATH, exist_ok=True)
 os.makedirs(CHECKPOINTS_PATH, exist_ok=True)
 
 #
-device = [0]
+device_ids = [0]
 
 dataset = load_dataset("glue", "mrpc")
 model_name = "bert-base-uncased"
@@ -98,8 +98,7 @@ if __name__ == "__main__":
             "eta_min": 1e-5
         }
     }
-    hparams["lrs_hparams"]["T_max"] = len(
-        dataset["train"]) // batch_size * max_epochs // n_accumulate_grad
+    hparams["lrs_hparams"]["T_max"] = math.ceil(len(dataset["train"]) // batch_size  / n_accumulate_grad) * max_epochs
     #
     ldm = libs_ml.LDataModule(
         dataset["train"], dataset["validation"], dataset["test"], **hparams["dataloader_hparams"])
@@ -112,6 +111,6 @@ if __name__ == "__main__":
     lr_s = libs_ml.WarmupCosineAnnealingLR(optimizer, **hparams["lrs_hparams"])
     lmodel = MyLModule(model, optimizer, loss_fn, lr_s, hparams)
     trainer = libs_ml.Trainer(
-        lmodel, device, runs_dir=runs_dir, **hparams["trainer_hparams"])
+        lmodel, device_ids, runs_dir=runs_dir, **hparams["trainer_hparams"])
     logger.info(trainer.fit(ldm.train_dataloader, ldm.val_dataloader))
     logger.info(trainer.test(ldm.test_dataloader))

@@ -26,7 +26,7 @@ os.makedirs(DATASETS_PATH, exist_ok=True)
 os.makedirs(CHECKPOINTS_PATH, exist_ok=True)
 
 #
-device = [0]
+device_ids = [0]
 
 
 class DQN(nn.Module):
@@ -152,7 +152,7 @@ class MyLModule(libs_ml.LModule):
     def training_epoch_start(self) -> None:
         super(MyLModule, self).training_epoch_start()
         self.old_model.train()
-        self.old_model.to(device)
+        self.old_model.to(self.device)
 
     def _warmup_memo(self, steps: int):
         for _ in tqdm(range(steps), desc=f"Warmup: "):
@@ -233,7 +233,7 @@ if __name__ == "__main__":
     in_channels: int = env.observation_space.shape[0]
     out_channels: int = env.action_space.n
     model = DQN(in_channels, out_channels, hparams["model_hidden_size"])
-    agent = Agent(env, memo_pool, model, device)
+    agent = Agent(env, memo_pool, model, libs_ml.select_device(device_ids))
 
     #
     get_rand_p = partial(get_rand_p, **hparams["rand_p"])
@@ -244,5 +244,5 @@ if __name__ == "__main__":
 
     lmodel = MyLModule(model, optimizer, loss_fn, agent, get_rand_p, hparams)
     trainer = libs_ml.Trainer(
-        lmodel, device, runs_dir=runs_dir, **hparams["trainer_hparams"])
+        lmodel, device_ids, runs_dir=runs_dir, **hparams["trainer_hparams"])
     trainer.fit(ldm.train_dataloader, ldm.val_dataloader)

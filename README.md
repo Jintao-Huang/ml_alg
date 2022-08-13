@@ -21,9 +21,10 @@
 7. `libs/ml/mini_lightning.py`: mini-lightning
    1. pytorch-lightning的mini版本(更快, 更简洁, 更灵活). 
    2. 支持amp, dp, 梯度累加, warmup, lr_scheduler, 梯度裁剪, tensorboard, 模型和超参数和结果保存等.
+   3. examples见 `examples/*`文件夹
 8. `libs/ml/visualize.py`: 可视化函数的集成(含tensorboard smoothing算法)
-9.  `libs/ml/utils.py`: ml中的工具函数
-10. `examples/*`: 一些例子. 包括cv, nlp, dqn. 
+9. `libs/ml/utils.py`: ml中的工具函数
+10. `examples/*`: mini-lightning使用的例子. 包括cv, nlp, dqn. 
 11. 其他文件没啥用(特别是`_`开头的文件.). 
 
 

@@ -18,9 +18,9 @@ import math
 from torchvision.utils import make_grid as _make_grid
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
 
-__all__ = ["bincount", "plot_classification_map", "visualize_samples",
+__all__ = ["bincount", "plot_classification_map", "visualize_samples", "config_ax", 
            "plot_lines", "plot_subplots", "make_grid", "normalize", "make_grid2",
-           "tensorboard_smoothing", "config_ax", "read_tensorboard_file"]
+           "tensorboard_smoothing", "read_tensorboard_file"]
 
 
 def bincount(x: ndarray, n_bin: int = None, step: int = None,
