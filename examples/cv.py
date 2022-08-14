@@ -100,7 +100,7 @@ if __name__ == "__main__":
         "optim_hparams": {"lr": 1e-4, "weight_decay": 1e-4},
         "trainer_hparams": {
             "max_epochs": max_epochs, 
-            "gradient_clip_norm": 20, 
+            "gradient_clip_norm": 10, 
             "amp": True, 
             "n_accumulate_grad": n_accumulate_grad
         },

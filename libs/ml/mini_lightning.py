@@ -60,7 +60,7 @@ class LModule:
         return self.trainer.device if self.trainer is not None else None
 
     def log(self, k: str, v: Union[Tensor, float], *, prog_bar_mean=True) -> None:
-        """只在training_step, validation_step, test_step函数中log才有效. 
+        """
         prog_bar_mean: 在prog_bar中显示的是整个epoch的均值. (一般loss, acc用均值. lr不用均值)
         note: lr会自动进行log, 无需手动log. 
         """
@@ -129,8 +129,8 @@ class LModule:
     def optimizer_step(self) -> None:
         # [train]. 用于optimizer, lr_schedules的处理.
         # 已过loss.backward
-        # note: 第一步的amp/found_inf导致的不优化情况, 可能会导致lrs的UserWarning警告.
-        if self.trainer.amp or not self.trainer.found_inf:
+        # note: 第一步的amp/found_inf/found_nan导致的不优化情况, 可能会导致lrs的UserWarning警告.
+        if not self.trainer.found_nan and (self.trainer.amp or not self.trainer.found_inf):
             # 在amp=False情况下, 使用`self.optimizer.step()`是一样的.
             self.trainer.scaler.step(self.optimizer)
 
@@ -164,7 +164,7 @@ class LDataModule:
 
     def __init__(
         self, train_dataset: Optional[Dataset], val_dataset: Optional[Dataset], test_dataset: Optional[Dataset],
-        batch_size: int, 
+        batch_size: int,
         num_workers: int = 0,
         collate_fn: Optional[Callable[[List[Any]], Any]] = None,
         *,
@@ -220,11 +220,11 @@ class Trainer:
             作用: 加快训练速度, 减少显存消耗. 略微(或不)下降性能 (因为可以提高batch size). 
             note: 推荐在大型/超大型模型中使用. 小模型并不会加快训练速度. (有些环境可能不支持amp)
             Refer: https://pytorch.org/docs/stable/notes/amp_examples.html
-        gradient_clip_norm: 梯度裁剪(norm裁剪), 防止梯度爆炸. 一般设置为5, 10, 20.
+        gradient_clip_norm: 梯度裁剪(norm裁剪), 防止梯度爆炸, 并对缩放前的grad_norm进行log. 一般设置为5, 10, 20.
             note: 在梯度裁剪的基础上加了INF的检查. 这可以提高训练的稳定性. 
                 若在梯度裁剪中发现INF. 则会跳过本次更新. (amp=True情况下, 此检查由amp处理)
         *
-        log_every_n_steps: 几步需要将信息log入tensorboard. 使用global_step % . 
+        log_every_n_steps: 几步需要将信息log入tensorboard(使用每n步采样的方式, 而不是均值). 使用global_step % . 
         prog_bar_n_steps: 进度条的显示的频率. batch_idx % .
         benchmark: https://pytorch.org/docs/stable/backends.html#torch.backends.cudnn.torch.backends.cudnn.benchmark
             Pytorch默认False. 若该函数的benchmark行为与Pytorch Lightning行为一致 
@@ -289,8 +289,10 @@ class Trainer:
         # 用于log. 含义见LModule.log
         self.new_mes: Dict[str, float] = {}
         self.prog_bar_mean: Dict[str, bool] = {}
-        # 用于梯度裁剪中, 对于found_inf的处理. 跳过本次更新. (amp=True情况下不工作. amp会对inf进行处理.)
+        # 用于梯度裁剪中, found_inf检查. 跳过本次更新. (amp=True情况下不工作. amp会对inf进行处理.)
         self.found_inf = False
+        # amp不检查nan. 这里对在梯度裁剪中, found_nan检查. 跳过本次更新 (0/0 inf/inf会产生nan)
+        self.found_nan = False
 
     @staticmethod
     def _get_version(runs_dir):
@@ -400,6 +402,7 @@ class Trainer:
         scaler = self.scaler
         #
         mes = {}
+        grad_norm = 0
         #
         with tqdm(total=len(dataloader),
                   desc=f"Epoch {self.global_epoch}") as prog_bar:
@@ -409,31 +412,35 @@ class Trainer:
                 self.new_mes.clear()
                 with autocast(device_type=self.device.type, enabled=self.amp):
                     loss = lmodel.training_step(batch)
+                loss.div_(self.n_accumulate_grad)
+                scaler.scale(loss).backward()
                 # log lr
                 for i, lr in enumerate([group['lr'] for group in lmodel.optimizer.param_groups]):
                     lmodel.log(f"lr{i}", lr, prog_bar_mean=False)
-                self._add_new_mes(mes, self.new_mes)
-                # tensorboard
-                if self.global_step % self.log_every_n_steps == 0:
-                    self._logger_add_scalars(self.new_mes, self.global_step)
-                #
-                loss.div_(self.n_accumulate_grad)
-                scaler.scale(loss).backward()
                 # 优化
                 if (batch_idx + 1) % self.n_accumulate_grad == 0 or (batch_idx + 1) == len(dataloader):
-                    if self.gradient_clip_norm is not None:
+                    if self.gradient_clip_norm:
                         # grad裁剪需要下面这行.
                         scaler.unscale_(lmodel.optimizer)
-                        found_inf = clip_grad_norm_(
+                        grad_norm = clip_grad_norm_(
                             model.parameters(), max_norm=self.gradient_clip_norm, error_if_nonfinite=False)
                         if not self.amp:  # amp=True情况, found_inf下不工作. amp会对inf进行处理.
-                            self.found_inf = found_inf.isinf().all().item()
+                            self.found_inf = grad_norm.isinf().all().item()
+                        self.found_nan = grad_norm.isnan().all().item()
                     lmodel.optimizer_step()
                     scaler.update()
                     # set_to_none可以增加速度. 该行为与Pytorch Lightning默认行为不一致.
                     # https://pytorch.org/docs/stable/generated/torch.optim.Optimizer.zero_grad.html
                     lmodel.optimizer.zero_grad(set_to_none=True)
                     self.found_inf = False
+                    self.found_nan = False
+                # log grad_norm
+                if self.gradient_clip_norm:
+                    lmodel.log(f"grad_norm", grad_norm, prog_bar_mean=False)
+                self._add_new_mes(mes, self.new_mes)
+                # tensorboard
+                if self.global_step % self.log_every_n_steps == 0:
+                    self._logger_add_scalars(self.new_mes, self.global_step)
                 # prog_bar
                 if (batch_idx + 1) % self.prog_bar_n_steps == 0:
                     mean_mes = self._sum_to_mean(mes, batch_idx + 1)

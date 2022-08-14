@@ -76,10 +76,14 @@ class WarmupCosineAnnealingLR(_CosineAnnealingLR):
 
     def get_lr(self) -> List[float]:
         # lr_s.step()含两部分: self.last_epoch += 1; get_lr()
-        lrs = super(WarmupCosineAnnealingLR, self).get_lr()
+        #
+        # epoch/iter从1开始, 避免第一步lr为0. 也使最后一步lr=eta_min
+        last_epoch = self.last_epoch + 1
+        lrs = super(WarmupCosineAnnealingLR, self).get_lr(last_epoch)
         scale = 1
-        if self.last_epoch < self.warmup:
-            scale = self.last_epoch / self.warmup
+        if last_epoch < self.warmup:
+            scale = last_epoch / self.warmup
+            # scale = (self.last_epoch + 1) / self.warmup
         return [lr * scale for lr in lrs]
 
 
@@ -96,7 +100,8 @@ class WarmupCosineAnnealingLR2(_CosineAnnealingLR):
             optimizer, T_max, eta_min, last_epoch)
 
     def get_lr(self) -> List[float]:
-        last_epoch = self.last_epoch
+        # epoch/iter从1开始, 避免第一步lr为0. 也使最后一步lr=eta_min
+        last_epoch = self.last_epoch + 1
         if last_epoch < self.warmup:
             scale = last_epoch / self.warmup  # k=1/self.warmup
             return [lr * scale for lr in self.base_lrs]
@@ -126,7 +131,6 @@ class WarmupCosineAnnealingLR2(_CosineAnnealingLR):
 #         print(i, lrs.get_last_lr())
 #         optim.step()
 #         lrs.step()
-#     print(20, lrs.get_last_lr())
 #     #
 #     optim = SGD(param, 1e-2)
 #     lrs = WarmupCosineAnnealingLR2(optim, 3, 7, 1e-4)
@@ -134,4 +138,3 @@ class WarmupCosineAnnealingLR2(_CosineAnnealingLR):
 #         print(i, lrs.get_last_lr())
 #         optim.step()
 #         lrs.step()
-#     print(17, lrs.get_last_lr())
