@@ -40,8 +40,7 @@ def select_device(device_ids: List[int]) -> Device:
         device: str = "cpu"
         log_s += device
     else:
-        os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(
-            [str(d) for d in device_ids])
+        os.environ["CUDA_VISIBLE_DEVICES"] = ",".join([str(d) for d in device_ids])
         assert torch.cuda.is_available() and torch.cuda.device_count() >= len(device_ids)
         log_s += f"cuda:{','.join([str(d) for d in device_ids])}"  # e.g. "cuda:1,7,8"
         device = "cuda:0"
@@ -108,8 +107,7 @@ def test_time(func: Callable[[], Any], number: int = 1, warm_up: int = 0,
     ts = np.array(ts)
     _, stat_str = stat(ts)
     # print
-    logger.info(
-        f"time[number={number}]: {stat_str}")
+    logger.info(f"time[number={number}]: {stat_str}")
     return res
 
 
@@ -133,8 +131,7 @@ def seed_everything(seed: Optional[int] = None, gpu_dtm: bool = False) -> int:
         # True: cuDNN从多个卷积算法中进行benchmark, 选择最快的
         # 若deterministic=True, 则benchmark一定为False
         torch.backends.cudnn.benchmark = False
-        logger.info(
-            f"Setting deterministic: {True}, benchmark: {False}")
+        logger.info(f"Setting deterministic: {True}, benchmark: {False}")
 
     logger.info(f"Global seed set to {seed}")
     return seed
@@ -217,8 +214,7 @@ def multi_runs(collect_res: Callable[[int], Dict[str, float]], n: int, seed: Opt
     for k, v_list in result.items():
         v_list = np.array(v_list)
         (mean, std, max_, min_), stat_str = stat(v_list)
-        res_str.append(
-            f"  {k}: {stat_str}")
+        res_str.append(f"  {k}: {stat_str}")
         res[k] = {
             "mean": mean,
             "std": std,

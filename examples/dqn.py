@@ -17,8 +17,7 @@ logger = logging.getLogger(__name__)
 
 RENDER = True
 RUNS_DIR = os.path.join(RUNS_DIR, "dqn")
-DATASETS_PATH = os.environ.get(
-    "DATASETS_PATH", os.path.join(RUNS_DIR, "datasets"))
+DATASETS_PATH = os.environ.get("DATASETS_PATH", os.path.join(RUNS_DIR, "datasets"))
 CHECKPOINTS_PATH = os.path.join(RUNS_DIR, "checkpoints")
 os.makedirs(DATASETS_PATH, exist_ok=True)
 os.makedirs(CHECKPOINTS_PATH, exist_ok=True)
@@ -121,8 +120,7 @@ class Agent:
 
 
 def get_rand_p(global_step, T_max: int, eta_min: float, eta_max: float):
-    rand_p = libs_ml.cosine_annealing_lr(
-        global_step, T_max, eta_min, [eta_max])[0]
+    rand_p = libs_ml.cosine_annealing_lr(global_step, T_max, eta_min, [eta_max])[0]
     return rand_p
 
 
@@ -205,10 +203,10 @@ if __name__ == "__main__":
         "dataset_len": 5000,
         "env_name": "CartPole-v1",
         "model_hidden_size": 128,
-        "optim_name": "AdamW",
+        "optim_name": "SGD",
         "dataloader_hparams": {"batch_size": 32},
-        "optim_hparams": {"lr": 1e-2, "weight_decay": 1e-5},  #
-        "trainer_hparams": {"max_epochs": 10, "gradient_clip_norm": 20},
+        "optim_hparams": {"lr": 1e-2, "weight_decay": 1e-4, "momentum": 0.9},  #
+        "trainer_hparams": {"max_epochs": 10, "gradient_clip_norm": 50},
         #
         "rand_p": {
             "eta_max": 1,
@@ -224,8 +222,7 @@ if __name__ == "__main__":
     dataset = MyDataset(memo_pool, hparams["dataset_len"])
     ldm = libs_ml.LDataModule(
         dataset, None, None, **hparams["dataloader_hparams"], shuffle_train=False, num_workers=0)
-    hparams["rand_p"]["T_max"] = len(
-        ldm.train_dataloader) * hparams["trainer_hparams"]["max_epochs"]
+    hparams["rand_p"]["T_max"] = len(ldm.train_dataloader) * hparams["trainer_hparams"]["max_epochs"]
 
     env = gym.make(hparams["env_name"])
     in_channels: int = env.observation_space.shape[0]
@@ -235,12 +232,10 @@ if __name__ == "__main__":
 
     #
     get_rand_p = partial(get_rand_p, **hparams["rand_p"])
-    optimizer = getattr(optim, hparams["optim_name"])(
-        model.parameters(), **hparams["optim_hparams"])
+    optimizer = getattr(optim, hparams["optim_name"])(model.parameters(), **hparams["optim_hparams"])
     runs_dir = CHECKPOINTS_PATH
     loss_fn = nn.MSELoss()
 
     lmodel = MyLModule(model, optimizer, loss_fn, agent, get_rand_p, hparams)
-    trainer = libs_ml.Trainer(
-        lmodel, device_ids, runs_dir=runs_dir, **hparams["trainer_hparams"])
+    trainer = libs_ml.Trainer(lmodel, device_ids, runs_dir=runs_dir, **hparams["trainer_hparams"])
     trainer.fit(ldm.train_dataloader, ldm.val_dataloader)

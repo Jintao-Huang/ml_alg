@@ -2,6 +2,8 @@
 # Email: hjt_study@qq.com
 # Date:
 
+# 运行: python examples/cv.py > train.out 2>&1
+# 后台运行: nohup python examples/cv.py > train.out 2>&1 &
 
 from pre import *
 
@@ -9,8 +11,7 @@ logger = logging.getLogger(__name__)
 
 CIFAR10 = tvd.CIFAR10
 RUNS_DIR = os.path.join(RUNS_DIR, "cv")
-DATASETS_PATH = os.environ.get(
-    "DATASETS_PATH", os.path.join(RUNS_DIR, "datasets"))
+DATASETS_PATH = os.environ.get("DATASETS_PATH", os.path.join(RUNS_DIR, "datasets"))
 CHECKPOINTS_PATH = os.path.join(RUNS_DIR, "checkpoints")
 os.makedirs(DATASETS_PATH, exist_ok=True)
 os.makedirs(CHECKPOINTS_PATH, exist_ok=True)
@@ -22,13 +23,14 @@ _train_dataset = CIFAR10(root=DATASETS_PATH, train=True, download=True)
 DATA_MEANS = (_train_dataset.data / 255.0).mean(axis=(0, 1, 2))
 DATA_STD = (_train_dataset.data / 255.0).std(axis=(0, 1, 2))
 logger.info((DATA_MEANS, DATA_STD))
-test_transform = tvt.Compose(
-    [tvt.ToTensor(), tvt.Normalize(DATA_MEANS, DATA_STD)])
+test_transform = tvt.Compose([
+    tvt.ToTensor(),
+    tvt.Normalize(DATA_MEANS, DATA_STD)
+])
 train_transform = tvt.Compose(
     [
         tvt.RandomHorizontalFlip(),
-        tvt.RandomResizedCrop((32, 32), scale=(
-            0.6, 1.0), ratio=(0.8, 1.2)),
+        tvt.RandomResizedCrop((32, 32), scale=(0.6, 1.0), ratio=(0.8, 1.2)),
         tvt.ToTensor(),
         tvt.Normalize(DATA_MEANS, DATA_STD),
     ])
@@ -96,21 +98,22 @@ if __name__ == "__main__":
         "model_hparams": {"num_classes": 10},
         "model_pretrain_model": {"url": tvm.ResNet50_Weights.DEFAULT.url},
         "dataloader_hparams": {"batch_size": batch_size, "num_workers": 4},
-        "optim_name": "AdamW",
-        "optim_hparams": {"lr": 1e-4, "weight_decay": 1e-4},
+        "optim_name": "SGD",
+        "optim_hparams": {"lr": 1e-2, "weight_decay": 1e-4, "momentum": 0.9},
         "trainer_hparams": {
-            "max_epochs": max_epochs, 
-            "gradient_clip_norm": 10, 
-            "amp": True, 
+            "max_epochs": max_epochs,
+            "gradient_clip_norm": 10,
+            "amp": True,
             "n_accumulate_grad": n_accumulate_grad
         },
         "lrs_hparams": {
-            "warmup": 100,
+            "warmup": 100,  # 100 * n_accumulate_grad
             "T_max": ...,
-            "eta_min": 1e-5
+            "eta_min": 1e-3
         }
     }
-    hparams["lrs_hparams"]["T_max"] = math.ceil(len(train_dataset) // batch_size  / n_accumulate_grad) * max_epochs
+
+    hparams["lrs_hparams"]["T_max"] = math.ceil(len(train_dataset) // batch_size / n_accumulate_grad) * max_epochs
     #
     ldm = libs_ml.LDataModule(
         train_dataset, val_dataset, test_dataset, **hparams["dataloader_hparams"])
@@ -121,17 +124,14 @@ if __name__ == "__main__":
     def collect_res(seed):
         libs_ml.seed_everything(seed, gpu_dtm=False)
         model = tvm.resnet50(**hparams["model_hparams"])
-        state_dict = torch.hub.load_state_dict_from_url(
-            **hparams["model_pretrain_model"])
+        state_dict = torch.hub.load_state_dict_from_url(**hparams["model_pretrain_model"])
         state_dict = libs_ml.remove_keys(state_dict, ["fc"])
         logger.info(model.load_state_dict(state_dict, strict=False))
-        optimizer = optim.AdamW(model.parameters(), **hparams["optim_hparams"])
-        lr_s = libs_ml.WarmupCosineAnnealingLR(
-            optimizer, **hparams["lrs_hparams"])
+        optimizer = getattr(optim, hparams["optim_name"])(model.parameters(), **hparams["optim_hparams"])
+        lr_s = libs_ml.WarmupCosineAnnealingLR(optimizer, **hparams["lrs_hparams"])
 
         lmodel = MyLModule(model, optimizer, loss_fn, lr_s, hparams)
-        trainer = libs_ml.Trainer(
-            lmodel, device_ids, runs_dir=runs_dir, **hparams["trainer_hparams"])
+        trainer = libs_ml.Trainer(lmodel, device_ids, runs_dir=runs_dir, **hparams["trainer_hparams"])
         res = trainer.fit(ldm.train_dataloader, ldm.val_dataloader)
         res2 = trainer.test(ldm.test_dataloader)
         res.update(res2)

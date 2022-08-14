@@ -539,8 +539,7 @@ def conv2d(
             h_pos, w_pos = slice(h_start, (h_start + KH_D), D), \
                 slice(w_start, (w_start + KW_D), D)
             # [N, G, Cin//G, KH, KW], [G, Cout//G, Cin//G, KH, KW] -> [N, G, Cout//G] -> [N, Cout]
-            res.append(torch.einsum(
-                "abcde,bfcde->abf", x[:, :, :, h_pos, w_pos], weight))
+            res.append(torch.einsum("abcde,bfcde->abf", x[:, :, :, h_pos, w_pos], weight))
     res = torch.stack(res, dim=-1).view(N, Cout, Hout, Wout)
     if bias is not None:
         res.add_(bias[None, :,  None, None])
@@ -884,8 +883,7 @@ def multi_head_attention_forward(
     V = F.linear(V, in_proj_weight[2], in_proj_bias[2]).view(S, N*H, E//H)
 
     # res: [T, N*H, E//H], W: [N*H, T, S]
-    res, W = _scaled_dot_product_attention(
-        Q, K, V, attn_mask, dropout_p, training)
+    res, W = _scaled_dot_product_attention(Q, K, V, attn_mask, dropout_p, training)
     #
     res = res.contiguous().view(T, N, E)
     W = W.contiguous().view(N, H, T, S)

@@ -11,3 +11,4 @@ __pycache__/
 trash/
 /examples/_examples
 /tools/
+train.out

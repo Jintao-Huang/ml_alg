@@ -225,8 +225,7 @@ if __name__ == "__main__":
 #     y_np = y.numpy()
 #     from sklearn.metrics import euclidean_distances as _euclidean_distances
 #     a = libs_ml.test_time(lambda: euclidean_distances(x, y), number=20)
-#     b = libs_ml.test_time(
-#         lambda: _euclidean_distances(x_np, y_np), number=20)  # 慢!
+#     b = libs_ml.test_time(lambda: _euclidean_distances(x_np, y_np), number=20)  # 慢!
 #     print(a, b)
 #     print(torch.allclose(a, torch.from_numpy(b), rtol=1e-4, atol=1e-4))
 

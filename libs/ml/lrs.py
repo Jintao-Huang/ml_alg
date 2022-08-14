@@ -71,8 +71,7 @@ class WarmupCosineAnnealingLR(_CosineAnnealingLR):
         # warmup一般使用iter_idx(epoch)作为T_max进行控制
         # initial_lr -> eta_min
         self.warmup = warmup
-        super(WarmupCosineAnnealingLR, self).__init__(
-            optimizer, T_max, eta_min, last_epoch)
+        super(WarmupCosineAnnealingLR, self).__init__(optimizer, T_max, eta_min, last_epoch)
 
     def get_lr(self) -> List[float]:
         # lr_s.step()含两部分: self.last_epoch += 1; get_lr()
@@ -96,8 +95,7 @@ class WarmupCosineAnnealingLR2(_CosineAnnealingLR):
         self.warmup = warmup
         self.T_max = T_max
         self.eta_min = eta_min
-        super(WarmupCosineAnnealingLR2, self).__init__(
-            optimizer, T_max, eta_min, last_epoch)
+        super(WarmupCosineAnnealingLR2, self).__init__(optimizer, T_max, eta_min, last_epoch)
 
     def get_lr(self) -> List[float]:
         # epoch/iter从1开始, 避免第一步lr为0. 也使最后一步lr=eta_min
@@ -105,8 +103,7 @@ class WarmupCosineAnnealingLR2(_CosineAnnealingLR):
         if last_epoch < self.warmup:
             scale = last_epoch / self.warmup  # k=1/self.warmup
             return [lr * scale for lr in self.base_lrs]
-        lrs = super(WarmupCosineAnnealingLR2, self).get_lr(
-            last_epoch - self.warmup)
+        lrs = super(WarmupCosineAnnealingLR2, self).get_lr(last_epoch - self.warmup)
         return lrs
 
 

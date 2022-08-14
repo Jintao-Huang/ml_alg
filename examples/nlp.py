@@ -7,8 +7,7 @@ from transformers.models.auto.modeling_auto import AutoModelForSequenceClassific
 logger = logging.getLogger(__name__)
 
 RUNS_DIR = os.path.join(RUNS_DIR, "nlp")
-DATASETS_PATH = os.environ.get(
-    "DATASETS_PATH", os.path.join(RUNS_DIR, "datasets"))
+DATASETS_PATH = os.environ.get("DATASETS_PATH", os.path.join(RUNS_DIR, "datasets"))
 CHECKPOINTS_PATH = os.path.join(RUNS_DIR, "checkpoints")
 os.makedirs(DATASETS_PATH, exist_ok=True)
 os.makedirs(CHECKPOINTS_PATH, exist_ok=True)
@@ -82,7 +81,7 @@ if __name__ == "__main__":
         "model_name": model_name,
         "optim_name": "AdamW",
         "dataloader_hparams": {"batch_size": batch_size, "num_workers": 4, "collate_fn": collate_fn},
-        "optim_hparams": {"lr": 5e-5, "weight_decay": 1e-4},  #
+        "optim_hparams": {"lr": 1e-4, "weight_decay": 1e-4},  #
         "trainer_hparams": {
             "max_epochs": max_epochs,
             "gradient_clip_norm": 10,
@@ -90,7 +89,7 @@ if __name__ == "__main__":
             "n_accumulate_grad": n_accumulate_grad
         },
         "lrs_hparams": {
-            "warmup": 30,  # 30 * 4
+            "warmup": 30,  # 30 * n_accumulate_grad
             "T_max": ...,
             "eta_min": 1e-5
         }
@@ -101,13 +100,11 @@ if __name__ == "__main__":
         dataset["train"], dataset["validation"], dataset["test"], **hparams["dataloader_hparams"])
     #
     model = AutoModelForSequenceClassification.from_pretrained(model_name)
-    optimizer = getattr(optim, hparams["optim_name"])(
-        model.parameters(), **hparams["optim_hparams"])
+    optimizer = getattr(optim, hparams["optim_name"])(model.parameters(), **hparams["optim_hparams"])
     runs_dir = CHECKPOINTS_PATH
     loss_fn = nn.CrossEntropyLoss()
     lr_s = libs_ml.WarmupCosineAnnealingLR(optimizer, **hparams["lrs_hparams"])
     lmodel = MyLModule(model, optimizer, loss_fn, lr_s, hparams)
-    trainer = libs_ml.Trainer(
-        lmodel, device_ids, runs_dir=runs_dir, **hparams["trainer_hparams"])
+    trainer = libs_ml.Trainer(lmodel, device_ids, runs_dir=runs_dir, **hparams["trainer_hparams"])
     logger.info(trainer.fit(ldm.train_dataloader, ldm.val_dataloader))
     logger.info(trainer.test(ldm.test_dataloader))

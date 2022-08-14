@@ -26,6 +26,7 @@ from torch.amp.autocast_mode import autocast
 from torch.nn.parallel import DataParallel as DP, DistributedDataParallel as DDP
 import re
 import torch.distributed as dist
+import math
 
 logger = logging.getLogger(__name__)
 
@@ -257,12 +258,9 @@ class Trainer:
         logger.info(f"runs_dir: {runs_dir}")
         #
         self.ckpt_dir = os.path.join(runs_dir, "checkpoints")
-        self.tb_dir = os.path.join(
-            runs_dir, "runs")  # tensorboard
-        self.hparams_path = os.path.join(
-            runs_dir, "hparams.yaml")
-        self.result_path = os.path.join(
-            runs_dir, "result.yaml")
+        self.tb_dir = os.path.join(runs_dir, "runs")  # tensorboard
+        self.hparams_path = os.path.join(runs_dir, "hparams.yaml")
+        self.result_path = os.path.join(runs_dir, "result.yaml")
         os.makedirs(self.ckpt_dir, exist_ok=True)
         os.makedirs(self.tb_dir, exist_ok=True)
         #
@@ -272,8 +270,7 @@ class Trainer:
         else:
             benchmark = True if benchmark is None else benchmark
         torch.backends.cudnn.benchmark = benchmark
-        logger.info(
-            f"Setting benchmark: {benchmark}")
+        logger.info(f"Setting benchmark: {benchmark}")
         #
         self.logger = SummaryWriter(self.tb_dir)
         self.scaler = GradScaler(enabled=amp)
@@ -401,24 +398,29 @@ class Trainer:
         lmodel.training_epoch_start()
         scaler = self.scaler
         #
-        mes = {}
-        grad_norm = 0
+        mes: Dict[str, float] = {}
+        mes2: Dict[str, float] = {}  # optimize mes
+        loader_len, n_optim_step = len(dataloader), math.ceil(len(dataloader) / self.n_accumulate_grad)
+        new_mes2: Dict[str, float] = {}  # optimize new mes
         #
-        with tqdm(total=len(dataloader),
+        with tqdm(total=loader_len,
                   desc=f"Epoch {self.global_epoch}") as prog_bar:
             for batch_idx, batch in enumerate(dataloader):
                 self.global_step += 1
-                batch = lmodel.batch_to_device(batch, self.device)
                 self.new_mes.clear()
+                #
+                batch = lmodel.batch_to_device(batch, self.device)
                 with autocast(device_type=self.device.type, enabled=self.amp):
                     loss = lmodel.training_step(batch)
                 loss.div_(self.n_accumulate_grad)
                 scaler.scale(loss).backward()
-                # log lr
-                for i, lr in enumerate([group['lr'] for group in lmodel.optimizer.param_groups]):
-                    lmodel.log(f"lr{i}", lr, prog_bar_mean=False)
+                #
+                new_mes = self.new_mes.copy()
+                self._add_new_mes(mes, new_mes)
+
                 # 优化
-                if (batch_idx + 1) % self.n_accumulate_grad == 0 or (batch_idx + 1) == len(dataloader):
+                if (batch_idx + 1) % self.n_accumulate_grad == 0 or (batch_idx + 1) == loader_len:
+                    self.new_mes.clear()
                     if self.gradient_clip_norm:
                         # grad裁剪需要下面这行.
                         scaler.unscale_(lmodel.optimizer)
@@ -427,6 +429,12 @@ class Trainer:
                         if not self.amp:  # amp=True情况, found_inf下不工作. amp会对inf进行处理.
                             self.found_inf = grad_norm.isinf().all().item()
                         self.found_nan = grad_norm.isnan().all().item()
+                        # log grad_norm
+                        lmodel.log(f"grad_norm", grad_norm, prog_bar_mean=False)
+                    # log lr
+                    for i, lr in enumerate([group['lr'] for group in lmodel.optimizer.param_groups]):
+                        lmodel.log(f"lr{i}", lr, prog_bar_mean=False)
+                    #
                     lmodel.optimizer_step()
                     scaler.update()
                     # set_to_none可以增加速度. 该行为与Pytorch Lightning默认行为不一致.
@@ -434,23 +442,28 @@ class Trainer:
                     lmodel.optimizer.zero_grad(set_to_none=True)
                     self.found_inf = False
                     self.found_nan = False
-                # log grad_norm
-                if self.gradient_clip_norm:
-                    lmodel.log(f"grad_norm", grad_norm, prog_bar_mean=False)
-                self._add_new_mes(mes, self.new_mes)
+                    new_mes2 = self.new_mes.copy()
+                    self._add_new_mes(mes2, new_mes2)
+
                 # tensorboard
                 if self.global_step % self.log_every_n_steps == 0:
-                    self._logger_add_scalars(self.new_mes, self.global_step)
+                    self._logger_add_scalars(new_mes, self.global_step)
+                    self._logger_add_scalars(new_mes2, self.global_step)
                 # prog_bar
                 if (batch_idx + 1) % self.prog_bar_n_steps == 0:
                     mean_mes = self._sum_to_mean(mes, batch_idx + 1)
-                    log_mes = self._get_log_mes(
-                        mean_mes, self.new_mes, self.prog_bar_mean)
+                    optim_step_idx = (batch_idx + 1) // self.n_accumulate_grad
+                    mean_mes2 = self._sum_to_mean(mes2, optim_step_idx)
+                    log_mes = self._get_log_mes(mean_mes, new_mes, self.prog_bar_mean)
+                    log_mes2 = self._get_log_mes(mean_mes2, new_mes2, self.prog_bar_mean)
+                    log_mes.update(log_mes2)
                     prog_bar.set_postfix(log_mes, refresh=False)
                     prog_bar.update(self.prog_bar_n_steps)
 
             prog_bar.update(prog_bar.total - prog_bar.n)
-        self._sum_to_mean(mes, len(dataloader), inplace=True)
+        self._sum_to_mean(mes, loader_len, inplace=True)
+        self._sum_to_mean(mes2, n_optim_step, inplace=True)
+        mes.update(mes2)
         # 后处理
         lmodel.training_epoch_end()
         return mes
@@ -459,8 +472,7 @@ class Trainer:
         if len(self.device_ids) > 1:
             # DP并不会因为 无法平均拆分inputs而崩溃. 但这里为了规范性, 进行检查.
             assert train_dataloader.batch_size % len(self.device_ids) == 0
-            assert val_dataloader is None or val_dataloader.batch_size % len(
-                self.device_ids) == 0
+            assert val_dataloader is None or val_dataloader.batch_size % len(self.device_ids) == 0
         model = lmodel.model
         print_model_info(model, None)
         best_mes: Dict[str, float] = {}
@@ -497,16 +509,16 @@ class Trainer:
         mes = {}
         with tqdm(total=len(dataloader), desc="  Val: ") as prog_bar:
             for batch_idx, batch in enumerate(dataloader):
-                batch = lmodel.batch_to_device(batch, self.device)
                 self.new_mes.clear()
+                batch = lmodel.batch_to_device(batch, self.device)
                 _m = lmodel.validation_step(batch)
                 metrics += _m.item() if isinstance(_m, Tensor) else _m
-                self._add_new_mes(mes, self.new_mes)
+                new_mes = self.new_mes.copy()
+                self._add_new_mes(mes, new_mes)
                 # prog_bar
                 if batch_idx % self.prog_bar_n_steps == 0:
                     mean_mes = self._sum_to_mean(mes, batch_idx + 1)
-                    log_mes = self._get_log_mes(
-                        mean_mes, self.new_mes, self.prog_bar_mean)
+                    log_mes = self._get_log_mes(mean_mes, new_mes, self.prog_bar_mean)
                     prog_bar.set_postfix(log_mes, refresh=False)
                     prog_bar.update(self.prog_bar_n_steps)
             prog_bar.update(prog_bar.total - prog_bar.n)
@@ -527,15 +539,15 @@ class Trainer:
         desc = "Test Last: " if model_type == "last" else "Test Best: "
         with tqdm(total=len(dataloader), desc=desc) as prog_bar:
             for batch_idx, batch in enumerate(dataloader):
-                batch = lmodel.batch_to_device(batch, self.device)
                 self.new_mes.clear()
+                batch = lmodel.batch_to_device(batch, self.device)
                 lmodel.test_step(batch)
-                self._add_new_mes(mes, self.new_mes)  # LModule.log的内容
+                new_mes = self.new_mes.copy()
+                self._add_new_mes(mes, new_mes)  # LModule.log的内容
                 # prog_bar
                 if (batch_idx + 1) % self.prog_bar_n_steps == 0:
                     mean_mes = self._sum_to_mean(mes, batch_idx + 1)
-                    log_mes = self._get_log_mes(
-                        mean_mes, self.new_mes, self.prog_bar_mean)
+                    log_mes = self._get_log_mes(mean_mes, new_mes, self.prog_bar_mean)
                     prog_bar.set_postfix(log_mes, refresh=False)
                     prog_bar.update(self.prog_bar_n_steps)
             prog_bar.update(prog_bar.total - prog_bar.n)
