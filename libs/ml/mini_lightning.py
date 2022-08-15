@@ -2,10 +2,10 @@
 # Email: hjt_study@qq.com
 # Date:
 try:
-    from .utils import print_model_info, select_device
+    from .utils import print_model_info, select_device, remove_keys
 except ImportError:
     # for debug
-    from utils import print_model_info, select_device
+    from utils import print_model_info, select_device, remove_keys
 import torch
 from torch import device as Device, Tensor
 from torch.utils.tensorboard.writer import SummaryWriter
@@ -26,7 +26,7 @@ from torch.amp.autocast_mode import autocast
 from torch.nn.parallel import DataParallel as DP, DistributedDataParallel as DDP
 import re
 import torch.distributed as dist
-import math
+
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +34,12 @@ logger = logging.getLogger(__name__)
 #   暂时取消对GAN的支持.
 # 约定: epoch_idx/global_epoch, batch_idx从0开始. global_step从1开始.
 __all__ = ["LModule", "LDataModule", "Trainer"]
+
+
+def _de_parallel(model: Module) -> Module:
+    if isinstance(model, (DP, DDP)):
+        model = model.module
+    return model
 
 
 class LModule:
@@ -63,12 +69,13 @@ class LModule:
     def log(self, k: str, v: Union[Tensor, float], *, prog_bar_mean=True) -> None:
         """
         prog_bar_mean: 在prog_bar中显示的是整个epoch的均值. (一般loss, acc用均值. lr不用均值)
-        note: lr会自动进行log, 无需手动log. 
+        note: lr会自动进行log, 无需手动log.
         """
         # 如何log. 我们调用lmodule的log, 将信息存储在lmodule中
         # 当单次迭代结束时, 会修改lmodule._mes, 随后加到trainer的全局log中...
         if self.trainer is None:
             raise ValueError(f"self.trainer: {self.trainer}")
+        #
         if isinstance(v, Tensor):
             v = v.item()
         self.trainer.new_mes[k] = v
@@ -87,12 +94,13 @@ class LModule:
         self.model.load_state_dict(torch.load(ckpt_path, map_location=device))
 
     def save_checkpoint(self, ckpt_path: str) -> None:
-        torch.save(self.model.state_dict(), ckpt_path)
+        model = _de_parallel(self.model)
+        torch.save(model.state_dict(), ckpt_path)
 
-    def training_epoch_start(self) -> None:
+    def training_epoch_start(self, device) -> None:
         # [fit]用于模型to(device), 特别是有多个model的情况下会使用(dqn)
         self.model.train()
-        self.model.to(self.device)
+        self.model.to(device)
 
     def training_epoch_end(self) -> None:
         # [fit]用于lr_schedules的处理
@@ -203,50 +211,49 @@ class Trainer:
         benchmark: Optional[bool] = None
     ) -> None:
         """
-        device_ids: 若传入多个device_ids, 则使用DP. (暂时不支持DDP). 
+        device_ids: 若传入多个device_ids, 则使用DP. (暂时不支持DDP). 使用`CUDA_VISIBLE_DEVICES`环境变量进行选择
             e.g. []: 代表"cpu", [0], [0, 1, 2]
             note: DP: 推荐在大型/超大型模型中使用. 小模型并不会加快训练速度. (瓶颈在gpu之间的通信)
-                batch_size会被拆分到各个gpu中. 请确保batch_size % n_gpus == 0. 
+                batch_size会被拆分到各个gpu中. 请确保batch_size % n_gpus == 0.
             note: DP会对lmodel.model进行赋值: `lmodel.model = DP(lmodel.model)`
-        n_accumulate_grad: 梯度累加. 
-            使用mean累加, 而不是sum. 
+        n_accumulate_grad: 梯度累加.
+            使用mean累加, 而不是sum.
                 Refer: https://pytorch-lightning.readthedocs.io/en/latest/_modules/pytorch_lightning/loops/optimization/optimizer_loop.html (搜索: self.trainer.accumulate_grad_batches)
                 (使用sum可能会对weight_decay, gradient_clip_norm的取值产生影响)
-            与多gpu训练效果基本一致的. 
-                在不使用BN的情况下, 与batch_size*n_accumulate_grad训练的效果基本一致. 
+            与多gpu训练效果基本一致的.
+                在不使用BN的情况下, 与batch_size*n_accumulate_grad训练的效果基本一致.
             note: 因为会改变optimizer_step()调用的频率. 所以适当调整optimizer_step()中调用的lr_scheduler的参数. (e.g. warmup, T_max等)
             note: 增大了total_batch_size可以适当增加学习率
-            note: 使用batch_idx % , 批次最后的未更新的grad会到epoch结束时更新. 与pytorch lightning行为相同. 
-        amp: 是否使用混合精度训练. 
-            作用: 加快训练速度, 减少显存消耗. 略微(或不)下降性能 (因为可以提高batch size). 
+            note: 使用batch_idx % , 批次最后的未更新的grad会到epoch结束时更新. 与pytorch lightning行为相同.
+        amp: 是否使用混合精度训练.
+            作用: 加快训练速度, 减少显存消耗. 略微(或不)下降性能 (因为可以提高batch size).
             note: 推荐在大型/超大型模型中使用. 小模型并不会加快训练速度. (有些环境可能不支持amp)
             Refer: https://pytorch.org/docs/stable/notes/amp_examples.html
         gradient_clip_norm: 梯度裁剪(norm裁剪), 防止梯度爆炸, 并对缩放前的grad_norm进行log. 一般设置为5, 10, 20.
-            note: 在梯度裁剪的基础上加了INF的检查. 这可以提高训练的稳定性. 
+            note: 在梯度裁剪的基础上加了INF的检查. 这可以提高训练的稳定性.
                 若在梯度裁剪中发现INF. 则会跳过本次更新. (amp=True情况下, 此检查由amp处理)
         *
-        log_every_n_steps: 几步需要将信息log入tensorboard(使用每n步采样的方式, 而不是均值). 使用global_step % . 
+        log_every_n_steps: 几步需要将信息log入tensorboard(使用每n步采样的方式, 而不是均值). 使用global_step % .
         prog_bar_n_steps: 进度条的显示的频率. batch_idx % .
         benchmark: https://pytorch.org/docs/stable/backends.html#torch.backends.cudnn.torch.backends.cudnn.benchmark
-            Pytorch默认False. 若该函数的benchmark行为与Pytorch Lightning行为一致 
-            benchmark=True: 可以加速训练, 但是会造成不可复现. 
-            benchmark=None: 若cudnn.deterministic为False, 则设置为True. 否则, 设为False. 
+            Pytorch默认False. 若该函数的benchmark行为与Pytorch Lightning行为一致
+            benchmark=True: 可以加速训练, 但是会造成不可复现.
+            benchmark=None: 若cudnn.deterministic为False, 则设置为True. 否则, 设为False.
                 note: deterministic也可以通过libs_ml.seed_everything中的参数gpu_dtm指定. (这里不设置参数)
         """
         self.lmodel = lmodel
         self.lmodel.trainer = self
         self.device_ids = device_ids
+        self.world_size = len(device_ids)
         self.device = select_device(device_ids)
-        if len(device_ids) > 1:
-            lmodel.model = DP(lmodel.model)
-
-        logger.info(f"Using DP: {len(device_ids) > 1}")
         self.max_epochs = max_epochs
         self.n_accumulate_grad = n_accumulate_grad
         self.amp = amp
         if amp:
             logger.info(f"Using amp: {amp}")
-
+        if self.world_size > 1:
+            logger.info(f"Using DP: {True}")
+            self.lmodel.model = DP(self.lmodel.model)
         self.log_every_n_steps = log_every_n_steps
         self.prog_bar_n_steps = prog_bar_n_steps
         self.gradient_clip_norm = gradient_clip_norm
@@ -272,7 +279,7 @@ class Trainer:
         torch.backends.cudnn.benchmark = benchmark
         logger.info(f"Setting benchmark: {benchmark}")
         #
-        self.logger = SummaryWriter(self.tb_dir)
+        self.tb_logger = SummaryWriter(self.tb_dir)
         self.scaler = GradScaler(enabled=amp)
         self.best_metrics = -1e10  # model save
         self.best_epoch_idx: int = -1
@@ -292,7 +299,7 @@ class Trainer:
         self.found_nan = False
 
     @staticmethod
-    def _get_version(runs_dir):
+    def _get_version(runs_dir: str) -> int:
         if os.path.isdir(runs_dir):
             fnames = os.listdir(runs_dir)
         else:
@@ -343,7 +350,7 @@ class Trainer:
     def _logger_add_scalars(self, mes: Dict[str, float], step: int) -> None:
         # mes(not sum)
         for k, v in mes.items():
-            self.logger.add_scalar(k, v, global_step=step)
+            self.tb_logger.add_scalar(k, v, global_step=step)
 
     def _remove_ckpt(self, mode: str) -> None:
         if mode == "best" and self.best_ckpt_path:
@@ -353,14 +360,13 @@ class Trainer:
 
     def _epoch_end(self, mes: Dict[str, float], metric: Optional[float]) -> bool:
         # 1. 模型保存
-        ckpt_dir = self.ckpt_dir
         is_best = False
         if metric is not None and metric >= self.best_metrics:  # 含等于
             # 保存
             self._remove_ckpt("best")
             self.best_metrics = metric
             ckpt_fname = f"best-epoch={self.global_epoch}-metrics={metric}.ckpt"
-            self.best_ckpt_path = os.path.join(ckpt_dir, ckpt_fname)
+            self.best_ckpt_path = os.path.join(self.ckpt_dir, ckpt_fname)
             self.best_epoch_idx = self.global_epoch
             self.lmodel.save_checkpoint(self.best_ckpt_path)
             print((f"- best model, saving model `{ckpt_fname}`"))
@@ -368,18 +374,19 @@ class Trainer:
         #
         self._remove_ckpt("last")
         ckpt_fname = f"last-epoch={self.global_epoch}-metrics={metric}.ckpt"
-        self.last_ckpt_path = os.path.join(ckpt_dir, ckpt_fname)
+        self.last_ckpt_path = os.path.join(self.ckpt_dir, ckpt_fname)
         self.lmodel.save_checkpoint(self.last_ckpt_path)
         # 2. 结果保存
         with open(self.result_path, "a") as f:
             yaml.dump({f"Epoch={self.global_epoch}": mes}, f)
         return is_best
 
-    def _add_new_mes(self, mes: Dict[str, float], new_mes: Dict[str, float]) -> None:
+    def _add_new_mes(self, mes: Dict[str, float], new_mes: Dict[str, float], alpha: int) -> None:
+        # alpha: 系数: 一个batch中的N
         for k, v in new_mes.items():
             if k not in mes:
                 mes[k] = 0
-            mes[k] += v
+            mes[k] += v * alpha
 
     @staticmethod
     def _get_log_mes(mean_mes: Dict[str, float], new_mes: Dict[str, float], prog_bar_mean: Dict[str, bool]):
@@ -393,90 +400,111 @@ class Trainer:
                 res[k] = new_mes[k]
         return res
 
+    @staticmethod
+    def _get_batch_size(batch: Union[Sequence, Mapping]) -> int:
+        if isinstance(batch, Sequence):
+            N = batch[0].shape[0]
+        elif isinstance(batch, Mapping):
+            N = next(iter(batch.values())).shape[0]
+        return N
+
     def _train_epoch(self, lmodel: LModule, dataloader: DataLoader) -> Dict[str, float]:
         model = lmodel.model
-        lmodel.training_epoch_start()
+        device = self.device
+        lmodel.training_epoch_start(device)
         scaler = self.scaler
         #
         mes: Dict[str, float] = {}
         mes2: Dict[str, float] = {}  # optimize mes
-        loader_len, n_optim_step = len(dataloader), math.ceil(len(dataloader) / self.n_accumulate_grad)
+        new_mes: Dict[str, float] = {}
         new_mes2: Dict[str, float] = {}  # optimize new mes
+        N2, N3 = 0, 0  # for optim_N, for total_N
         #
-        with tqdm(total=loader_len,
-                  desc=f"Epoch {self.global_epoch}") as prog_bar:
-            for batch_idx, batch in enumerate(dataloader):
-                self.global_step += 1
+        prog_bar = tqdm(total=len(dataloader), desc=f"Epoch {self.global_epoch}")
+
+        for batch_idx, batch in enumerate(dataloader):
+            self.global_step += 1
+            # 因为每个batch_size的大小可能不同.
+            N = self._get_batch_size(batch)
+            N2 += N
+            N3 += N
+            self.new_mes.clear()
+            #
+            batch = lmodel.batch_to_device(batch, device)
+            with autocast(device_type=self.device.type, enabled=self.amp):
+                loss = lmodel.training_step(batch)
+            loss.div_(self.n_accumulate_grad)
+            scaler.scale(loss).backward()
+            #
+            new_mes = self.new_mes.copy()
+            self._add_new_mes(mes, new_mes, N)
+
+            # 优化
+            if (batch_idx + 1) % self.n_accumulate_grad == 0 or (batch_idx + 1) == len(dataloader):
                 self.new_mes.clear()
+                if self.gradient_clip_norm:
+                    # grad裁剪需要下面这行.
+                    scaler.unscale_(lmodel.optimizer)
+                    grad_norm = clip_grad_norm_(
+                        model.parameters(), max_norm=self.gradient_clip_norm, error_if_nonfinite=False)
+
+                    if not self.amp:  # amp=True情况, found_inf下不工作. amp会对inf进行处理.
+                        self.found_inf = grad_norm.isinf().all().item()
+                    self.found_nan = grad_norm.isnan().all().item()
+                    # log grad_norm
+                    lmodel.log(f"grad_norm", grad_norm, prog_bar_mean=False)
+
+                # log lr
+                for i, lr in enumerate([group['lr'] for group in lmodel.optimizer.param_groups]):
+                    lmodel.log(f"lr{i}", lr, prog_bar_mean=False)
                 #
-                batch = lmodel.batch_to_device(batch, self.device)
-                with autocast(device_type=self.device.type, enabled=self.amp):
-                    loss = lmodel.training_step(batch)
-                loss.div_(self.n_accumulate_grad)
-                scaler.scale(loss).backward()
+                lmodel.optimizer_step()
+                scaler.update()
+                # set_to_none可以增加速度. 该行为与Pytorch Lightning默认行为不一致.
+                # https://pytorch.org/docs/stable/generated/torch.optim.Optimizer.zero_grad.html
+                lmodel.optimizer.zero_grad(set_to_none=True)
                 #
-                new_mes = self.new_mes.copy()
-                self._add_new_mes(mes, new_mes)
+                self.found_inf = False
+                self.found_nan = False
+                new_mes2 = self.new_mes.copy()
+                self._add_new_mes(mes2, new_mes2, N2)
+                N2 = 0
 
-                # 优化
-                if (batch_idx + 1) % self.n_accumulate_grad == 0 or (batch_idx + 1) == loader_len:
-                    self.new_mes.clear()
-                    if self.gradient_clip_norm:
-                        # grad裁剪需要下面这行.
-                        scaler.unscale_(lmodel.optimizer)
-                        grad_norm = clip_grad_norm_(
-                            model.parameters(), max_norm=self.gradient_clip_norm, error_if_nonfinite=False)
-                        if not self.amp:  # amp=True情况, found_inf下不工作. amp会对inf进行处理.
-                            self.found_inf = grad_norm.isinf().all().item()
-                        self.found_nan = grad_norm.isnan().all().item()
-                        # log grad_norm
-                        lmodel.log(f"grad_norm", grad_norm, prog_bar_mean=False)
-                    # log lr
-                    for i, lr in enumerate([group['lr'] for group in lmodel.optimizer.param_groups]):
-                        lmodel.log(f"lr{i}", lr, prog_bar_mean=False)
-                    #
-                    lmodel.optimizer_step()
-                    scaler.update()
-                    # set_to_none可以增加速度. 该行为与Pytorch Lightning默认行为不一致.
-                    # https://pytorch.org/docs/stable/generated/torch.optim.Optimizer.zero_grad.html
-                    lmodel.optimizer.zero_grad(set_to_none=True)
-                    self.found_inf = False
-                    self.found_nan = False
-                    new_mes2 = self.new_mes.copy()
-                    self._add_new_mes(mes2, new_mes2)
+            # tensorboard
+            if self.global_step % self.log_every_n_steps == 0:
+                self._logger_add_scalars(new_mes, self.global_step)
+                self._logger_add_scalars(new_mes2, self.global_step)
+            # prog_bar
+            if (batch_idx + 1) % self.prog_bar_n_steps == 0:
+                mean_mes = self._sum_to_mean(mes, N3)
+                mean_mes2 = self._sum_to_mean(mes2, N3)
+                log_mes = self._get_log_mes(mean_mes, new_mes, self.prog_bar_mean)
+                log_mes2 = self._get_log_mes(mean_mes2, new_mes2, self.prog_bar_mean)
+                log_mes.update(log_mes2)
+                prog_bar.set_postfix(log_mes, refresh=False)
+                prog_bar.update(self.prog_bar_n_steps)
 
-                # tensorboard
-                if self.global_step % self.log_every_n_steps == 0:
-                    self._logger_add_scalars(new_mes, self.global_step)
-                    self._logger_add_scalars(new_mes2, self.global_step)
-                # prog_bar
-                if (batch_idx + 1) % self.prog_bar_n_steps == 0:
-                    mean_mes = self._sum_to_mean(mes, batch_idx + 1)
-                    optim_step_idx = (batch_idx + 1) // self.n_accumulate_grad
-                    mean_mes2 = self._sum_to_mean(mes2, optim_step_idx)
-                    log_mes = self._get_log_mes(mean_mes, new_mes, self.prog_bar_mean)
-                    log_mes2 = self._get_log_mes(mean_mes2, new_mes2, self.prog_bar_mean)
-                    log_mes.update(log_mes2)
-                    prog_bar.set_postfix(log_mes, refresh=False)
-                    prog_bar.update(self.prog_bar_n_steps)
-
-            prog_bar.update(prog_bar.total - prog_bar.n)
-        self._sum_to_mean(mes, loader_len, inplace=True)
-        self._sum_to_mean(mes2, n_optim_step, inplace=True)
+        prog_bar.update(prog_bar.total - prog_bar.n)
+        prog_bar.close()
+        self._sum_to_mean(mes, N3, inplace=True)
+        self._sum_to_mean(mes2, N3, inplace=True)
         mes.update(mes2)
+        #
+        mes = remove_keys(mes, ["lr", "grad_norm"])
         # 后处理
         lmodel.training_epoch_end()
         return mes
 
-    def _train(self, lmodel: LModule, train_dataloader: DataLoader, val_dataloader: Optional[DataLoader]) -> Dict[str, float]:
-        if len(self.device_ids) > 1:
+    def _train(self, lmodel: LModule, train_dataloader: DataLoader,
+               val_dataloader: Optional[DataLoader]) -> Dict[str, float]:
+        if self.world_size > 1:
             # DP并不会因为 无法平均拆分inputs而崩溃. 但这里为了规范性, 进行检查.
-            assert train_dataloader.batch_size % len(self.device_ids) == 0
-            assert val_dataloader is None or val_dataloader.batch_size % len(self.device_ids) == 0
+            assert train_dataloader.batch_size % self.world_size == 0
+        #
         model = lmodel.model
         print_model_info(model, None)
+        mes: Dict[str, float] = {}
         best_mes: Dict[str, float] = {}
-        mes = {}
         #
         for _ in range(self.global_epoch + 1, self.max_epochs):
             self.global_epoch += 1
@@ -490,6 +518,7 @@ class Trainer:
                 #   不使用train_loss作为best_ckpt的原因: train_loss一定随着epoch增加而越来越小. 所以不需要.
                 metrics = None
             is_best = self._epoch_end(mes, metrics)  # 保存模型和results
+
             mes.update({"global_epoch": self.global_epoch,
                         "global_step": self.global_step})
             if is_best:
@@ -498,63 +527,63 @@ class Trainer:
             best_mes = mes  # last
         return best_mes
 
-    @torch.no_grad()
-    def _val(self, lmodel: LModule, dataloader: DataLoader) -> Tuple[float, Dict[str, float]]:
+    def _val_test(self, lmodel: LModule, dataloader: DataLoader, val_test_step: Callable[[Any], Any],
+                  desc: str, epoch_idx: int) -> Tuple[float, Dict[str, float]]:
+        # 用于val, test
         model = lmodel.model
+        device = self.device
         #
         model.eval()
-        model.to(self.device)
+        model.to(device)
+        N3 = 0  # for total_N
         #
-        metrics = 0.  # sum stat
-        mes = {}
-        with tqdm(total=len(dataloader), desc="  Val: ") as prog_bar:
-            for batch_idx, batch in enumerate(dataloader):
-                self.new_mes.clear()
-                batch = lmodel.batch_to_device(batch, self.device)
-                _m = lmodel.validation_step(batch)
-                metrics += _m.item() if isinstance(_m, Tensor) else _m
-                new_mes = self.new_mes.copy()
-                self._add_new_mes(mes, new_mes)
-                # prog_bar
-                if batch_idx % self.prog_bar_n_steps == 0:
-                    mean_mes = self._sum_to_mean(mes, batch_idx + 1)
-                    log_mes = self._get_log_mes(mean_mes, new_mes, self.prog_bar_mean)
-                    prog_bar.set_postfix(log_mes, refresh=False)
-                    prog_bar.update(self.prog_bar_n_steps)
-            prog_bar.update(prog_bar.total - prog_bar.n)
-        self._sum_to_mean(mes, len(dataloader), inplace=True)
-        self._logger_add_scalars(mes, self.global_epoch)
-        return metrics / len(dataloader), mes
-
-    @ torch.no_grad()
-    def _test(self, lmodel: LModule, dataloader: DataLoader, *, model_type: Literal["last", "best"] = "last") -> Dict[str, float]:
-        model = lmodel.model
-        if len(self.device_ids) > 1:
-            assert dataloader.batch_size % len(self.device_ids) == 0
-        #
-        model.eval()
-        model.to(self.device)
-        #
-        mes = {}  # sum stat
-        desc = "Test Last: " if model_type == "last" else "Test Best: "
-        with tqdm(total=len(dataloader), desc=desc) as prog_bar:
-            for batch_idx, batch in enumerate(dataloader):
-                self.new_mes.clear()
-                batch = lmodel.batch_to_device(batch, self.device)
-                lmodel.test_step(batch)
-                new_mes = self.new_mes.copy()
-                self._add_new_mes(mes, new_mes)  # LModule.log的内容
-                # prog_bar
-                if (batch_idx + 1) % self.prog_bar_n_steps == 0:
-                    mean_mes = self._sum_to_mean(mes, batch_idx + 1)
-                    log_mes = self._get_log_mes(mean_mes, new_mes, self.prog_bar_mean)
-                    prog_bar.set_postfix(log_mes, refresh=False)
-                    prog_bar.update(self.prog_bar_n_steps)
-            prog_bar.update(prog_bar.total - prog_bar.n)
-        self._sum_to_mean(mes, len(dataloader), inplace=True)
-        epoch_idx = self.global_epoch if model_type == "last" else self.best_epoch_idx
+        metrics = 0.  # sum stat(以dataset为单位.)
+        mes: Dict[str, float] = {}
+        new_mes: Dict[str, float] = {}
+        prog_bar = tqdm(total=len(dataloader), desc=desc)
+        for batch_idx, batch in enumerate(dataloader):
+            N = self._get_batch_size(batch)
+            N3 += N
+            self.new_mes.clear()
+            with torch.no_grad():
+                batch = lmodel.batch_to_device(batch, device)
+                _m = val_test_step(batch)
+            if _m is not None:
+                _m = _m.item() if isinstance(_m, Tensor) else _m
+                metrics += _m * N
+            new_mes = self.new_mes.copy()
+            self._add_new_mes(mes, new_mes, N)
+            # prog_bar
+            if (batch_idx + 1) % self.prog_bar_n_steps == 0:
+                mean_mes = self._sum_to_mean(mes, N3)
+                log_mes = self._get_log_mes(mean_mes, new_mes, self.prog_bar_mean)
+                prog_bar.set_postfix(log_mes, refresh=False)
+                prog_bar.update(self.prog_bar_n_steps)
+        prog_bar.update(prog_bar.total - prog_bar.n)
+        prog_bar.close()
+        self._sum_to_mean(mes, N3, inplace=True)
         self._logger_add_scalars(mes, epoch_idx)
+        return metrics / N3, mes
+
+    def _val(self, lmodel: LModule, dataloader: DataLoader) -> Tuple[float, Dict[str, float]]:
+        desc = "  Val: "
+        metrics, mes = self._val_test(lmodel, dataloader, self.lmodel.validation_step, desc, self.global_epoch)
+        return metrics, mes
+
+    def _test(self, lmodel: LModule, dataloader: DataLoader,
+              model_type: Literal["last", "best"]) -> Dict[str, float]:
+        desc = "Test Last: " if model_type == "last" else "Test Best: "
+        epoch_idx = self.global_epoch if model_type == "last" else self.best_epoch_idx
+        _, mes = self._val_test(lmodel, dataloader, self.lmodel.test_step, desc, epoch_idx)
         return mes
+
+    @ staticmethod
+    def _key_add_suffix(mes: Dict[str, Any], suffix: str) -> Dict[str, Any]:
+        """not inplace"""
+        res = {}
+        for k, v in mes.items():
+            res[k + suffix] = v
+        return res
 
     def fit(self, train_dataloader: DataLoader, val_dataloader: Optional[DataLoader]) -> Dict[str, float]:
         """返回val中metrics最好的log信息(含train和val). """
@@ -563,34 +592,24 @@ class Trainer:
         self.lmodel.model.to(device_r)
         return best_mes
 
-    @staticmethod
-    def key_add_suffix(mes: Dict[str, Any], suffix: str) -> Dict[str, Any]:
-        """not inplace
-        suffix: 建议以`_`开头
-        """
-        res = {}
-        for k, v in mes.items():
-            res[k + suffix] = v
-        return res
-
     def test(self, dataloader: DataLoader, only_best: bool = True) -> Dict[str, float]:
         """返回best, last model的test的log信息
-        only_best: 只测试best. 理论上测试集不能作为验证集的作用使用. 所以默认为True. 
+        only_best: 只测试best. 理论上测试集不能作为验证集的作用使用. 所以默认为True.
         """
         # note: 若先last, 后best, 则last会在tensorboard中被覆盖. 所以这里先best, 后last.
         # test "best"
-        mes = {}
         device_r = next(self.lmodel.model.parameters()).device
-        if self.best_ckpt_path:  # 复原
+        mes = {}
+        if self.best_ckpt_path:
             assert self.last_ckpt_path  # 一般都满足
             self.lmodel.load_from_checkpoint(self.best_ckpt_path)
-            mes = self._test(self.lmodel, dataloader, model_type="best")
-            mes = self.key_add_suffix(mes, "_best")
-            self.lmodel.load_from_checkpoint(self.last_ckpt_path)
+            mes = self._test(self.lmodel, dataloader, "best")
+            self.lmodel.load_from_checkpoint(self.last_ckpt_path)  # 复原
+            mes = self._key_add_suffix(mes, "_best")
         # test "last"
         if not only_best:
-            mes2 = self._test(self.lmodel, dataloader, model_type="last")
-            mes2 = self.key_add_suffix(mes2, "_last")
+            mes2 = self._test(self.lmodel, dataloader, "last")
+            mes2 = self._key_add_suffix(mes2, "_last")
             mes.update(mes2)
         self.lmodel.model.to(device_r)
         return mes
@@ -650,6 +669,8 @@ if __name__ == "__main__":
             self.log("test_acc", acc)
     #
     _ROOT_DIR = "/home/jintao/Desktop/coding/python/ml_alg"
+    if not os.path.isdir(_ROOT_DIR):
+        raise FileNotFoundError(f"_ROOT_DIR: {_ROOT_DIR}")
     RUNS_DIR = os.path.join(_ROOT_DIR, "runs")
     os.makedirs(RUNS_DIR, exist_ok=True)
     #

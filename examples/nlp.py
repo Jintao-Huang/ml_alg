@@ -6,28 +6,13 @@ from pre import *
 from transformers.models.auto.modeling_auto import AutoModelForSequenceClassification
 logger = logging.getLogger(__name__)
 
+device_ids = [0]
+
 RUNS_DIR = os.path.join(RUNS_DIR, "nlp")
 DATASETS_PATH = os.environ.get("DATASETS_PATH", os.path.join(RUNS_DIR, "datasets"))
 CHECKPOINTS_PATH = os.path.join(RUNS_DIR, "checkpoints")
 os.makedirs(DATASETS_PATH, exist_ok=True)
 os.makedirs(CHECKPOINTS_PATH, exist_ok=True)
-
-#
-device_ids = [0]
-
-dataset = load_dataset("glue", "mrpc")
-model_name = "bert-base-uncased"
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-
-
-def tokenize_function(example):
-    return tokenizer(example["sentence1"], example["sentence2"], truncation=True)
-
-
-dataset = dataset.map(tokenize_function, batched=True)
-dataset = dataset.remove_columns(["sentence1", "sentence2", "idx"])
-dataset = dataset.rename_column("label", "labels")
-collate_fn = DataCollatorWithPadding(tokenizer=tokenizer, return_tensors="pt")
 
 
 class MyLModule(libs_ml.LModule):
@@ -73,7 +58,19 @@ class MyLModule(libs_ml.LModule):
 
 
 if __name__ == "__main__":
-    libs_ml.seed_everything(42, gpu_dtm=False)
+    dataset = load_dataset("glue", "mrpc")
+    model_name = "bert-base-uncased"
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+    def tokenize_function(example):
+        return tokenizer(example["sentence1"], example["sentence2"], truncation=True)
+
+    dataset = dataset.map(tokenize_function, batched=True)
+    dataset = dataset.remove_columns(["sentence1", "sentence2", "idx"])
+    dataset = dataset.rename_column("label", "labels")
+    collate_fn = DataCollatorWithPadding(tokenizer=tokenizer, return_tensors="pt")
+    #
+    # libs_ml.seed_everything(42, gpu_dtm=False)
     max_epochs = 5
     batch_size = 32
     n_accumulate_grad = 4
@@ -81,7 +78,7 @@ if __name__ == "__main__":
         "model_name": model_name,
         "optim_name": "AdamW",
         "dataloader_hparams": {"batch_size": batch_size, "num_workers": 4, "collate_fn": collate_fn},
-        "optim_hparams": {"lr": 1e-4, "weight_decay": 1e-4},  #
+        "optim_hparams": {"lr": 1e-4, "weight_decay": 1e-5},  #
         "trainer_hparams": {
             "max_epochs": max_epochs,
             "gradient_clip_norm": 10,
@@ -94,7 +91,7 @@ if __name__ == "__main__":
             "eta_min": 1e-5
         }
     }
-    hparams["lrs_hparams"]["T_max"] = math.ceil(len(dataset["train"]) // batch_size  / n_accumulate_grad) * max_epochs
+    hparams["lrs_hparams"]["T_max"] = math.ceil(len(dataset["train"]) // batch_size / n_accumulate_grad) * max_epochs
     #
     ldm = libs_ml.LDataModule(
         dataset["train"], dataset["validation"], dataset["test"], **hparams["dataloader_hparams"])
@@ -106,5 +103,11 @@ if __name__ == "__main__":
     lr_s = libs_ml.WarmupCosineAnnealingLR(optimizer, **hparams["lrs_hparams"])
     lmodel = MyLModule(model, optimizer, loss_fn, lr_s, hparams)
     trainer = libs_ml.Trainer(lmodel, device_ids, runs_dir=runs_dir, **hparams["trainer_hparams"])
-    logger.info(trainer.fit(ldm.train_dataloader, ldm.val_dataloader))
-    logger.info(trainer.test(ldm.test_dataloader))
+    try:
+        logger.info(trainer.fit(ldm.train_dataloader, ldm.val_dataloader))
+    except KeyboardInterrupt:
+        # nohup下, 使用`kill -2 <pid>` 产生KeyboardInterrupt
+        logger.info("KeyboardInterrupt Detected...")
+        raise
+    finally:
+        logger.info(trainer.test(ldm.test_dataloader))

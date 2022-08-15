@@ -8,7 +8,6 @@
 from pre import *
 
 logger = logging.getLogger(__name__)
-
 CIFAR10 = tvd.CIFAR10
 RUNS_DIR = os.path.join(RUNS_DIR, "cv")
 DATASETS_PATH = os.environ.get("DATASETS_PATH", os.path.join(RUNS_DIR, "datasets"))
@@ -18,33 +17,6 @@ os.makedirs(CHECKPOINTS_PATH, exist_ok=True)
 
 #
 device_ids = [0]
-
-_train_dataset = CIFAR10(root=DATASETS_PATH, train=True, download=True)
-DATA_MEANS = (_train_dataset.data / 255.0).mean(axis=(0, 1, 2))
-DATA_STD = (_train_dataset.data / 255.0).std(axis=(0, 1, 2))
-logger.info((DATA_MEANS, DATA_STD))
-test_transform = tvt.Compose([
-    tvt.ToTensor(),
-    tvt.Normalize(DATA_MEANS, DATA_STD)
-])
-train_transform = tvt.Compose(
-    [
-        tvt.RandomHorizontalFlip(),
-        tvt.RandomResizedCrop((32, 32), scale=(0.6, 1.0), ratio=(0.8, 1.2)),
-        tvt.ToTensor(),
-        tvt.Normalize(DATA_MEANS, DATA_STD),
-    ])
-
-_train_dataset = CIFAR10(root=DATASETS_PATH, train=True,
-                         transform=train_transform, download=True)
-_val_dataset = CIFAR10(root=DATASETS_PATH, train=True,
-                       transform=test_transform, download=True)  # test_transform
-test_dataset = CIFAR10(root=DATASETS_PATH, train=False,
-                       transform=test_transform, download=True)
-libs_ml.seed_everything(42, gpu_dtm=False)
-train_dataset, _ = random_split(_train_dataset, [45000, 5000])
-libs_ml.seed_everything(42, gpu_dtm=False)
-_, val_dataset = random_split(_val_dataset, [45000, 5000])
 
 
 class MyLModule(libs_ml.LModule):
@@ -90,6 +62,33 @@ class MyLModule(libs_ml.LModule):
 
 
 if __name__ == "__main__":
+    _train_dataset = CIFAR10(root=DATASETS_PATH, train=True, download=True)
+    DATA_MEANS = (_train_dataset.data / 255.0).mean(axis=(0, 1, 2))
+    DATA_STD = (_train_dataset.data / 255.0).std(axis=(0, 1, 2))
+    logger.info((DATA_MEANS, DATA_STD))
+    test_transform = tvt.Compose([
+        tvt.ToTensor(),
+        tvt.Normalize(DATA_MEANS, DATA_STD)
+    ])
+    train_transform = tvt.Compose(
+        [
+            tvt.RandomHorizontalFlip(),
+            tvt.RandomResizedCrop((32, 32), scale=(0.6, 1.0), ratio=(0.8, 1.2)),
+            tvt.ToTensor(),
+            tvt.Normalize(DATA_MEANS, DATA_STD),
+        ])
+
+    _train_dataset = CIFAR10(root=DATASETS_PATH, train=True,
+                             transform=train_transform, download=True)
+    _val_dataset = CIFAR10(root=DATASETS_PATH, train=True,
+                           transform=test_transform, download=True)  # test_transform
+    test_dataset = CIFAR10(root=DATASETS_PATH, train=False,
+                           transform=test_transform, download=True)
+    libs_ml.seed_everything(42, gpu_dtm=False)
+    train_dataset, _ = random_split(_train_dataset, [45000, 5000])
+    libs_ml.seed_everything(42, gpu_dtm=False)
+    _, val_dataset = random_split(_val_dataset, [45000, 5000])
+    #
     max_epochs = 20
     batch_size = 128
     n_accumulate_grad = 4
@@ -99,7 +98,7 @@ if __name__ == "__main__":
         "model_pretrain_model": {"url": tvm.ResNet50_Weights.DEFAULT.url},
         "dataloader_hparams": {"batch_size": batch_size, "num_workers": 4},
         "optim_name": "SGD",
-        "optim_hparams": {"lr": 1e-2, "weight_decay": 1e-4, "momentum": 0.9},
+        "optim_hparams": {"lr": 1e-2, "weight_decay": 1e-5, "momentum": 0.9},
         "trainer_hparams": {
             "max_epochs": max_epochs,
             "gradient_clip_norm": 10,

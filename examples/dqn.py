@@ -145,10 +145,10 @@ class MyLModule(libs_ml.LModule):
         self._warmup_memo(self.warmup_memory_steps)
         self.episode_reward = 0  # 一局的reward
 
-    def training_epoch_start(self) -> None:
-        super(MyLModule, self).training_epoch_start()
+    def training_epoch_start(self, device) -> None:
+        super(MyLModule, self).training_epoch_start(device)
         self.old_model.train()
-        self.old_model.to(self.device)
+        self.old_model.to(device)
 
     def _warmup_memo(self, steps: int):
         for _ in tqdm(range(steps), desc=f"Warmup: "):
@@ -197,7 +197,7 @@ class MyLModule(libs_ml.LModule):
 
 
 if __name__ == "__main__":
-    libs_ml.seed_everything(42, gpu_dtm=False)
+    # libs_ml.seed_everything(42, gpu_dtm=False)
     hparams = {
         "memo_capacity": 1000,
         "dataset_len": 5000,
