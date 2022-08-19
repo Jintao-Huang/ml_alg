@@ -221,7 +221,7 @@ if __name__ == "__main__":
     memo_pool = MemoryPool(hparams["memo_capacity"])
     dataset = MyDataset(memo_pool, hparams["dataset_len"])
     ldm = libs_ml.LDataModule(
-        dataset, None, None, **hparams["dataloader_hparams"], shuffle_train=False, num_workers=0)
+        dataset, None, None, **hparams["dataloader_hparams"], shuffle_train=False, num_workers=1)
     hparams["rand_p"]["T_max"] = len(ldm.train_dataloader) * hparams["trainer_hparams"]["max_epochs"]
 
     env = gym.make(hparams["env_name"])

@@ -12,22 +12,58 @@ import torch
 import numpy as np
 import torch.cuda as cuda
 import time
-from typing import Optional, Callable, Tuple, List, Dict, Any
+from typing import Optional, Callable, Tuple, List, Dict, Any, Union
 from torch import Tensor, device as Device
 from collections import defaultdict
 from numpy import ndarray
 import logging
 from torch.utils.data import Dataset
 import os
+from torch.nn.parallel import DataParallel as DP, DistributedDataParallel as DDP
+import math
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["select_device", "split_dataset", "stat",
+__all__ = ["get_T_max", "de_parallel", "select_device", "split_dataset", "extract_dataset", "stat",
            "test_time", "seed_everything", "time_synchronize",
            "remove_keys", "gen_seed_list", "multi_runs",
            #
            "freeze_layers", "print_model_info",
            "label_smoothing_cross_entropy", "fuse_conv_bn", "fuse_linear_bn"]
+
+
+def get_T_max(dataset_len: int, batch_size: int, max_epochs: int,
+              n_accumulate_grad: Union[int, Dict[int, int]] = 1, drop_last: bool = True) -> int:
+    """计算lrs的T_max. """
+    if isinstance(n_accumulate_grad, int):
+        if drop_last:
+            T_max = dataset_len // batch_size
+        else:
+            T_max = math.ceil(dataset_len / batch_size)
+        T_max = math.ceil(T_max / n_accumulate_grad)
+        T_max *= max_epochs
+    elif isinstance(n_accumulate_grad, dict):
+        nag_dict = n_accumulate_grad.copy()
+        if 0 not in nag_dict.keys():
+            nag_dict.update({0: 1})
+        T_max = 0
+        nag_list = [0] + sorted(n_accumulate_grad.keys()) + [max_epochs]
+        for i in range(len(nag_list) - 1):
+            nag = nag_dict[nag_list[i]]  # n_accumulate_grad
+            me: int = nag_list[i + 1] - nag_list[i]  # max_epochs
+            if drop_last:
+                Tm = dataset_len // batch_size
+            else:
+                Tm = math.ceil(dataset_len / batch_size)
+            Tm = math.ceil(Tm / nag)
+            T_max += Tm * me
+    return T_max
+
+
+def de_parallel(model: Module) -> Module:
+    if isinstance(model, (DP, DDP)):
+        model = model.module
+    return model
 
 
 def select_device(device_ids: List[int]) -> Device:
@@ -48,31 +84,41 @@ def select_device(device_ids: List[int]) -> Device:
     return torch.device(device)
 
 
-def split_dataset(dataset: Dataset, n_list: List[int], split_keys: List[str], seed: int = 42) -> List[Dataset]:
+def extract_dataset(dataset: Dataset, idxs: Union[slice, List[int], ndarray], split_keys: List[str]) -> Dataset:
+    keys = dataset.__dict__
+    new_dataset = dataset.__new__(dataset.__class__)
+    #
+    for k in keys:
+        v = getattr(dataset, k)
+        if k in split_keys:
+            if isinstance(v, list):
+                v = np.array(v)  # note!
+            v = v[idxs]
+        setattr(new_dataset, k, v)
+    return new_dataset
+
+
+def split_dataset(dataset: Dataset, n_list: List[int], split_keys: List[str],
+                  shuffle: bool = True, seed: int = 42) -> List[Dataset]:
     """将数据集切分为多个数据集. (使用随机切分)
     n_list: [800, 100, 100]. 则切成3份
     split_keys: 需要切分的keys. e.g. ["data", "targets"]. 注意: 会把v: list转成ndarray
+    shuffle: 是否随机切分
+    seed: 只有shuffle的情况下, 才用到
     """
-    assert len(n_list) >= 2
     d_len = len(dataset)
-    random_state = np.random.RandomState(seed)
-    perm_idxs = random_state.permutation(d_len)
+    if shuffle:
+        random_state = np.random.RandomState(seed)
+        perm_idxs = random_state.permutation(d_len)
     #
     res = []
-    keys = dataset.__dict__
     idx = 0
     for n in n_list:
-        new_dataset = dataset.__new__(dataset.__class__)
         pos = slice(idx, idx + n)
+        if shuffle:
+            pos = perm_idxs[pos]
         idx += n
-        #
-        for k in keys:
-            v = getattr(dataset, k)
-            if k in split_keys:
-                if isinstance(v, list):
-                    v = np.array(v)  # note!
-                v = v[perm_idxs[pos]]
-            setattr(new_dataset, k, v)
+        new_dataset = extract_dataset(dataset, pos, split_keys)
         res.append(new_dataset)
     return res
 

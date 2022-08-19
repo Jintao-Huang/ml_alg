@@ -71,14 +71,14 @@ if __name__ == "__main__":
     collate_fn = DataCollatorWithPadding(tokenizer=tokenizer, return_tensors="pt")
     #
     # libs_ml.seed_everything(42, gpu_dtm=False)
-    max_epochs = 5
+    max_epochs = 10
     batch_size = 32
     n_accumulate_grad = 4
     hparams = {
         "model_name": model_name,
-        "optim_name": "AdamW",
+        "optim_name": "SGD",  # AdamW 容易过拟合
         "dataloader_hparams": {"batch_size": batch_size, "num_workers": 4, "collate_fn": collate_fn},
-        "optim_hparams": {"lr": 1e-4, "weight_decay": 1e-5},  #
+        "optim_hparams": {"lr": 1e-2, "weight_decay": 1e-4, "momentum": 0.9},  #
         "trainer_hparams": {
             "max_epochs": max_epochs,
             "gradient_clip_norm": 10,
@@ -88,7 +88,7 @@ if __name__ == "__main__":
         "lrs_hparams": {
             "warmup": 30,  # 30 * n_accumulate_grad
             "T_max": ...,
-            "eta_min": 1e-5
+            "eta_min": 1e-3
         }
     }
     hparams["lrs_hparams"]["T_max"] = math.ceil(len(dataset["train"]) // batch_size / n_accumulate_grad) * max_epochs

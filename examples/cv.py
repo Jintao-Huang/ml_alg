@@ -91,19 +91,20 @@ if __name__ == "__main__":
     #
     max_epochs = 20
     batch_size = 128
-    n_accumulate_grad = 4
+    n_accumulate_grad = {5: 2, 10: 4}
     hparams = {
         "model_name": "resnet50",
         "model_hparams": {"num_classes": 10},
         "model_pretrain_model": {"url": tvm.ResNet50_Weights.DEFAULT.url},
         "dataloader_hparams": {"batch_size": batch_size, "num_workers": 4},
         "optim_name": "SGD",
-        "optim_hparams": {"lr": 1e-2, "weight_decay": 1e-5, "momentum": 0.9},
+        "optim_hparams": {"lr": 1e-2, "weight_decay": 1e-4, "momentum": 0.9},
         "trainer_hparams": {
             "max_epochs": max_epochs,
             "gradient_clip_norm": 10,
             "amp": True,
-            "n_accumulate_grad": n_accumulate_grad
+            "n_accumulate_grad": n_accumulate_grad, 
+            "verbose": False
         },
         "lrs_hparams": {
             "warmup": 100,  # 100 * n_accumulate_grad
@@ -112,7 +113,7 @@ if __name__ == "__main__":
         }
     }
 
-    hparams["lrs_hparams"]["T_max"] = math.ceil(len(train_dataset) // batch_size / n_accumulate_grad) * max_epochs
+    hparams["lrs_hparams"]["T_max"] = libs_ml.get_T_max(len(train_dataset), batch_size, max_epochs, n_accumulate_grad)
     #
     ldm = libs_ml.LDataModule(
         train_dataset, val_dataset, test_dataset, **hparams["dataloader_hparams"])
@@ -135,5 +136,5 @@ if __name__ == "__main__":
         res2 = trainer.test(ldm.test_dataloader)
         res.update(res2)
         return res
-    res = libs_ml.multi_runs(collect_res, 5, seed=42)
+    res = libs_ml.multi_runs(collect_res, 3, seed=42)
     # pprint(res)

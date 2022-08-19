@@ -2,10 +2,10 @@
 # Email: hjt_study@qq.com
 # Date:
 try:
-    from .utils import print_model_info, select_device, remove_keys
+    from .utils import print_model_info, select_device, remove_keys, de_parallel
 except ImportError:
     # for debug
-    from utils import print_model_info, select_device, remove_keys
+    from utils import print_model_info, select_device, remove_keys, de_parallel
 import torch
 from torch import device as Device, Tensor
 from torch.utils.tensorboard.writer import SummaryWriter
@@ -26,6 +26,7 @@ from torch.amp.autocast_mode import autocast
 from torch.nn.parallel import DataParallel as DP, DistributedDataParallel as DDP
 import re
 import torch.distributed as dist
+from bisect import bisect_right
 
 
 logger = logging.getLogger(__name__)
@@ -34,12 +35,6 @@ logger = logging.getLogger(__name__)
 #   暂时取消对GAN的支持.
 # 约定: epoch_idx/global_epoch, batch_idx从0开始. global_step从1开始.
 __all__ = ["LModule", "LDataModule", "Trainer"]
-
-
-def _de_parallel(model: Module) -> Module:
-    if isinstance(model, (DP, DDP)):
-        model = model.module
-    return model
 
 
 class LModule:
@@ -94,7 +89,7 @@ class LModule:
         self.model.load_state_dict(torch.load(ckpt_path, map_location=device))
 
     def save_checkpoint(self, ckpt_path: str) -> None:
-        model = _de_parallel(self.model)
+        model = de_parallel(self.model)
         torch.save(model.state_dict(), ckpt_path)
 
     def training_epoch_start(self, device) -> None:
@@ -202,13 +197,14 @@ class Trainer:
     def __init__(
         self, lmodel: LModule, device_ids: List[int],
         max_epochs: int, runs_dir: str,
-        n_accumulate_grad: int = 1,
+        n_accumulate_grad: Union[int, Dict[int, int]] = 1,
         amp: bool = False,
         gradient_clip_norm: Optional[float] = None,
         *,
-        log_every_n_steps: int = 5,
-        prog_bar_n_steps: int = 1,
-        benchmark: Optional[bool] = None
+        log_every_n_steps: int = 10,
+        prog_bar_n_steps: int = 10,
+        benchmark: Optional[bool] = None,
+        verbose: bool = True
     ) -> None:
         """
         device_ids: 若传入多个device_ids, 则使用DP. (暂时不支持DDP). 使用`CUDA_VISIBLE_DEVICES`环境变量进行选择
@@ -217,6 +213,8 @@ class Trainer:
                 batch_size会被拆分到各个gpu中. 请确保batch_size % n_gpus == 0.
             note: DP会对lmodel.model进行赋值: `lmodel.model = DP(lmodel.model)`
         n_accumulate_grad: 梯度累加.
+            若为Dict[int, int]: e.g. {5:2, 20:4} or {0:1, 5:2, 20:4}. 表示前5个(0-4)epoch使用1(no累计), 5-19使用2, 20以后使用4. 
+                这可以在初期加快训练速度, 并在最后不影响收敛性能. 
             使用mean累加, 而不是sum.
                 Refer: https://pytorch-lightning.readthedocs.io/en/latest/_modules/pytorch_lightning/loops/optimization/optimizer_loop.html (搜索: self.trainer.accumulate_grad_batches)
                 (使用sum可能会对weight_decay, gradient_clip_norm的取值产生影响)
@@ -229,7 +227,7 @@ class Trainer:
             作用: 加快训练速度, 减少显存消耗. 略微(或不)下降性能 (因为可以提高batch size).
             note: 推荐在大型/超大型模型中使用. 小模型并不会加快训练速度. (有些环境可能不支持amp)
             Refer: https://pytorch.org/docs/stable/notes/amp_examples.html
-        gradient_clip_norm: 梯度裁剪(norm裁剪), 防止梯度爆炸, 并对缩放前的grad_norm进行log. 一般设置为5, 10, 20.
+        gradient_clip_norm: 梯度裁剪(norm裁剪), 防止梯度爆炸, 并对缩放前的grad_norm进行log(见verbose). 一般设置为5, 10, 20.
             note: 在梯度裁剪的基础上加了INF的检查. 这可以提高训练的稳定性.
                 若在梯度裁剪中发现INF. 则会跳过本次更新. (amp=True情况下, 此检查由amp处理)
         *
@@ -240,6 +238,9 @@ class Trainer:
             benchmark=True: 可以加速训练, 但是会造成不可复现.
             benchmark=None: 若cudnn.deterministic为False, 则设置为True. 否则, 设为False.
                 note: deterministic也可以通过libs_ml.seed_everything中的参数gpu_dtm指定. (这里不设置参数)
+        verbose: 
+            True: 记录lr, 在gradient_clip_norm=True的情况下记录grad_norm. 
+            False: 不记录上述内容. 使prog_bar更简洁. tensorboard仍会记录. 
         """
         self.lmodel = lmodel
         self.lmodel.trainer = self
@@ -248,6 +249,10 @@ class Trainer:
         self.device = select_device(device_ids)
         self.max_epochs = max_epochs
         self.n_accumulate_grad = n_accumulate_grad
+        if isinstance(self.n_accumulate_grad, dict):
+            if 0 not in self.n_accumulate_grad.keys():
+                self.n_accumulate_grad = self.n_accumulate_grad.copy()
+                self.n_accumulate_grad.update({0: 1})
         self.amp = amp
         if amp:
             logger.info(f"Using amp: {amp}")
@@ -278,6 +283,7 @@ class Trainer:
             benchmark = True if benchmark is None else benchmark
         torch.backends.cudnn.benchmark = benchmark
         logger.info(f"Setting benchmark: {benchmark}")
+        self.verbose = verbose
         #
         self.tb_logger = SummaryWriter(self.tb_dir)
         self.scaler = GradScaler(enabled=amp)
@@ -313,7 +319,7 @@ class Trainer:
             v_list.append(int(v))
         return max(v_list) + 1
 
-    def check_hparams(self, hparams: Any) -> Any:
+    def _check_hparams(self, hparams: Any) -> Any:
         # 只支持List, Dict, int, float, str
         # tuple -> list
         # 其他的不存储. 例如: collate_fn
@@ -324,18 +330,18 @@ class Trainer:
         if isinstance(hparams, Sequence):
             res = []
             for hp in hparams:
-                res.append(self.check_hparams(hp))
+                res.append(self._check_hparams(hp))
         elif isinstance(hparams, Mapping):
             res = {}
             for k, v in hparams.items():
-                res[k] = self.check_hparams(v)
+                res[k] = self._check_hparams(v)
         else:
             res = repr(hparams)
         return res
 
     def save_hparams(self, hparams: Dict[str, Any]) -> None:
         with open(self.hparams_path, "w") as f:
-            saved_hparams = self.check_hparams(hparams)
+            saved_hparams = self._check_hparams(hparams)
             logger.info(f"Saving hparams: {saved_hparams}")
             yaml.dump(saved_hparams, f)
 
@@ -389,9 +395,11 @@ class Trainer:
             mes[k] += v * alpha
 
     @staticmethod
-    def _get_log_mes(mean_mes: Dict[str, float], new_mes: Dict[str, float], prog_bar_mean: Dict[str, bool]):
+    def _get_log_mes(mean_mes: Dict[str, float], new_mes: Dict[str, float], prog_bar_mean: Dict[str, bool], verbose: bool):
         res = {}
         # 假设mes, new_mes, prog_bar_mean的k相同
+        if not verbose:
+            mean_mes = remove_keys(mean_mes, ["lr", "grad_norm"])  # no inplace
         keys = mean_mes.keys()
         for k in keys:
             if prog_bar_mean[k] is True:
@@ -401,12 +409,12 @@ class Trainer:
         return res
 
     @staticmethod
-    def _get_batch_size(batch: Union[Sequence, Mapping]) -> int:
+    def _get_batch_size(batch: Union[Sequence[Tensor], Mapping[str, Tensor]]) -> int:
         if isinstance(batch, Sequence):
-            N = batch[0].shape[0]
+            x = batch[0]
         elif isinstance(batch, Mapping):
-            N = next(iter(batch.values())).shape[0]
-        return N
+            x = next(iter(batch.values()))
+        return x.shape[0]
 
     def _train_epoch(self, lmodel: LModule, dataloader: DataLoader) -> Dict[str, float]:
         model = lmodel.model
@@ -420,8 +428,15 @@ class Trainer:
         new_mes2: Dict[str, float] = {}  # optimize new mes
         N2, N3 = 0, 0  # for optim_N, for total_N
         #
-        prog_bar = tqdm(total=len(dataloader), desc=f"Epoch {self.global_epoch}")
-
+        prog_bar = tqdm(total=len(dataloader), desc=f"Epoch {self.global_epoch}", mininterval=0.01,  dynamic_ncols=True)
+        if isinstance(self.n_accumulate_grad, dict):
+            nag_list: List[int] = sorted(self.n_accumulate_grad.keys())  # nag: n_accumulate_grad
+            idx = nag_list[bisect_right(nag_list, self.global_epoch) - 1]
+            n_accumulate_grad: int = self.n_accumulate_grad[idx]
+        elif isinstance(self.n_accumulate_grad, int):
+            n_accumulate_grad = self.n_accumulate_grad
+        else:
+            raise TypeError(f"self.n_accumulate_grad: {self.n_accumulate_grad}, type: {type(self.n_accumulate_grad)}")
         for batch_idx, batch in enumerate(dataloader):
             self.global_step += 1
             # 因为每个batch_size的大小可能不同.
@@ -433,14 +448,14 @@ class Trainer:
             batch = lmodel.batch_to_device(batch, device)
             with autocast(device_type=self.device.type, enabled=self.amp):
                 loss = lmodel.training_step(batch)
-            loss.div_(self.n_accumulate_grad)
+            loss.div_(n_accumulate_grad)
             scaler.scale(loss).backward()
             #
             new_mes = self.new_mes.copy()
             self._add_new_mes(mes, new_mes, N)
 
             # 优化
-            if (batch_idx + 1) % self.n_accumulate_grad == 0 or (batch_idx + 1) == len(dataloader):
+            if (batch_idx + 1) % n_accumulate_grad == 0 or (batch_idx + 1) == len(dataloader):
                 self.new_mes.clear()
                 if self.gradient_clip_norm:
                     # grad裁剪需要下面这行.
@@ -478,8 +493,8 @@ class Trainer:
             if (batch_idx + 1) % self.prog_bar_n_steps == 0:
                 mean_mes = self._sum_to_mean(mes, N3)
                 mean_mes2 = self._sum_to_mean(mes2, N3)
-                log_mes = self._get_log_mes(mean_mes, new_mes, self.prog_bar_mean)
-                log_mes2 = self._get_log_mes(mean_mes2, new_mes2, self.prog_bar_mean)
+                log_mes = self._get_log_mes(mean_mes, new_mes, self.prog_bar_mean, self.verbose)
+                log_mes2 = self._get_log_mes(mean_mes2, new_mes2, self.prog_bar_mean, self.verbose)
                 log_mes.update(log_mes2)
                 prog_bar.set_postfix(log_mes, refresh=False)
                 prog_bar.update(self.prog_bar_n_steps)
@@ -490,7 +505,7 @@ class Trainer:
         self._sum_to_mean(mes2, N3, inplace=True)
         mes.update(mes2)
         #
-        mes = remove_keys(mes, ["lr", "grad_norm"])
+        mes = remove_keys(mes, ["lr", "grad_norm"])  # 不返回出去.
         # 后处理
         lmodel.training_epoch_end()
         return mes
@@ -540,7 +555,7 @@ class Trainer:
         metrics = 0.  # sum stat(以dataset为单位.)
         mes: Dict[str, float] = {}
         new_mes: Dict[str, float] = {}
-        prog_bar = tqdm(total=len(dataloader), desc=desc)
+        prog_bar = tqdm(total=len(dataloader), desc=desc, mininterval=0.01, dynamic_ncols=True)
         for batch_idx, batch in enumerate(dataloader):
             N = self._get_batch_size(batch)
             N3 += N
@@ -556,7 +571,7 @@ class Trainer:
             # prog_bar
             if (batch_idx + 1) % self.prog_bar_n_steps == 0:
                 mean_mes = self._sum_to_mean(mes, N3)
-                log_mes = self._get_log_mes(mean_mes, new_mes, self.prog_bar_mean)
+                log_mes = self._get_log_mes(mean_mes, new_mes, self.prog_bar_mean, self.verbose)
                 prog_bar.set_postfix(log_mes, refresh=False)
                 prog_bar.update(self.prog_bar_n_steps)
         prog_bar.update(prog_bar.total - prog_bar.n)
