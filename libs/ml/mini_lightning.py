@@ -3,9 +3,18 @@
 # Date:
 try:
     from .utils import print_model_info, select_device, remove_keys, de_parallel
+    from ..utils import save_to_yaml
 except ImportError:
-    # for debug
+    # for debug main
     from utils import print_model_info, select_device, remove_keys, de_parallel
+    import sys
+    import os
+    _ROOT_DIR = "/home/jintao/Desktop/coding/python/ml_alg"
+    if not os.path.isdir(_ROOT_DIR):
+        raise IOError(f"_ROOT_DIR: {_ROOT_DIR}")
+    sys.path.append(_ROOT_DIR)
+    from libs.utils import save_to_yaml
+
 import torch
 from torch import device as Device, Tensor
 from torch.utils.tensorboard.writer import SummaryWriter
@@ -18,7 +27,6 @@ import os
 from typing import List, Any, Dict, Optional, Tuple, Callable, Union, Sequence, Mapping, Literal
 from tqdm import tqdm
 import datetime
-import yaml
 from torch.nn.utils.clip_grad import clip_grad_norm_
 import logging
 from torch.cuda.amp.grad_scaler import GradScaler
@@ -202,7 +210,7 @@ class Trainer:
         gradient_clip_norm: Optional[float] = None,
         *,
         log_every_n_steps: int = 10,
-        prog_bar_n_steps: int = 10,
+        prog_bar_n_steps: int = 1,
         benchmark: Optional[bool] = None,
         verbose: bool = True
     ) -> None:
@@ -340,10 +348,9 @@ class Trainer:
         return res
 
     def save_hparams(self, hparams: Dict[str, Any]) -> None:
-        with open(self.hparams_path, "w") as f:
-            saved_hparams = self._check_hparams(hparams)
-            logger.info(f"Saving hparams: {saved_hparams}")
-            yaml.dump(saved_hparams, f)
+        saved_hparams = self._check_hparams(hparams)
+        logger.info(f"Saving hparams: {saved_hparams}")
+        save_to_yaml(saved_hparams, self.hparams_path)
 
     @staticmethod
     def _sum_to_mean(log_mes: Dict[str, float], n: int, inplace: bool = False) -> Dict[str, float]:
@@ -383,8 +390,7 @@ class Trainer:
         self.last_ckpt_path = os.path.join(self.ckpt_dir, ckpt_fname)
         self.lmodel.save_checkpoint(self.last_ckpt_path)
         # 2. 结果保存
-        with open(self.result_path, "a") as f:
-            yaml.dump({f"Epoch={self.global_epoch}": mes}, f)
+        save_to_yaml({f"Epoch={self.global_epoch}": mes}, self.result_path, mode="a")
         return is_best
 
     def _add_new_mes(self, mes: Dict[str, float], new_mes: Dict[str, float], alpha: int) -> None:
