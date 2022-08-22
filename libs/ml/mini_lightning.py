@@ -2,13 +2,14 @@
 # Email: hjt_study@qq.com
 # Date:
 try:
-    from .utils import print_model_info, select_device, remove_keys
+    from .utils import print_model_info, select_device, remove_keys, de_parallel, en_parallel, smart_load_state_dict
     from ..utils import save_to_yaml
 except ImportError:
     # for debug main
-    from utils import print_model_info, select_device, remove_keys
+    from utils import print_model_info, select_device, remove_keys, de_parallel, en_parallel, smart_load_state_dict
     import sys
     import os
+    #
     _ROOT_DIR = "/home/jintao/Desktop/coding/python/ml_alg"
     if not os.path.isdir(_ROOT_DIR):
         raise IOError(f"_ROOT_DIR: {_ROOT_DIR}")
@@ -105,12 +106,17 @@ class LModule:
         if RANK not in {-1, 0}:
             return
         device = next(self.model.parameters()).device
-        self.model.load_state_dict(torch.load(ckpt_path, map_location=device))
+        state_dict = torch.load(ckpt_path, map_location=device)
+        if self.trainer is not None and isinstance(self.model, (DP, DDP)):
+            smart_load_state_dict(self.model, state_dict, "module.")
+        else:
+            self.model.load_state_dict(state_dict)
 
     def save_checkpoint(self, ckpt_path: str) -> None:
         if RANK not in {-1, 0}:
             return
-        torch.save(self.model.state_dict(), ckpt_path)
+        model = de_parallel(self.model)
+        torch.save(model.state_dict(), ckpt_path)
 
     def training_epoch_start(self, device) -> None:
         # [fit]用于模型to(device), 特别是有多个model的情况下会使用(dqn)
@@ -119,6 +125,7 @@ class LModule:
 
     def training_epoch_end(self) -> None:
         # [fit]用于lr_schedules的处理
+        #   lr的log, Trainer会自动做的.
         return
 
     def validation_epoch_end(self) -> Optional[float]:
@@ -126,7 +133,7 @@ class LModule:
         # log的内容会被tensorboard记录, 并返回.
         # 返回的float, 作为metrics, 作为模型的选择, 越高越好(e.g. acc, 若越低越好则可以返回负数).
         #   优先级比validation_step返回的metrics高(覆盖), None则不覆盖
-        return None
+        return
 
     def test_epoch_end(self) -> None:
         # [test]用于torchmetrics的compute.
@@ -246,7 +253,7 @@ class Trainer:
                 DDP mode下, 只有train使用DDP. val,test使用single-gpu. 
                     (train时的记录的scalar只是rank=0中的指标. val/test使用单gpu, 计算的是整个数据集的metrics)
             note: 推荐使用DDP而不是DP. DDP使用多进程, DP使用多线程. DDP具有更快的训练速度. 
-            warning: DDP作者只在single node下进行了测试. 若在multi node下实验出现问题, 请提issue. 
+            warning: DDP, 作者只在single node下进行了测试. 若在multi node下实验出现问题, 请提issue. 
         # 
         device_ids: 若传入多个device_ids, 则使用DP. (暂时不支持DDP). 使用`CUDA_VISIBLE_DEVICES`环境变量进行选择
             e.g. []: 代表"cpu", [0], [0, 1, 2]
@@ -273,7 +280,7 @@ class Trainer:
             note: 在梯度裁剪的基础上加了INF的检查. 这可以提高训练的稳定性.
                 若在梯度裁剪中发现INF. 则会跳过本次更新. (amp=True情况下, 此检查由amp处理)
         sync_bn: (只在DDP情况下支持)同步BN. BN时, 对所有的RANK进行同步, 并统一做BN, 而不是对单个GPU做BN. 
-            这通常会提高训练精度和稳定性, 但会降低训练速度. 
+            这通常会提高训练精度和稳定性, 但会略微降低训练速度. 
         replace_sampler_ddp: (只在DDP情况下有效)在DDP情况下, 是否使用DistributedSampler(仅train_dataloader). 
             若不使用: train时, 每个gpu都会使用完整的数据集(相当于一个epoch训练了world_size次dataset). 
             使用sampler, 可以将数据集切成world_size块, 分发给各个gpu. 
@@ -292,50 +299,43 @@ class Trainer:
             True: 记录lr, 在gradient_clip_norm=True的情况下记录grad_norm. 
             False: 不记录上述内容. 使prog_bar更简洁. tensorboard仍会记录. 
         """
+        logger.info(f"LOCAL_RANK: {LOCAL_RANK}, RANK: {RANK}, WORLD_SIZE: {WORLD_SIZE}")
+        #
         self.lmodel = lmodel
         self.lmodel.trainer = self
         self.device_ids = device_ids
         self.device = select_device(device_ids)
         if RANK == -1:
-            dp_mode = len(device_ids) > 1
-            if dp_mode and not isinstance(self.lmodel.model, DP):
-                assert not isinstance(self.lmodel.model, DDP)
-                self.lmodel.model = DP(self.lmodel.model)
-            logger.info(f"Using DP: {dp_mode}")
+            dp_ddp_mode = "DP" if len(device_ids) > 1 else None
         else:
+            dp_ddp_mode = "DDP"
             self.device = Device(LOCAL_RANK)
             cuda.set_device(LOCAL_RANK)  # 设置当前cuda.
-            if dist.is_available() and not dist.is_initialized():
+            assert dist.is_available()
+            if not dist.is_initialized():
                 backend = "nccl" if dist.is_nccl_available() else "gloo"
                 logger.info(f"Using Backend: {backend}")
                 dist.init_process_group(backend=backend, rank=RANK, world_size=WORLD_SIZE)
+            self.lmodel.model.to(self.device)
+        self.dp_ddp_mode = dp_ddp_mode
+        self.sync_bn = sync_bn
+        self.lmodel.model = en_parallel(self.lmodel.model, dp_ddp_mode, sync_bn)
+        self.amp = amp
+        logger.info(f"Using amp: {amp}")
+        #
         self.max_epochs = max_epochs
         self.n_accumulate_grad = n_accumulate_grad
         if isinstance(self.n_accumulate_grad, dict):
             if 0 not in self.n_accumulate_grad.keys():
                 self.n_accumulate_grad = self.n_accumulate_grad.copy()
                 self.n_accumulate_grad.update({0: 1})
-        self.amp = amp
-        logger.info(f"Using amp: {amp}")
         self.gradient_clip_norm = gradient_clip_norm
-        if RANK == -1:
-            if sync_bn:
-                logger.info("Setting sync_bn: False")
-            sync_bn = False
-        else:
-            if sync_bn:
-                self.lmodel.model = SyncBatchNorm.convert_sync_batchnorm(self.lmodel.model)
-            logger.info(f"Using SyncBatchNorm: {sync_bn}")
-            if not isinstance(self.lmodel.model, DDP):
-                assert not isinstance(self.lmodel.model, DP)
-                self.lmodel.model.to(LOCAL_RANK)
-                self.lmodel.model = DDP(self.lmodel.model, [LOCAL_RANK], output_device=LOCAL_RANK)
-                logger.info(f"Using DDP")
-        self.sync_bn = sync_bn
         self.replace_sampler_ddp = replace_sampler_ddp
         #
         self.log_every_n_steps = log_every_n_steps
         self.prog_bar_n_steps = prog_bar_n_steps
+        self.verbose = verbose
+        #
         self.benchmark = benchmark
         deterministic = torch.backends.cudnn.deterministic
         if deterministic:
@@ -344,7 +344,6 @@ class Trainer:
             benchmark = True if benchmark is None else benchmark
         torch.backends.cudnn.benchmark = benchmark
         logger.info(f"Setting benchmark: {benchmark}")
-        self.verbose = verbose
         #
         self.scaler = GradScaler(enabled=amp)
         self.best_metrics = -1e10  # model save
@@ -361,7 +360,6 @@ class Trainer:
         # amp不检查nan. 这里对在梯度裁剪中, found_nan检查. 跳过本次更新 (0/0 inf/inf会产生nan)
         self.found_nan = False
         #
-
         if RANK in {-1, 0}:
             time = datetime.datetime.now().strftime("%Y:%m:%d-%H:%M:%S")  # .%f
             v = self._get_version(runs_dir)
@@ -631,7 +629,8 @@ class Trainer:
                             "global_step": self.global_step})
                 if is_best:
                     best_mes = mes
-            dist.barrier()
+            if RANK != -1:
+                dist.barrier()
         if not best_mes:
             best_mes = mes  # last
         #
@@ -642,8 +641,7 @@ class Trainer:
                   desc: str, epoch_idx: int) -> Tuple[float, Dict[str, float]]:
         # 用于val, test
         model_r = lmodel.model
-        if isinstance(model_r, DDP):
-            lmodel.model = model_r.module
+        lmodel.model = de_parallel(model_r)
         model = lmodel.model
         device = self.device
         #
@@ -745,7 +743,8 @@ class Trainer:
                 mes2 = self._test(self.lmodel, dataloader, "last")
                 mes2 = self._key_add_suffix(mes2, "_last")
                 mes.update(mes2)
-        dist.barrier()
+        if RANK != -1:
+            dist.barrier()
         self.lmodel.model.to(device_r)
         cuda.empty_cache()
         return mes

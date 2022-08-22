@@ -6,7 +6,7 @@ from copy import deepcopy
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import Module
-from typing import List, Tuple, Any, Dict, Optional
+from typing import List, Tuple, Any, Dict, Optional, Literal
 import random
 import torch
 import numpy as np
@@ -20,6 +20,7 @@ import logging
 from torch.utils.data import Dataset
 import os
 from torch.nn.parallel import DataParallel as DP, DistributedDataParallel as DDP
+from torch.nn.modules.module import _IncompatibleKeys as IncompatibleKeys
 import math
 
 logger = logging.getLogger(__name__)
@@ -62,10 +63,81 @@ def get_T_max(dataset_len: int, batch_size: int, max_epochs: int,
     return T_max
 
 
-def de_parallel(model: Module) -> Module:
+def de_sync_batchnorm(module: Module, bn_type: Literal["1d", "2d", "3d"]) -> Module:
+    """not inplace. 一般不de_sync_bn不影响 load_state_dict和state_dict. 即不影响保存和导入模型. """
+    mapper = {"1d": nn.BatchNorm1d, "2d": nn.BatchNorm2d, "3d": nn.BatchNorm3d}
+    BatchNorm = mapper[bn_type]
+    if isinstance(module, nn.SyncBatchNorm):
+        res = BatchNorm(
+            module.num_features,
+            module.eps,
+            module.momentum,
+            module.affine,
+            module.track_running_stats,
+        )
+        if module.affine:
+            with torch.no_grad():
+                res.weight = module.weight
+                res.bias = module.bias
+        res.running_mean = module.running_mean
+        res.running_var = module.running_var
+        res.num_batches_tracked = module.num_batches_tracked
+        return res
+    #
+    res = module
+    for k, v in module.named_children():
+        res.add_module(
+            k, de_sync_batchnorm(v, bn_type)
+        )
+    return res
+
+
+def de_parallel(model: Module, bn_type: Literal["1d", "2d", "3d", None] = None) -> Module:
+    """not inplace"""
     if isinstance(model, (DP, DDP)):
         model = model.module
+    if bn_type is not None:
+        model = de_sync_batchnorm(model, bn_type)
+    # logger.info("DeParallel Success...")
     return model
+
+
+def en_parallel(model: Module, dp_ddp_mode: Literal["DP", "DDP", None], sync_bn: bool = False) -> Module:
+    """not inplace"""
+    if dp_ddp_mode is None:
+        assert sync_bn is False
+        return model
+
+    if dp_ddp_mode == "DP":
+        if not isinstance(model, DP):
+            assert not isinstance(model, DDP)
+            model = DP(model)
+        logger.info("Using DP")
+    elif dp_ddp_mode == "DDP":
+        if not isinstance(model, DDP):
+            assert not isinstance(model, DP)
+            model = DDP(model)
+        logger.info("Using DDP")
+    else:
+        raise ValueError(f"dp_ddp_mode: {dp_ddp_mode}")
+
+    if sync_bn:
+        assert dp_ddp_mode == "DDP"
+        model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
+        logger.info("Using SyncBatchNorm")
+    return model
+
+
+def smart_load_state_dict(model: Module, state_dict: Dict[str, Tensor], prefix_key: str = "", strict: bool = True) -> IncompatibleKeys:
+    """prefix"""
+    # prefix
+    if prefix_key != "":
+        new_state_dict = {}
+        for k, v in state_dict.items():
+            new_state_dict[prefix_key + k] = v
+        state_dict = new_state_dict
+    #
+    return model.load_state_dict(state_dict, strict=strict)
 
 
 def select_device(device_ids: List[int]) -> Device:
@@ -233,7 +305,7 @@ def gen_seed_list(n: int, seed: Optional[int] = None,) -> List[int]:
 
 
 def multi_runs(collect_res: Callable[[int], Dict[str, float]], n: int, seed: Optional[int] = None, *,
-               seed_list: Optional[List[int]] = None) -> Dict[str, Dict[str, Any]]:
+               seed_list: Optional[List[int]] = None) -> Tuple[Dict[str, Dict[str, Any]], str]:
     """跑n次的结果.
     collect_res: 函数: 传入seed, 返回result.
     n: 跑的次数. {seed_list的优先级更高, 若提供seed_list, 则n, seed无效}
@@ -271,8 +343,7 @@ def multi_runs(collect_res: Callable[[int], Dict[str, float]], n: int, seed: Opt
             "max_": max_,
             "min_": min_,
         }
-    logger.info("\n".join(res_str))
-    return res
+    return res, "\n".join(res_str)
 
 
 def freeze_layers(model: Module, layer_prefix_names: List[str]) -> None:

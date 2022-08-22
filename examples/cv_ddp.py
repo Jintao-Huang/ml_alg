@@ -158,7 +158,10 @@ if __name__ == "__main__":
         res2 = trainer.test(ldm.test_dataloader)
         res.update(res2)
         return res
-    res = libs_ml.multi_runs(collect_res, 3, seed=42)
+    res, res_str = libs_ml.multi_runs(collect_res, 2, seed=42)
+    if RANK in {-1, 0}:
+        logger.info(res_str)
     # pprint(res)
     #
-    dist.destroy_process_group()  # https://pytorch.org/tutorials/intermediate/ddp_tutorial.html
+    if RANK != -1:
+        dist.destroy_process_group()  # https://pytorch.org/tutorials/intermediate/ddp_tutorial.html
