@@ -145,6 +145,34 @@ def cross_entropy(pred: Tensor, target: Tensor) -> Tensor:
 #     print(torch.allclose(y, y2))
 
 
+def label_smoothing_cross_entropy(pred: Tensor, target: Tensor,
+                                  smoothing: float = 0.01) -> Tensor:
+    """
+    pred: [N, F]. Tensor[float]. 未过softmax
+    target: [N]. Tensor[long]
+    smoothing: 若smoothing为0.1, 则target=4, n_labels=5, 对应:
+        [0.02, 0.02, 0.02, 0.02, 0.92]
+    """
+    n_labels = pred.shape[1]
+    # 构造target. 将target->[N, F]. ，target[i]的第target和样本设为1-smoothing.
+    # 然后加上smoothing / n_labels
+    res: Tensor = F.one_hot(target, n_labels)  # long
+    res = res * (1-smoothing)
+    res.add_(smoothing / n_labels)
+    # 计算loss
+    res.mul_(F.log_softmax(pred, dim=-1))
+    return -res.sum() / pred.shape[0]
+
+
+# if __name__ == "__main__":
+#     x = torch.randn((1000, 100))
+#     x2 = torch.randint(0, 100, (1000,))
+#     y = libs_ml.test_time(lambda: F.cross_entropy(x, x2), number=10)
+#     y1 = libs_ml.test_time(lambda: F.cross_entropy(x, x2, label_smoothing=0.9), number=10)
+#     y2 = libs_ml.test_time(lambda: label_smoothing_cross_entropy(x, x2, smoothing=0.9), number=10)
+#     print(y, y1, y2)
+
+
 def binary_cross_entropy_with_logits(pred: Tensor, target: Tensor) -> Tensor:
     """binary_cross_entropy数值不稳定. 
     pred: Tensor[float]. [N]

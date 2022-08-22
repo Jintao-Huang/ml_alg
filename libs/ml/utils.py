@@ -29,7 +29,7 @@ __all__ = ["get_T_max", "de_parallel", "select_device", "split_dataset", "extrac
            "remove_keys", "gen_seed_list", "multi_runs",
            #
            "freeze_layers", "print_model_info",
-           "label_smoothing_cross_entropy", "fuse_conv_bn", "fuse_linear_bn"]
+           "fuse_conv_bn", "fuse_linear_bn"]
 
 
 def get_T_max(dataset_len: int, batch_size: int, max_epochs: int,
@@ -47,10 +47,12 @@ def get_T_max(dataset_len: int, batch_size: int, max_epochs: int,
         if 0 not in nag_dict.keys():
             nag_dict.update({0: 1})
         T_max = 0
-        nag_list = [0] + sorted(n_accumulate_grad.keys()) + [max_epochs]
+        nag_list = sorted(list(nag_dict.keys())) + [int(1e8)]
         for i in range(len(nag_list) - 1):
             nag = nag_dict[nag_list[i]]  # n_accumulate_grad
-            me: int = nag_list[i + 1] - nag_list[i]  # max_epochs
+            me: int = min(nag_list[i + 1], max_epochs) - nag_list[i]  # max_epochs
+            if me <= 0:
+                break
             if drop_last:
                 Tm = dataset_len // batch_size
             else:
@@ -113,7 +115,9 @@ def split_dataset(dataset: Dataset, n_list: List[int], split_keys: List[str],
     #
     res = []
     idx = 0
-    for n in n_list:
+    for i, n in enumerate(n_list):
+        if i == len(n_list) - 1 and n == -1:
+            n = d_len - idx
         pos = slice(idx, idx + n)
         if shuffle:
             pos = perm_idxs[pos]
@@ -190,10 +194,10 @@ def time_synchronize() -> float:
 
 
 def remove_keys(state_dict: Dict[str, Any], prefix_keys: List[str]) -> Dict[str, Any]:
-    """将带某前缀的keys删除. 不是inplace的. 应用: load_state_dict时"""
+    """将带某前缀的keys删除(不存在不报错). 不是inplace的. 应用: load_state_dict时"""
     res = {}
     for k, v in state_dict.items():
-        need_saved = True
+        need_saved = True  # 是否需要保存到res中
         for pk in prefix_keys:
             if k.startswith(pk):
                 need_saved = False
@@ -318,33 +322,6 @@ def print_model_info(model: Module, inputs: Optional[Tuple[Any, ...]] = None) ->
 #     print_model_info(model, (input, ))
 #     print_model_info(model)
 #     print_model_info(model, (input, ))
-
-
-def label_smoothing_cross_entropy(pred: Tensor, target: Tensor,
-                                  smoothing: float = 0.01) -> Tensor:
-    """
-    pred: [N, F]. Tensor[float]. 未过softmax
-    target: [N]. Tensor[long]
-    smoothing: 若smoothing为0.1, 则target=4, n_labels=5, 对应:
-        [0.02, 0.02, 0.02, 0.02, 0.92]
-    """
-    n_labels = pred.shape[1]
-    # 构造target. 将target->[N, F]. ，target[i]的第target和样本设为1-smoothing.
-    # 然后加上smoothing / n_labels
-    res: Tensor = F.one_hot(target, n_labels)  # long
-    res = res * (1-smoothing)
-    res.add_(smoothing / n_labels)
-    # 计算loss
-    res.mul_(F.log_softmax(pred, dim=-1))
-    return -res.sum() / pred.shape[0]
-
-
-# if __name__ == "__main__":
-#     x = torch.randn((1000, 100))
-#     x2 = torch.randint(0, 100, (1000,))
-#     y3 = libs_ml.test_time(lambda: F.cross_entropy(x, x2), number=10)
-#     y = libs_ml.test_time(lambda: label_smoothing_cross_entropy(x, x2, smoothing=0.9), number=10, warm_up=5)
-#     print(y, y3)
 
 
 @torch.no_grad()

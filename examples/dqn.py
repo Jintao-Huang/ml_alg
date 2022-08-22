@@ -199,6 +199,7 @@ class MyLModule(libs_ml.LModule):
 if __name__ == "__main__":
     # libs_ml.seed_everything(42, gpu_dtm=False)
     hparams = {
+        "device_ids": device_ids, 
         "memo_capacity": 1000,
         "dataset_len": 5000,
         "env_name": "CartPole-v1",

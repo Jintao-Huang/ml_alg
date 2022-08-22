@@ -75,6 +75,7 @@ if __name__ == "__main__":
     batch_size = 32
     n_accumulate_grad = 4
     hparams = {
+        "device_ids": device_ids,
         "model_name": model_name,
         "optim_name": "SGD",  # AdamW 容易过拟合
         "dataloader_hparams": {"batch_size": batch_size, "num_workers": 4, "collate_fn": collate_fn},

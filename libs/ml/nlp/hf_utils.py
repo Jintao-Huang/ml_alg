@@ -5,7 +5,7 @@ import requests
 from torch import Tensor
 from torch.nn import Module
 import torch
-from torch.nn.modules.module import _IncompatibleKeys
+from torch.nn.modules.module import _IncompatibleKeys as IncompatibleKeys
 
 __all__ = ["hf_hash", "get_hf_fname", "hf_load_state_dict", "replace_callback"]
 
@@ -56,7 +56,7 @@ def get_hf_fname(model_id: str) -> Tuple[str, str]:
 
 
 def hf_load_state_dict(model: Module, state_dict: Dict[str, Tensor], prefix_key: str = "",
-                       callback_func: Callable[[Dict[str, Tensor]], Dict[str, Tensor]] = None) -> _IncompatibleKeys:
+                       callback_func: Callable[[Dict[str, Tensor]], Dict[str, Tensor]] = None) -> IncompatibleKeys:
     """先fix, 再replace, 再prefix"""
     def _fix_keys(state_dict: Dict[str, Tensor]) -> Dict[str, Tensor]:
         new_state_dict = {}
