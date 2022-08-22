@@ -105,7 +105,7 @@ if __name__ == "__main__":
             "gradient_clip_norm": 10,
             "amp": True,
             "n_accumulate_grad": n_accumulate_grad, 
-            "verbose": False
+            "verbose": True
         },
         "lrs_hparams": {
             "warmup": 100,  # 100 * n_accumulate_grad

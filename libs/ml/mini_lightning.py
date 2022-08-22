@@ -37,6 +37,7 @@ from torch.nn.parallel import DataParallel as DP, DistributedDataParallel as DDP
 import re
 import torch.distributed as dist
 from bisect import bisect_right
+import math
 
 
 # 使用torchrun 启动DDP. https://pytorch.org/docs/stable/elastic/run.html.
@@ -458,11 +459,13 @@ class Trainer:
         save_to_yaml({f"Epoch={self.global_epoch}": mes}, self.result_path, mode="a")
         return is_best
 
-    def _add_new_mes(self, mes: Dict[str, float], new_mes: Dict[str, float], alpha: int) -> None:
+    def _add_new_mes(self, mes: Dict[str, float], new_mes: Dict[str, float], alpha: int, ignore_inf_nan: bool = False) -> None:
         # alpha: 系数: 一个batch中的N
         for k, v in new_mes.items():
             if k not in mes:
                 mes[k] = 0
+            if ignore_inf_nan and (math.isinf(v) or math.isnan(v)):
+                continue
             mes[k] += v * alpha
 
     @staticmethod
@@ -488,6 +491,8 @@ class Trainer:
         return x.shape[0]
 
     def _train_epoch(self, lmodel: LModule, dataloader: DataLoader) -> Dict[str, float]:
+        # train中的log的求和较为粗糙. (e.g. 以每个batch为单位求mean, 而不是dataset. 不计算nan).
+        #   val/test以dataset为单位求mean.
         model = lmodel.model
         device = self.device
         lmodel.training_epoch_start(device)
@@ -508,18 +513,14 @@ class Trainer:
         mes: Dict[str, float] = {}
         if RANK in {-1, 0}:
             prog_bar = tqdm(total=len(dataloader),
-                            desc=f"Epoch {self.global_epoch}", mininterval=0.01,  dynamic_ncols=True)
+                            desc=f"Epoch {self.global_epoch}", dynamic_ncols=True)  # mininterval=0.01
             mes2: Dict[str, float] = {}  # optimize mes
             new_mes: Dict[str, float] = {}
             new_mes2: Dict[str, float] = {}  # optimize new mes
-            N2, N3 = 0, 0  # for optim_N, for total_N
+
         for batch_idx, batch in enumerate(dataloader):
             self.global_step += 1
             if RANK in {-1, 0}:
-                # 因为每个batch_size的大小可能不同.
-                N = self._get_batch_size(batch)
-                N2 += N
-                N3 += N
                 self.new_mes.clear()
             #
             batch = lmodel.batch_to_device(batch, device)
@@ -530,7 +531,7 @@ class Trainer:
             #
             if RANK in {-1, 0}:
                 new_mes = self.new_mes.copy()
-                self._add_new_mes(mes, new_mes, N)
+                self._add_new_mes(mes, new_mes, 1, True)
 
             # 优化
             if (batch_idx + 1) % n_accumulate_grad == 0 or (batch_idx + 1) == len(dataloader):
@@ -546,8 +547,8 @@ class Trainer:
                         self.found_inf = grad_norm.isinf().all().item()
                     self.found_nan = grad_norm.isnan().all().item()
 
-                    # log grad_norm
-                    lmodel.log(f"grad_norm", grad_norm, prog_bar_mean=False)
+                    # log grad_norm. (ignore inf,nan)
+                    lmodel.log(f"grad_norm", grad_norm, prog_bar_mean=True)
                 # log lr
                 for i, lr in enumerate([group['lr'] for group in lmodel.optimizer.param_groups]):
                     lmodel.log(f"lr{i}", lr, prog_bar_mean=False)
@@ -562,8 +563,7 @@ class Trainer:
                 self.found_nan = False
                 if RANK in {-1, 0}:
                     new_mes2 = self.new_mes.copy()
-                    self._add_new_mes(mes2, new_mes2, N2)
-                    N2 = 0
+                    self._add_new_mes(mes2, new_mes2, 1, True)
             if RANK in {-1, 0}:
                 # tensorboard
                 if self.global_step % self.log_every_n_steps == 0:
@@ -571,8 +571,8 @@ class Trainer:
                     self._logger_add_scalars(new_mes2, self.global_step)
                 # prog_bar
                 if (batch_idx + 1) % self.prog_bar_n_steps == 0:
-                    mean_mes = self._sum_to_mean(mes, N3)
-                    mean_mes2 = self._sum_to_mean(mes2, N3)
+                    mean_mes = self._sum_to_mean(mes, batch_idx + 1)
+                    mean_mes2 = self._sum_to_mean(mes2, math.ceil((batch_idx + 1) / n_accumulate_grad))
                     log_mes = self._get_log_mes(mean_mes, new_mes, self.prog_bar_mean, self.verbose)
                     log_mes2 = self._get_log_mes(mean_mes2, new_mes2, self.prog_bar_mean, self.verbose)
                     log_mes.update(log_mes2)
@@ -581,8 +581,8 @@ class Trainer:
         if RANK in {-1, 0}:
             prog_bar.update(prog_bar.total - prog_bar.n)
             prog_bar.close()
-            self._sum_to_mean(mes, N3, inplace=True)
-            self._sum_to_mean(mes2, N3, inplace=True)
+            self._sum_to_mean(mes, len(dataloader), inplace=True)
+            self._sum_to_mean(mes2, math.ceil(len(dataloader) / n_accumulate_grad), inplace=True)
             mes.update(mes2)
             #
             mes = remove_keys(mes, ["lr", "grad_norm"])  # 不返回出去.
@@ -652,8 +652,9 @@ class Trainer:
         metrics = 0.  # sum stat(以dataset为单位.)
         mes: Dict[str, float] = {}
         new_mes: Dict[str, float] = {}
-        prog_bar = tqdm(total=len(dataloader), desc=desc, mininterval=0.01, dynamic_ncols=True)
+        prog_bar = tqdm(total=len(dataloader), desc=desc, dynamic_ncols=True)
         for batch_idx, batch in enumerate(dataloader):
+            # 因为每个batch_size的大小可能不同.
             N = self._get_batch_size(batch)
             N3 += N
             self.new_mes.clear()
