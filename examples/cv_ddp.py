@@ -121,7 +121,7 @@ if __name__ == "__main__":
             "max_epochs": max_epochs,
             "gradient_clip_norm": 10,
             "amp": True,
-            "sync_bn": True,
+            "sync_bn": True,  # False
             "replace_sampler_ddp": True,
             "n_accumulate_grad": n_accumulate_grad,
             "verbose": True

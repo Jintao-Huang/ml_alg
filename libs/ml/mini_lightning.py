@@ -572,7 +572,9 @@ class Trainer:
                 # prog_bar
                 if (batch_idx + 1) % self.prog_bar_n_steps == 0:
                     mean_mes = self._sum_to_mean(mes, batch_idx + 1)
-                    mean_mes2 = self._sum_to_mean(mes2, math.ceil((batch_idx + 1) / n_accumulate_grad))
+                    N_optim = (batch_idx + 1) // n_accumulate_grad + \
+                        (len(dataloader) % n_accumulate_grad != 0 and (batch_idx + 1) == len(dataloader))
+                    mean_mes2 = self._sum_to_mean(mes2, N_optim)
                     log_mes = self._get_log_mes(mean_mes, new_mes, self.prog_bar_mean, self.verbose)
                     log_mes2 = self._get_log_mes(mean_mes2, new_mes2, self.prog_bar_mean, self.verbose)
                     log_mes.update(log_mes2)

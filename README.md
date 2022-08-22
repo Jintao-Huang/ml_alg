@@ -16,7 +16,7 @@
    2. 支持ddp, sync_bn, amp, dp, 梯度累加, warmup, lr_scheduler, 梯度裁剪, tensorboard, 模型和超参数和结果保存等.
    3. 未来将会提供: 自动调参的功能. 
    4. examples见 `examples/*`文件夹
-2. `examples/*`: mini-lightning使用的例子. 包括在cv, nlp, dqn中的使用. 
+2. `examples/*`: mini-lightning使用的例子. 包括在cv, nlp, dqn, ddp中的使用. 
 3. `libs/ml/utils.py`: ml中的工具函数, 包括seed_everything等.
 4. `libs/ml/lrs.py`: lr_scheduler, warmup的实现
 5. `libs/ml/visualize.py`: 可视化函数的集成, 包括tensorboard smoothing算法
