@@ -252,8 +252,8 @@ class Trainer:
         关于ddp mode: 不需要设置. 使用torchrun进行运行, Trainer会对此进行分辨(通过RANK/LOCAL_RANK). 例子见examples/cv_ddp.py
             note: DP mode下, train,val,test都会使用DP.
                 DDP mode下, 只有train使用DDP. val,test使用single-gpu. 
-                    (train时的记录的scalar只是rank=0中的指标. val/test使用单gpu, 计算的是整个数据集的metrics)
-            note: 推荐使用DDP而不是DP. DDP使用多进程, DP使用多线程. DDP具有更快的训练速度. 
+                    (train时的log的scalar只是rank=0中的指标. val/test使用单gpu, 计算的是整个数据集的scalar(metrics))
+            note: 推荐使用DDP而不是DP. DDP使用多进程, DP使用多线程. DDP具有更快的训练速度. 且DDP支持sync-bn. 
             warning: DDP, 作者只在single node下进行了测试. 若在multi node下实验出现问题, 请提issue. 
         # 
         device_ids: 若传入多个device_ids, 则使用DP. (暂时不支持DDP). 使用`CUDA_VISIBLE_DEVICES`环境变量进行选择
@@ -291,6 +291,8 @@ class Trainer:
         prog_bar_n_steps: 进度条的显示的频率. batch_idx % .
             note: 在DDP+train的情况下, 使用多进程多GPU, 只采样rank=0的scalar(metrics可能并不完全准确.); 
                 DDP的val, test使用单GPU. 无需担心.
+            note: 在train情况下, 若记录到inf, nan的scalar, 在计算mean时会跳过. 
+                (train的log以debug为要求, val/test的log的mean是严格的.)
         benchmark: https://pytorch.org/docs/stable/backends.html#torch.backends.cudnn.torch.backends.cudnn.benchmark
             Pytorch默认False. 若该函数的benchmark行为与Pytorch Lightning行为一致
             benchmark=True: 可以加速训练, 但是会造成不可复现.
@@ -491,7 +493,7 @@ class Trainer:
         return x.shape[0]
 
     def _train_epoch(self, lmodel: LModule, dataloader: DataLoader) -> Dict[str, float]:
-        # train中的log的求和较为粗糙. (e.g. 以每个batch为单位求mean, 而不是dataset. 不计算nan).
+        # train中的log的求和较为粗糙. (e.g. 以每个batch为单位求mean, 而不是dataset. 不计算nan, inf).
         #   val/test以dataset为单位求mean.
         model = lmodel.model
         device = self.device
@@ -531,7 +533,7 @@ class Trainer:
             #
             if RANK in {-1, 0}:
                 new_mes = self.new_mes.copy()
-                self._add_new_mes(mes, new_mes, 1, True)
+                self._add_new_mes(mes, new_mes, 1, ignore_inf_nan=True)
 
             # 优化
             if (batch_idx + 1) % n_accumulate_grad == 0 or (batch_idx + 1) == len(dataloader):
@@ -563,7 +565,7 @@ class Trainer:
                 self.found_nan = False
                 if RANK in {-1, 0}:
                     new_mes2 = self.new_mes.copy()
-                    self._add_new_mes(mes2, new_mes2, 1, True)
+                    self._add_new_mes(mes2, new_mes2, 1, ignore_inf_nan=True)
             if RANK in {-1, 0}:
                 # tensorboard
                 if self.global_step % self.log_every_n_steps == 0:
@@ -603,7 +605,7 @@ class Trainer:
             if isinstance(train_dataloader.sampler, SequentialSampler):
                 shuffle = False
             sampler = DistributedSampler(train_dataloader.dataset, shuffle=shuffle)
-            logger.info(f"Using DistributedSampler")
+            logger.info(f"Using DistributedSampler; shuffle: {shuffle}")
             train_dataloader = DataLoader(train_dataloader.dataset, train_dataloader.batch_size, sampler=sampler,
                                           num_workers=train_dataloader.num_workers, pin_memory=train_dataloader.pin_memory,
                                           drop_last=train_dataloader.drop_last, collate_fn=train_dataloader.collate_fn)

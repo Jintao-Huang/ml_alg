@@ -41,7 +41,7 @@ class DQN(nn.Module):
 
 Memory = namedtuple(
     "Memory",
-    # ndarray, RGB; int, float, bool, ndarray
+    # ndarray, int, float, bool, ndarray
     ["state", "action", "reward", "done", "next_state"]
 )
 
