@@ -5,10 +5,15 @@
 # 运行: python examples/cv.py > train.out 2>&1
 # 后台运行: nohup python examples/cv.py > train.out 2>&1 &
 ##
-# multi-gpu: 
-# torchrun --nproc_per_node 2 examples/cv_ddp.py --device_ids 7 8
+# multi-gpu:
+#   torchrun --nproc_per_node 2 examples/cv_ddp.py --device_ids 7 8
 #   torchrun见: https://pytorch.org/docs/stable/elastic/run.html.
 # (nohup同理)
+##
+# multi-node: 使用默认 --master_port 29500, 或者自定义master_port避免端口冲突.
+#   torchrun --nnodes 2 --node_rank 0 --nproc_per_node 4 examples/cv_ddp.py --device 0 1 2 3
+#   torchrun --nnodes 2 --node_rank 1 --master_addr xxx.xxx.xxx.xxx --nproc_per_node 4 examples/cv_ddp.py --device 0 1 2 3
+
 from pre import *
 
 logger = logging.getLogger(__name__)
@@ -141,17 +146,17 @@ if __name__ == "__main__":
     loss_fn = nn.CrossEntropyLoss()
 
     def collect_res(seed):
-        # 不同的gpu使用不同的seed. 不至于每个gpu的行为一致. 
+        # 不同的gpu使用不同的seed. 不至于每个gpu的行为一致.
         libs_ml.seed_everything(seed + RANK, gpu_dtm=False)
         model = tvm.resnet50(**hparams["model_hparams"])
         state_dict = torch.hub.load_state_dict_from_url(**hparams["model_pretrain_model"])
         state_dict = libs_ml.remove_keys(state_dict, ["fc"])
         if RANK in {-1, 0}:
-            # ddp会对model state_dict进行同步. 
+            # ddp会对model state_dict进行同步.
             logger.info(model.load_state_dict(state_dict, strict=False))
         optimizer = getattr(optim, hparams["optim_name"])(model.parameters(), **hparams["optim_hparams"])
         lr_s = libs_ml.WarmupCosineAnnealingLR(optimizer, **hparams["lrs_hparams"])
-        # 
+        #
         lmodel = MyLModule(model, optimizer, loss_fn, lr_s, hparams)
         trainer = libs_ml.Trainer(lmodel, device_ids, runs_dir=runs_dir, **hparams["trainer_hparams"])
         res = trainer.fit(ldm.train_dataloader, ldm.val_dataloader)
@@ -163,5 +168,5 @@ if __name__ == "__main__":
         logger.info(res_str)
     # pprint(res)
     #
-    if RANK != -1:
-        dist.destroy_process_group()  # https://pytorch.org/tutorials/intermediate/ddp_tutorial.html
+    # if RANK != -1:
+    #     dist.destroy_process_group()  # https://pytorch.org/tutorials/intermediate/ddp_tutorial.html

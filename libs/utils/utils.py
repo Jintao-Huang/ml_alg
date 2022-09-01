@@ -3,21 +3,21 @@
 # Date:
 
 import time
-from typing import Callable, Any, Optional, List, Dict, Union, Tuple
+from typing import Callable, Any, Optional, List, Dict, Union, Tuple, Iterator
 import os
 from urllib.parse import urljoin
 from urllib.error import HTTPError
 from urllib.request import urlretrieve
-import numpy as np
 import hashlib
 import xml.etree.ElementTree as ET
 from xml.etree.ElementTree import ElementTree, Element
-from numpy import ndarray
+from collections import deque
 import logging
 
-logger = logging.getLogger(__name__)
 
-__all__ = ["download_files", "calculate_hash", "xml_to_dict"]
+__all__ = ["download_files", "calculate_hash", "xml_to_dict", "mywalk"]
+#
+logger = logging.getLogger(__name__)
 
 
 def download_files(base_url: str, fnames: List[str], save_dir: str):
@@ -115,3 +115,39 @@ def xml_to_dict(fpath: str) -> Node:
 # if __name__ == "__main__":
 #     fpath = "asset/1.xml"
 #     print(xml_to_dict(fpath))
+
+
+def _get_folders_fnames(curr_dir: str) -> Tuple[List[str], List[str]]:
+    fnames = os.listdir(curr_dir)
+    folder_list, fname_list = [], []
+    for fname in fnames:
+        path = os.path.join(curr_dir, fname)
+        if os.path.isdir(path):
+            folder_list.append(fname)
+        elif os.path.isfile(path):
+            fname_list.append(fname)
+    return folder_list, fname_list
+
+
+# level从0开始计数.
+Item = Tuple[int, str, List[str], List[str]]  # level, curr_dir, folder_list, fname_list
+
+
+def mywalk(dir_: str, ignore_dirs: Optional[List[str]] = None) -> Iterator[Item]:
+    # 使用广搜. 若遇到ignore_dirs则忽略它及其子文件夹
+    # 将每一个文件夹存入队列.
+    ignore_dirs: Set[str] = set(ignore_dirs) if ignore_dirs is not None else set()
+    dq = deque([dir_])
+    level = 0
+    while len(dq) > 0:
+        dq_len = len(dq)
+        for _ in range(dq_len):
+            curr_dir = dq.popleft()
+            folder_list, fname_list = _get_folders_fnames(curr_dir)
+            yield level, curr_dir, folder_list, fname_list
+            #
+            for folder in folder_list:
+                if folder in ignore_dirs:
+                    continue
+                dq.append(os.path.join(curr_dir, folder))
+        level += 1

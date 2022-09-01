@@ -4,9 +4,9 @@
 
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.optim import Optimizer
-from typing import List, Callable
+from typing import List, Callable, Union, Dict
 import math
-__all__ = ["cosine_annealing_lr",
+__all__ = ["cosine_annealing_lr", "get_T_max",
            "WarmupCosineAnnealingLR", "WarmupCosineAnnealingLR2"]
 
 
@@ -44,6 +44,36 @@ def cosine_annealing_lr(epoch: int, T_max: int, eta_min: float, initial_lrs: Lis
         func = _get_offset_func(-1, 1, eta_min, initial_lr)
         res.append(func(x))
     return res
+
+
+def get_T_max(dataset_len: int, batch_size: int, max_epochs: int,
+              n_accumulate_grad: Union[int, Dict[int, int]] = 1, drop_last: bool = True) -> int:
+    """计算lrs的T_max. """
+    if isinstance(n_accumulate_grad, int):
+        if drop_last:
+            T_max = dataset_len // batch_size
+        else:
+            T_max = math.ceil(dataset_len / batch_size)
+        T_max = math.ceil(T_max / n_accumulate_grad)
+        T_max *= max_epochs
+    elif isinstance(n_accumulate_grad, dict):
+        nag_dict = n_accumulate_grad.copy()
+        if 0 not in nag_dict.keys():
+            nag_dict.update({0: 1})
+        T_max = 0
+        nag_list = sorted(list(nag_dict.keys())) + [int(1e8)]
+        for i in range(len(nag_list) - 1):
+            nag = nag_dict[nag_list[i]]  # n_accumulate_grad
+            me: int = min(nag_list[i + 1], max_epochs) - nag_list[i]  # max_epochs
+            if me <= 0:
+                break
+            if drop_last:
+                Tm = dataset_len // batch_size
+            else:
+                Tm = math.ceil(dataset_len / batch_size)
+            Tm = math.ceil(Tm / nag)
+            T_max += Tm * me
+    return T_max
 
 
 class _CosineAnnealingLR(_LRScheduler):

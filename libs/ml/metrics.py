@@ -99,7 +99,7 @@ def precision_recall_fscore(y_pred: Tensor, y_true: Tensor,
     """
     # micro: 先平均(总的tp, 总的fp), 然后计算metrics(prec, recall, fscore)
     # macro: 先计算各个的metrics, 再求平均
-    if average == "micro":  
+    if average == "micro":
         # 类似于accuracy: (prec=recall=fscore=accuracy)
         tp = torch.count_nonzero(y_true == y_pred)  # sum{t=p=i}
         t = p = y_pred.shape[0]  # sum{t=i}, sum{p=i}

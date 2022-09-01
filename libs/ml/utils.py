@@ -21,47 +21,21 @@ from torch.utils.data import Dataset
 import os
 from torch.nn.parallel import DataParallel as DP, DistributedDataParallel as DDP
 from torch.nn.modules.module import _IncompatibleKeys as IncompatibleKeys
-import math
 
-logger = logging.getLogger(__name__)
 
-__all__ = ["get_T_max", "de_parallel", "select_device", "split_dataset", "extract_dataset", "stat",
+__all__ = ["de_parallel", "select_device", "split_dataset", "extract_dataset", "stat",
            "test_time", "seed_everything", "time_synchronize",
            "remove_keys", "gen_seed_list", "multi_runs",
            #
            "freeze_layers", "print_model_info",
            "fuse_conv_bn", "fuse_linear_bn"]
 
-
-def get_T_max(dataset_len: int, batch_size: int, max_epochs: int,
-              n_accumulate_grad: Union[int, Dict[int, int]] = 1, drop_last: bool = True) -> int:
-    """计算lrs的T_max. """
-    if isinstance(n_accumulate_grad, int):
-        if drop_last:
-            T_max = dataset_len // batch_size
-        else:
-            T_max = math.ceil(dataset_len / batch_size)
-        T_max = math.ceil(T_max / n_accumulate_grad)
-        T_max *= max_epochs
-    elif isinstance(n_accumulate_grad, dict):
-        nag_dict = n_accumulate_grad.copy()
-        if 0 not in nag_dict.keys():
-            nag_dict.update({0: 1})
-        T_max = 0
-        nag_list = sorted(list(nag_dict.keys())) + [int(1e8)]
-        for i in range(len(nag_list) - 1):
-            nag = nag_dict[nag_list[i]]  # n_accumulate_grad
-            me: int = min(nag_list[i + 1], max_epochs) - nag_list[i]  # max_epochs
-            if me <= 0:
-                break
-            if drop_last:
-                Tm = dataset_len // batch_size
-            else:
-                Tm = math.ceil(dataset_len / batch_size)
-            Tm = math.ceil(Tm / nag)
-            T_max += Tm * me
-    return T_max
-
+#
+LOCAL_RANK = int(os.getenv('LOCAL_RANK', -1))
+RANK = int(os.getenv('RANK', -1))
+WORLD_SIZE = int(os.getenv('WORLD_SIZE', 1))
+logger = logging.getLogger(__name__)
+# 
 
 def de_sync_batchnorm(module: Module, bn_type: Literal["1d", "2d", "3d"]) -> Module:
     """not inplace. 一般不de_sync_bn不影响 load_state_dict和state_dict. 即不影响保存和导入模型. """
@@ -102,27 +76,27 @@ def de_parallel(model: Module, bn_type: Literal["1d", "2d", "3d", None] = None) 
     return model
 
 
-def en_parallel(model: Module, dp_ddp_mode: Literal["DP", "DDP", None], sync_bn: bool = False) -> Module:
+def en_parallel(model: Module, parallel_mode: Literal["DP", "DDP", None], sync_bn: bool = False) -> Module:
     """not inplace"""
-    if dp_ddp_mode is None:
+    if parallel_mode is None:
         assert sync_bn is False
         return model
 
-    if dp_ddp_mode == "DP":
+    if parallel_mode == "DP":
         if not isinstance(model, DP):
             assert not isinstance(model, DDP)
-            model = DP(model)
+            model = DP(model)  # 使用所有device_ids
         logger.info("Using DP")
-    elif dp_ddp_mode == "DDP":
+    elif parallel_mode == "DDP":
         if not isinstance(model, DDP):
             assert not isinstance(model, DP)
-            model = DDP(model)
+            model = DDP(model, device_ids=[LOCAL_RANK], output_device=LOCAL_RANK)
         logger.info("Using DDP")
     else:
-        raise ValueError(f"dp_ddp_mode: {dp_ddp_mode}")
+        raise ValueError(f"parallel_mode: {parallel_mode}")
 
     if sync_bn:
-        assert dp_ddp_mode == "DDP"
+        assert parallel_mode == "DDP"
         model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
         logger.info("Using SyncBatchNorm")
     return model

@@ -22,7 +22,7 @@ from torch.utils.tensorboard.writer import SummaryWriter
 from torch.utils.data import Dataset, DataLoader, DistributedSampler, SequentialSampler
 from torch.nn import Module, SyncBatchNorm
 from torch.optim import Optimizer
-from torch.optim.lr_scheduler import MultiStepLR, _LRScheduler as LRScheduler
+from torch.optim.lr_scheduler import _LRScheduler as LRScheduler
 import torch.cuda as cuda
 
 import os
@@ -39,19 +39,18 @@ import torch.distributed as dist
 from bisect import bisect_right
 import math
 
-
+# 未来会添加的功能: 自动调参
+#   暂时取消对GAN的支持.
+# 约定: epoch_idx/global_epoch, batch_idx从0开始. global_step从1开始.
+__all__ = ["LModule", "LDataModule", "Trainer"]
+#
 # 使用torchrun 启动DDP. https://pytorch.org/docs/stable/elastic/run.html.
 # 例子见: examples/cv_ddp.py
 LOCAL_RANK = int(os.getenv('LOCAL_RANK', -1))
 RANK = int(os.getenv('RANK', -1))
 WORLD_SIZE = int(os.getenv('WORLD_SIZE', 1))
-
 logger = logging.getLogger(__name__)
-
-# 未来会添加的功能: 自动调参
-#   暂时取消对GAN的支持.
-# 约定: epoch_idx/global_epoch, batch_idx从0开始. global_step从1开始.
-__all__ = ["LModule", "LDataModule", "Trainer"]
+#
 
 
 class LModule:
@@ -254,7 +253,6 @@ class Trainer:
                 DDP mode下, 只有train使用DDP. val,test使用single-gpu. 
                     (train时的log的scalar只是rank=0中的指标. val/test使用单gpu, 计算的是整个数据集的scalar(metrics))
             note: 推荐使用DDP而不是DP. DDP使用多进程, DP使用多线程. DDP具有更快的训练速度. 且DDP支持sync-bn. 
-            warning: DDP, 作者只在single node下进行了测试. 若在multi node下实验出现问题, 请提issue. 
         # 
         device_ids: 若传入多个device_ids, 则使用DP. (暂时不支持DDP). 使用`CUDA_VISIBLE_DEVICES`环境变量进行选择
             e.g. []: 代表"cpu", [0], [0, 1, 2]
@@ -309,9 +307,9 @@ class Trainer:
         self.device_ids = device_ids
         self.device = select_device(device_ids)
         if RANK == -1:
-            dp_ddp_mode = "DP" if len(device_ids) > 1 else None
+            parallel_mode = "DP" if len(device_ids) > 1 else None
         else:
-            dp_ddp_mode = "DDP"
+            parallel_mode = "DDP"
             self.device = Device(LOCAL_RANK)
             cuda.set_device(LOCAL_RANK)  # 设置当前cuda.
             assert dist.is_available()
@@ -320,9 +318,9 @@ class Trainer:
                 logger.info(f"Using Backend: {backend}")
                 dist.init_process_group(backend=backend, rank=RANK, world_size=WORLD_SIZE)
             self.lmodel.model.to(self.device)
-        self.dp_ddp_mode = dp_ddp_mode
+        self.parallel_mode = parallel_mode
         self.sync_bn = sync_bn
-        self.lmodel.model = en_parallel(self.lmodel.model, dp_ddp_mode, sync_bn)
+        self.lmodel.model = en_parallel(self.lmodel.model, parallel_mode, sync_bn)
         self.amp = amp
         logger.info(f"Using amp: {amp}")
         #
@@ -515,7 +513,7 @@ class Trainer:
         mes: Dict[str, float] = {}
         if RANK in {-1, 0}:
             prog_bar = tqdm(total=len(dataloader),
-                            desc=f"Epoch {self.global_epoch}", dynamic_ncols=True)  # mininterval=0.01
+                            desc=f"Epoch {self.global_epoch}", dynamic_ncols=True)  # mininterval=0.01, disable=RANK > 0
             mes2: Dict[str, float] = {}  # optimize mes
             new_mes: Dict[str, float] = {}
             new_mes2: Dict[str, float] = {}  # optimize new mes
@@ -759,6 +757,7 @@ class Trainer:
 if __name__ == "__main__":
     import torch.nn as nn
     import torch.optim as optim
+    from torch.optim.lr_scheduler import MultiStepLR
     #
     from _trash import MLP_L2, XORDataset
     from metrics import accuracy_score

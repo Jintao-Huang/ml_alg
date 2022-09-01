@@ -5,6 +5,9 @@
 import torch.nn.functional as F
 from torch import Tensor
 from typing import List, Tuple, Optional
+
+__all__ = []
+
 """
 note: 这里写的是forward. 在backward时可能会报错(因为inplace关系). 
     若要用于backward, 可以取消所有inplace操作
@@ -35,7 +38,6 @@ note: 这里写的是forward. 在backward时可能会报错(因为inplace关系)
 # 用于学习, 速度慢于F.
 # 没有显示说明, 就不是inplace的
 
-__all__ = []
 
 """
 relu: x=>0保持, x<0变为=0
