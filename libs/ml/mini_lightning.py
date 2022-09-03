@@ -67,8 +67,7 @@ class LModule:
         self.metrics = metrics
         if isinstance(get_core_metric, str):
             metric_name = get_core_metric
-        self.get_core_metric = lambda metrics: metrics[metric_name] if isinstance(get_core_metric, str) \
-            else get_core_metric
+        self.get_core_metric = (lambda ms: ms[metric_name]) if isinstance(get_core_metric, str) else get_core_metric
         self.hparams: Dict[str, Any] = hparams if hparams is not None else {}
         self.trainer: Optional["Trainer"] = None
 
@@ -219,7 +218,12 @@ class LModule:
         mes: Dict[str, float] = {}
         for k, metric in self.metrics.items():
             v: Tensor = metric.compute()
-            mes[k] = v.item()
+            if v.ndim > 0:
+                mes[k] = v.mean().item()  # "macro"
+                for i in range(len(v)):
+                    mes[f"{k}_{i}"] = v[i].item()
+            else:
+                mes[k] = v.item()
         core_metric = self.get_core_metric(mes)
         mes = {prefix + k: v for k, v in mes.items()}
         self.log_dict(mes)

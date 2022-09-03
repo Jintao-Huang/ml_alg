@@ -1,0 +1,6 @@
+numpy
+PyYAML
+torch>=1.12
+tqdm
+tensorboard
+torchmetrics

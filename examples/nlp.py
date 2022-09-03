@@ -110,7 +110,7 @@ if __name__ == "__main__":
         "auc": AUROC(),  # 必须是二分类
         "prec": Precision(average="macro", num_classes=2),
         "recall": Recall(average="macro", num_classes=2),
-        "f1": F1Score(average="macro", num_classes=2)
+        "f1": F1Score(average="none", num_classes=2)
     }
     runs_dir = CHECKPOINTS_PATH
     loss_fn = nn.CrossEntropyLoss()

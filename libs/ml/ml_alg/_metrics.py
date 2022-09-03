@@ -175,8 +175,9 @@ def f1_score(y_pred: Tensor, y_true: Tensor, average: Literal["micro", "macro", 
 if __name__ == "__main__":
     from torchmetrics.functional.classification.f_beta import f1_score as _f1_score, fbeta_score as _fbeta_score
     from torchmetrics.functional.classification.precision_recall import precision_recall
-    preds = torch.randint(0, 10, (1000,))
-    target = torch.randint(0, 10, (1000,))
+    preds = torch.randint(0, 2, (1000,))
+    target = torch.randint(0, 1, (1000,))
+    target[0] = 1
     num_classes = int(target.max().item()) + 1
     print(_f1_score(preds, target, 10000, "macro", num_classes=num_classes))
     print(_fbeta_score(preds, target, 1, "macro", num_classes=num_classes))
@@ -192,13 +193,14 @@ if __name__ == "__main__":
     ]
     from torch.utils.data import TensorDataset, DataLoader
     td = TensorDataset(preds, target)
-    loader = DataLoader(td, batch_size=16, shuffle=True)
+    loader = DataLoader(td, batch_size=2, shuffle=True)
     for p, t in loader:
         # acc_metrics(p, t)
         for m in metrics:
             m.update(p, t)
     print([m.compute()for m in metrics])
     print()
+    exit(0)
 
     #
     preds = torch.tensor([0, 1, 3, 3, 1], device='cuda')
