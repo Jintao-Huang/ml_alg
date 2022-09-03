@@ -21,44 +21,46 @@ device_ids = [0]
 
 class MyLModule(libs_ml.LModule):
     def __init__(self, model: Module, optimizer: Optimizer, loss_fn: Module, lr_s: LRScheduler, hparams: Optional[Dict[str, Any]] = None) -> None:
-        super(MyLModule, self).__init__(model, optimizer, hparams)
+        metrics = {
+            "acc":  Accuracy(),
+            "loss": MeanMetric()
+        }
+        super().__init__(model, optimizer, metrics, "acc", hparams)
         # 一般: 定义损失函数, 学习率管理器. (优化器, 模型)
         # self.optim, self.model
         self.loss_fn = loss_fn
         self.lr_s = lr_s
 
-    def _calculate_loss_acc(self, batch: Any) -> Tuple[Tensor, Tensor]:
+    def optimizer_step(self) -> None:
+        super().optimizer_step()
+        self.lr_s.step()
+
+    def _calculate_loss_pred(self, batch: Any) -> Tuple[Tensor, Tensor]:
         x_batch, y_batch = batch
         y = self.model(x_batch)
         loss = self.loss_fn(y, y_batch)
-        y_acc = y.argmax(dim=-1)
-        acc = libs_ml.accuracy_score(y_acc, y_batch)
-        return loss, acc
+        y_pred = y.argmax(dim=-1)
+        return loss, y_pred
 
     def training_step(self, batch: Any) -> Tensor:
         # fit
         # 返回的Tensor(loss)用于优化
-        loss, acc = self._calculate_loss_acc(batch)
+        loss, y_pred = self._calculate_loss_pred(batch)
+        acc = accuracy(y_pred, batch[1])
         self.log("train_loss", loss)
         self.log("train_acc", acc)
         return loss
 
-    def optimizer_step(self) -> None:
-        super(MyLModule, self).optimizer_step()
-        self.lr_s.step()
-
-    def validation_step(self, batch: Any) -> Union[Tensor, float]:
+    def validation_step(self, batch: Any) -> None:
         # fit
         # 返回的float用于模型的选择, 越高越好(e.g. acc, 若越低越好则可以返回负数)
-        loss, acc = self._calculate_loss_acc(batch)
-        self.log("val_loss", loss)
-        self.log("val_acc", acc)
-        return acc
+        loss, y_pred = self._calculate_loss_pred(batch)
+        self.metrics["loss"].update(loss)
+        self.metrics["acc"].update(y_pred, batch[1])
 
     def test_step(self, batch: Any) -> None:
         # test
-        _, acc = self._calculate_loss_acc(batch)
-        self.log("test_acc", acc)
+        self.validation_step(batch)
 
 
 if __name__ == "__main__":
@@ -93,7 +95,7 @@ if __name__ == "__main__":
     batch_size = 128
     n_accumulate_grad = {5: 2, 10: 4}
     hparams = {
-        "device_ids": device_ids, 
+        "device_ids": device_ids,
         "model_name": "resnet50",
         "model_hparams": {"num_classes": 10},
         "model_pretrain_model": {"url": tvm.ResNet50_Weights.DEFAULT.url},
@@ -104,13 +106,13 @@ if __name__ == "__main__":
             "max_epochs": max_epochs,
             "gradient_clip_norm": 10,
             "amp": True,
-            "n_accumulate_grad": n_accumulate_grad, 
+            "n_accumulate_grad": n_accumulate_grad,
             "verbose": True
         },
         "lrs_hparams": {
             "warmup": 100,  # 100 * n_accumulate_grad
             "T_max": ...,
-            "eta_min": 1e-3
+            "eta_min": 4e-3
         }
     }
 
@@ -137,5 +139,6 @@ if __name__ == "__main__":
         res2 = trainer.test(ldm.test_dataloader)
         res.update(res2)
         return res
-    res = libs_ml.multi_runs(collect_res, 3, seed=42)
+    res, res_str = libs_ml.multi_runs(collect_res, 3, seed=42)
+    print(res_str)
     # pprint(res)

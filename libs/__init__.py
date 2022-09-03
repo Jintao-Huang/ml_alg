@@ -12,8 +12,7 @@ import sys
 import heapq
 from collections import deque, namedtuple, OrderedDict, defaultdict, Counter
 from copy import copy, deepcopy
-from typing import List, Tuple, Dict, Set, Callable, Optional, \
-    Union, Any, Deque, Sequence, Mapping, Iterable, Iterator
+from typing import Literal, List, Tuple, Dict, Set, Callable, Optional, Union, Any, Deque, Sequence, Mapping, Iterable, Iterator
 import time
 import datetime
 # import random
@@ -83,6 +82,18 @@ from transformers.data.data_collator import DataCollatorWithPadding
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 from transformers.modeling_utils import PreTrainedModel
 from datasets.load import load_dataset, load_metric
+# 
+from torchmetrics import MeanMetric, Metric
+from torchmetrics.classification.accuracy import Accuracy
+from torchmetrics.classification.precision_recall import Precision, Recall
+from torchmetrics.classification.f_beta import F1Score, FBetaScore
+from torchmetrics.classification.auroc import AUROC
+from torchmetrics.classification.avg_precision import AveragePrecision
+from torchmetrics.functional.classification.accuracy import accuracy
+from torchmetrics.functional.classification.precision_recall import precision, recall, precision_recall
+from torchmetrics.functional.classification.f_beta import f1_score, fbeta_score
+from torchmetrics.functional.classification.auroc import auroc
+from torchmetrics.functional.classification.average_precision import average_precision
 #
 import gym
 from gym import Env

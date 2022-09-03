@@ -28,7 +28,7 @@ device_ids = [0]
 
 class DQN(nn.Module):
     def __init__(self, obs_size: int, n_actions: int, hidden_size: int = 128):
-        super(DQN, self).__init__()
+        super().__init__()
         self.net = nn.Sequential(
             nn.Linear(obs_size, hidden_size),
             nn.ReLU(inplace=True),
@@ -127,12 +127,13 @@ def get_rand_p(global_step, T_max: int, eta_min: float, eta_max: float):
 class MyLModule(libs_ml.LModule):
     def __init__(self, model: Module, optim: Optimizer, loss_fn: Module, agent: Agent, get_rand_p: Callable[[int], float],
                  hparams: Optional[Dict[str, Any]] = None) -> None:
-        super(MyLModule, self).__init__(model, optim, hparams)
+        super().__init__(model, optim, {}, None, hparams)
+        self.old_model = deepcopy(model)
+        self.old_model.eval()
         # 一般: 定义损失函数, 学习率管理器. (优化器, 模型)
         # self.optim, self.model
         # 模型训练会使用new_model和old_model. 在计算next_state的reward预测使用old_model.
         #   探索和训练使用new_model. 原因是: 消除关联性. 每sync_steps步, 进行同步
-        self.old_model = deepcopy(self.model)
         self.loss_fn = loss_fn
         self.agent = agent
         self.get_rand_p = get_rand_p
@@ -145,10 +146,9 @@ class MyLModule(libs_ml.LModule):
         self._warmup_memo(self.warmup_memory_steps)
         self.episode_reward = 0  # 一局的reward
 
-    def training_epoch_start(self, device) -> None:
-        super(MyLModule, self).training_epoch_start(device)
-        self.old_model.train()
-        self.old_model.to(device)
+    def trainer_init(self, trainer: "libs_ml.Trainer") -> None:
+        super().trainer_init(trainer)
+        self.old_model.to(trainer.device)
 
     def _warmup_memo(self, steps: int):
         for _ in tqdm(range(steps), desc=f"Warmup: "):
@@ -199,7 +199,7 @@ class MyLModule(libs_ml.LModule):
 if __name__ == "__main__":
     # libs_ml.seed_everything(42, gpu_dtm=False)
     hparams = {
-        "device_ids": device_ids, 
+        "device_ids": device_ids,
         "memo_capacity": 1000,
         "dataset_len": 5000,
         "env_name": "CartPole-v1",

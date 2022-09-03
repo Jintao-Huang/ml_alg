@@ -35,7 +35,8 @@ LOCAL_RANK = int(os.getenv('LOCAL_RANK', -1))
 RANK = int(os.getenv('RANK', -1))
 WORLD_SIZE = int(os.getenv('WORLD_SIZE', 1))
 logger = logging.getLogger(__name__)
-# 
+#
+
 
 def de_sync_batchnorm(module: Module, bn_type: Literal["1d", "2d", "3d"]) -> Module:
     """not inplace. 一般不de_sync_bn不影响 load_state_dict和state_dict. 即不影响保存和导入模型. """
@@ -179,7 +180,7 @@ def stat(x: ndarray) -> Tuple[Tuple[float, float, float, float], str]:
     std = x.std().item()
     max_ = x.max().item()
     min_ = x.min().item()
-    stat_str = f"{mean:.6f}±{std:.6f} |max: {max_:.6f} |min: {min_:.6f}"
+    stat_str = f"{mean:.6f}±{std:.6f}, max={max_:.6f}, min={min_:.6f}"
     return (mean, std, max_, min_), stat_str
 
 
@@ -291,6 +292,7 @@ def multi_runs(collect_res: Callable[[int], Dict[str, float]], n: int, seed: Opt
     result: Dict[str, List] = defaultdict(list)
     for _seed in seed_list:
         _res = collect_res(_seed)
+        logger.info(f"Result: {_res}")
         for k, v in _res.items():
             result[k].append(v)
     t = int(time.perf_counter() - t)

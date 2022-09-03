@@ -1,7 +1,6 @@
 from .mini_lightning import *
 from .utils import *
 from .visualize import *
-from .metrics import *
 from .lrs import *
 # 
 # from ._trash import *

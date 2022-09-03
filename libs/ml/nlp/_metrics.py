@@ -10,12 +10,12 @@ import re
 import math
 
 """ROUTE, BLEU, PPL, BPW, BPC
-ROUTE: 翻译和摘要的metrics.
+ROUTE: 翻译和摘要的metric.
     1,2,L的precision, recall, fmeasure都在0-1之间. 越高越好.
-BLEU: 翻译的metrics, 在0-1之间. 越高越好.
-PPL: LM的metrics, 越低越好.
-BPW: LM的metrics, 越低越好.
-BPC: LM的metrics, 越低越好.
+BLEU: 翻译的metric, 在0-1之间. 越高越好.
+PPL: LM的metric, 越低越好.
+BPW: LM的metric, 越低越好.
+BPC: LM的metric, 越低越好.
 """
 
 

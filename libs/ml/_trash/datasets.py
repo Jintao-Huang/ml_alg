@@ -13,7 +13,7 @@ __all__ = ["XORDataset"]
 class XORDataset(Dataset):
     # examples
     def __init__(self, n_samples: int = 256, std: float = 0.1) -> None:
-        super(XORDataset, self).__init__()
+        super().__init__()
         self.n_samples = n_samples
         self.std = std
         self.data, self.labels = self._generate_xor()

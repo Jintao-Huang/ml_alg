@@ -3,7 +3,7 @@
 # Date:
 
 from pre import *
-from transformers.models.auto.modeling_auto import AutoModelForSequenceClassification
+from transformers.models.bert.modeling_bert import BertForSequenceClassification
 logger = logging.getLogger(__name__)
 
 device_ids = [0]
@@ -13,54 +13,59 @@ DATASETS_PATH = os.environ.get("DATASETS_PATH", os.path.join(RUNS_DIR, "datasets
 CHECKPOINTS_PATH = os.path.join(RUNS_DIR, "checkpoints")
 os.makedirs(DATASETS_PATH, exist_ok=True)
 os.makedirs(CHECKPOINTS_PATH, exist_ok=True)
+os.environ["TOKENIZERS_PARALLELISM"] = "true"
 
 
 class MyLModule(libs_ml.LModule):
-    def __init__(self, model: Module, optimizer: Optimizer, loss_fn: Module, lr_s: LRScheduler, hparams: Optional[Dict[str, Any]] = None) -> None:
-        super(MyLModule, self).__init__(model, optimizer, hparams)
+    def __init__(self, model: Module, optimizer: Optimizer, metrics: Dict[str, Metric],
+                 loss_fn: Module, lr_s: LRScheduler, hparams: Optional[Dict[str, Any]] = None) -> None:
+        super().__init__(model, optimizer, metrics, "f1", hparams)
         # 一般: 定义损失函数, 学习率管理器. (优化器, 模型)
         # self.optim, self.model
         self.loss_fn = loss_fn
         self.lr_s = lr_s
 
-    def _calculate_loss_acc(self, batch: Any) -> Tuple[Tensor, Tensor]:
-        y = self.model(**batch)
-        # nn.CrossEntropyLoss()(y["logits"].float(), F.one_hot(batch["labels"]).float())
-        loss, logits = y["loss"], y["logits"]
-        y_acc = logits.argmax(dim=-1)
-        acc = libs_ml.accuracy_score(y_acc, batch["labels"])
-        return loss, acc
+    def optimizer_step(self) -> None:
+        super().optimizer_step()
+        self.lr_s.step()
 
-    def training_step(self, batch: Any) -> Tensor:
+    def _calculate_loss_prob_pred(self, batch: Dict[str, Tensor]) -> Tuple[Tensor, Tensor, Tensor]:
+        y = self.model(**batch)
+        loss, logits = y["loss"], y["logits"]
+        y_prob = torch.softmax(logits, 1)[:, 1]
+        y_pred = logits.argmax(dim=-1)
+        return loss, y_prob, y_pred
+
+    def training_step(self, batch: Dict[str, Tensor]) -> Tensor:
         # fit
         # 返回的Tensor(loss)用于优化
-        loss, acc = self._calculate_loss_acc(batch)
+        loss, _, y_pred = self._calculate_loss_prob_pred(batch)
+        acc = accuracy(y_pred, batch["labels"])
         self.log("train_loss", loss)
         self.log("train_acc", acc)
         return loss
 
-    def optimizer_step(self) -> None:
-        super(MyLModule, self).optimizer_step()
-        self.lr_s.step()
-
-    def validation_step(self, batch: Any) -> Union[Tensor, float]:
+    def validation_step(self, batch: Dict[str, Tensor]) -> None:
         # fit
         # 返回的float用于模型的选择, 越高越好(e.g. acc, 若越低越好则可以返回负数)
-        loss, acc = self._calculate_loss_acc(batch)
-        self.log("val_loss", loss)
-        self.log("val_acc", acc)
-        return acc
+        loss, y_prob, y_pred = self._calculate_loss_prob_pred(batch)
+        for k, metric in self.metrics.items():
+            if k == "auc":
+                metric.update(y_prob, batch["labels"])
+            elif k == "loss":
+                metric.update(loss)
+            else:
+                metric.update(y_pred, batch["labels"])
 
-    def test_step(self, batch: Any) -> None:
+    def test_step(self, batch: Dict[str, Tensor]) -> None:
         # test
-        _, acc = self._calculate_loss_acc(batch)
-        self.log("test_acc", acc)
+        self.validation_step(batch)
 
 
 if __name__ == "__main__":
     dataset = load_dataset("glue", "mrpc")
     model_name = "bert-base-uncased"
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    tokenizer: PreTrainedTokenizerBase = AutoTokenizer.from_pretrained(model_name)
 
     def tokenize_function(example):
         return tokenizer(example["sentence1"], example["sentence2"], truncation=True)
@@ -97,12 +102,20 @@ if __name__ == "__main__":
     ldm = libs_ml.LDataModule(
         dataset["train"], dataset["validation"], dataset["test"], **hparams["dataloader_hparams"])
     #
-    model = AutoModelForSequenceClassification.from_pretrained(model_name)
+    model: PreTrainedModel = BertForSequenceClassification.from_pretrained(model_name)
     optimizer = getattr(optim, hparams["optim_name"])(model.parameters(), **hparams["optim_hparams"])
+    metrics: Dict[str, Metric] = {
+        "loss": MeanMetric(),
+        "acc":  Accuracy(),
+        "auc": AUROC(),  # 必须是二分类
+        "prec": Precision(average="macro", num_classes=2),
+        "recall": Recall(average="macro", num_classes=2),
+        "f1": F1Score(average="macro", num_classes=2)
+    }
     runs_dir = CHECKPOINTS_PATH
     loss_fn = nn.CrossEntropyLoss()
     lr_s = libs_ml.WarmupCosineAnnealingLR(optimizer, **hparams["lrs_hparams"])
-    lmodel = MyLModule(model, optimizer, loss_fn, lr_s, hparams)
+    lmodel = MyLModule(model, optimizer, metrics, loss_fn, lr_s, hparams)
     trainer = libs_ml.Trainer(lmodel, device_ids, runs_dir=runs_dir, **hparams["trainer_hparams"])
     try:
         logger.info(trainer.fit(ldm.train_dataloader, ldm.val_dataloader))

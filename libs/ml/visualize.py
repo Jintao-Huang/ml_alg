@@ -320,7 +320,7 @@ Item = Dict[str, float]  # e.g. step, loss
 
 
 def read_tensorboard_file(fpath: str) -> Dict[str, List[Item]]:
-    """读取fpath中的scalars信息. 变为"""
+    """读取fpath中的scalars信息"""
     ea = EventAccumulator(fpath)
     ea.Reload()
     res = {}

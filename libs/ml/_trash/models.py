@@ -11,7 +11,7 @@ __all__ = ["MLP_L2"]
 class MLP_L2(Module):
     # examples
     def __init__(self, in_channels, hidden_channels, out_channels) -> None:
-        super(MLP_L2, self).__init__()
+        super().__init__()
         self.model = nn.Sequential(
             nn.Linear(in_channels, hidden_channels),
             nn.ReLU(inplace=True),
