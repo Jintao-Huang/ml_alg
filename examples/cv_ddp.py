@@ -6,7 +6,7 @@
 # 后台运行: nohup python examples/cv_ddp.py > train.out 2>&1 &
 ##
 # multi-gpu:
-#   torchrun --nproc_per_node 2 examples/cv_ddp.py --device_ids 7 8
+#   torchrun --nproc_per_node 2 examples/cv_ddp.py --device_ids 0 1
 #   torchrun见: https://pytorch.org/docs/stable/elastic/run.html.
 # (nohup同理)
 ##

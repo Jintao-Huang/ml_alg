@@ -6,8 +6,6 @@ from pre import *
 from transformers.models.bert.modeling_bert import BertForSequenceClassification
 logger = logging.getLogger(__name__)
 
-device_ids = [0]
-
 RUNS_DIR = os.path.join(RUNS_DIR, "nlp")
 DATASETS_PATH = os.environ.get("DATASETS_PATH", os.path.join(RUNS_DIR, "datasets"))
 CHECKPOINTS_PATH = os.path.join(RUNS_DIR, "checkpoints")
@@ -15,6 +13,8 @@ os.makedirs(DATASETS_PATH, exist_ok=True)
 os.makedirs(CHECKPOINTS_PATH, exist_ok=True)
 os.environ["TOKENIZERS_PARALLELISM"] = "true"
 
+# 
+device_ids = [0]
 
 class MyLModule(libs_ml.LModule):
     def __init__(self, model: Module, optimizer: Optimizer, metrics: Dict[str, Metric],

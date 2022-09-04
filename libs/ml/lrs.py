@@ -1,11 +1,12 @@
 # Author: Jintao Huang
 # Email: huangjintao@mail.ustc.edu.cn
 # Date:
-
+import math
+from typing import List, Callable, Union, Dict
+# 
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.optim import Optimizer
-from typing import List, Callable, Union, Dict
-import math
+
 __all__ = ["cosine_annealing_lr", "get_T_max",
            "WarmupCosineAnnealingLR", "WarmupCosineAnnealingLR2"]
 

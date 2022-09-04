@@ -16,29 +16,32 @@ except ImportError:
     sys.path.append(_ROOT_DIR)
     from libs.utils import save_to_yaml
 
+import os
+import datetime
+import logging
+import re
+import math
+from bisect import bisect_right
+from typing import List, Any, Dict, Optional, Tuple, Callable, Union, Sequence, Mapping, Literal
+#
+from tqdm import tqdm
+#
 import torch
+import torch.cuda as cuda
+import torch.distributed as dist
 from torch import device as Device, Tensor
 from torch.utils.tensorboard.writer import SummaryWriter
 from torch.utils.data import Dataset, DataLoader, DistributedSampler, SequentialSampler
 from torch.nn import Module, SyncBatchNorm
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler as LRScheduler
-import torch.cuda as cuda
-# https://torchmetrics.readthedocs.io/en/stable/pages/overview.html. (支持ddp)
-from torchmetrics import Metric, MeanMetric
-import os
-from typing import List, Any, Dict, Optional, Tuple, Callable, Union, Sequence, Mapping, Literal
-from tqdm import tqdm
-import datetime
-import logging
 from torch.nn.utils.clip_grad import clip_grad_norm_
 from torch.cuda.amp.grad_scaler import GradScaler
 from torch.amp.autocast_mode import autocast
 from torch.nn.parallel import DataParallel as DP, DistributedDataParallel as DDP
-import re
-import torch.distributed as dist
-from bisect import bisect_right
-import math
+# https://torchmetrics.readthedocs.io/en/stable/pages/overview.html. (支持ddp)
+from torchmetrics import Metric, MeanMetric
+
 
 # 未来会添加的功能: 自动调参
 #   暂时取消对GAN的支持.
