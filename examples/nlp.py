@@ -97,7 +97,8 @@ if __name__ == "__main__":
             "eta_min": 1e-3
         }
     }
-    hparams["lrs_hparams"]["T_max"] = math.ceil(len(dataset["train"]) // batch_size / n_accumulate_grad) * max_epochs
+    hparams["lrs_hparams"]["T_max"] = libs_ml.get_T_max(
+        len(dataset["train"]), batch_size, max_epochs, n_accumulate_grad)
     #
     ldm = libs_ml.LDataModule(
         dataset["train"], dataset["validation"], dataset["test"], **hparams["dataloader_hparams"])

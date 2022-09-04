@@ -198,6 +198,8 @@ class MyLModule(libs_ml.LModule):
 
 if __name__ == "__main__":
     # libs_ml.seed_everything(42, gpu_dtm=False)
+    batch_size = 32
+    max_epochs = 10
     hparams = {
         "device_ids": device_ids,
         "memo_capacity": 1000,
@@ -205,9 +207,9 @@ if __name__ == "__main__":
         "env_name": "CartPole-v1",
         "model_hidden_size": 128,
         "optim_name": "SGD",
-        "dataloader_hparams": {"batch_size": 32},
+        "dataloader_hparams": {"batch_size": batch_size},
         "optim_hparams": {"lr": 1e-2, "weight_decay": 1e-4, "momentum": 0.9},  #
-        "trainer_hparams": {"max_epochs": 10, "gradient_clip_norm": 50},
+        "trainer_hparams": {"max_epochs": max_epochs, "gradient_clip_norm": 50},
         #
         "rand_p": {
             "eta_max": 1,
@@ -223,8 +225,7 @@ if __name__ == "__main__":
     dataset = MyDataset(memo_pool, hparams["dataset_len"])
     ldm = libs_ml.LDataModule(
         dataset, None, None, **hparams["dataloader_hparams"], shuffle_train=False, num_workers=1)
-    hparams["rand_p"]["T_max"] = len(ldm.train_dataloader) * hparams["trainer_hparams"]["max_epochs"]
-
+    hparams["rand_p"]["T_max"] = libs_ml.get_T_max(len(dataset), batch_size, max_epochs, 1)
     env = gym.make(hparams["env_name"])
     in_channels: int = env.observation_space.shape[0]
     out_channels: int = env.action_space.n

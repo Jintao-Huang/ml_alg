@@ -1,6 +1,6 @@
-numpy
-PyYAML
 torch>=1.12
+torchmetrics==0.9.3
 tqdm
 tensorboard
-torchmetrics
+numpy
+PyYAML

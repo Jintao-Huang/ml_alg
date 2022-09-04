@@ -2,8 +2,8 @@
 # Email: hjt_study@qq.com
 # Date:
 
-# 运行: python examples/cv.py > train.out 2>&1
-# 后台运行: nohup python examples/cv.py > train.out 2>&1 &
+# 运行: python examples/cv_ddp.py > train.out 2>&1
+# 后台运行: nohup python examples/cv_ddp.py > train.out 2>&1 &
 ##
 # multi-gpu:
 #   torchrun --nproc_per_node 2 examples/cv_ddp.py --device_ids 7 8
@@ -11,14 +11,14 @@
 # (nohup同理)
 ##
 # multi-node: 使用默认 --master_port 29500, 或者自定义master_port避免端口冲突.
-#   torchrun --nnodes 2 --node_rank 0 --nproc_per_node 4 examples/cv_ddp.py --device 0 1 2 3
-#   torchrun --nnodes 2 --node_rank 1 --master_addr xxx.xxx.xxx.xxx --nproc_per_node 4 examples/cv_ddp.py --device 0 1 2 3
+#   torchrun --nnodes 2 --node_rank 0 --nproc_per_node 4 examples/cv_ddp.py --device_ids 0 1 2 3
+#   torchrun --nnodes 2 --node_rank 1 --master_addr xxx.xxx.xxx.xxx --nproc_per_node 4 examples/cv_ddp.py --device_ids 0 1 2 3
 
 from pre import *
 
 logger = logging.getLogger(__name__)
 CIFAR10 = tvd.CIFAR10
-RUNS_DIR = os.path.join(RUNS_DIR, "cv")
+RUNS_DIR = os.path.join(RUNS_DIR, "cv_ddp")
 DATASETS_PATH = os.environ.get("DATASETS_PATH", os.path.join(RUNS_DIR, "datasets"))
 CHECKPOINTS_PATH = os.path.join(RUNS_DIR, "checkpoints")
 os.makedirs(DATASETS_PATH, exist_ok=True)
@@ -77,7 +77,7 @@ class MyLModule(libs_ml.LModule):
 def parse_opt() -> Namespace:
     parser = ArgumentParser()
     parser.add_argument("--device_ids", nargs="*", type=int,
-                        default=[0], help="e.g. [], [0], [0, 1, 2]. --device 0; --device 0 1 2")
+                        default=[0], help="e.g. [], [0], [0, 1, 2]. --device_ids 0; --device_ids 0 1 2")
     return parser.parse_args()
 
 
@@ -165,10 +165,8 @@ if __name__ == "__main__":
         res2 = trainer.test(ldm.test_dataloader)
         res.update(res2)
         return res
-    res, res_str = libs_ml.multi_runs(collect_res, 3, seed=42)
-    if RANK in {-1, 0}:
-        logger.info(res_str)
+    res = libs_ml.multi_runs(collect_res, 3, seed=42)
+
     # pprint(res)
-    #
     # if RANK != -1:
     #     dist.destroy_process_group()  # https://pytorch.org/tutorials/intermediate/ddp_tutorial.html

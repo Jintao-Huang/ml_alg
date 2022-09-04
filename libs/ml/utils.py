@@ -91,7 +91,7 @@ def en_parallel(model: Module, parallel_mode: Literal["DP", "DDP", None], sync_b
     elif parallel_mode == "DDP":
         if not isinstance(model, DDP):
             assert not isinstance(model, DP)
-            model = DDP(model, device_ids=[LOCAL_RANK], output_device=LOCAL_RANK)
+            model = DDP(model)
         logger.info("Using DDP")
     else:
         raise ValueError(f"parallel_mode: {parallel_mode}")
@@ -280,7 +280,7 @@ def gen_seed_list(n: int, seed: Optional[int] = None,) -> List[int]:
 
 
 def multi_runs(collect_res: Callable[[int], Dict[str, float]], n: int, seed: Optional[int] = None, *,
-               seed_list: Optional[List[int]] = None) -> Tuple[Dict[str, Dict[str, Any]], str]:
+               seed_list: Optional[List[int]] = None) -> Dict[str, Dict[str, Any]]:
     """跑n次的结果.
     collect_res: 函数: 传入seed, 返回result.
     n: 跑的次数. {seed_list的优先级更高, 若提供seed_list, 则n, seed无效}
@@ -292,7 +292,8 @@ def multi_runs(collect_res: Callable[[int], Dict[str, float]], n: int, seed: Opt
     result: Dict[str, List] = defaultdict(list)
     for _seed in seed_list:
         _res = collect_res(_seed)
-        logger.info(f"Result: {_res}")
+        if RANK in {-1, 0}:
+            logger.info(f"Result: {_res}")
         for k, v in _res.items():
             result[k].append(v)
     t = int(time.perf_counter() - t)
@@ -319,7 +320,9 @@ def multi_runs(collect_res: Callable[[int], Dict[str, float]], n: int, seed: Opt
             "max_": max_,
             "min_": min_,
         }
-    return res, "\n".join(res_str)
+    if RANK in {-1, 0}:
+        logger.info("\n".join(res_str))
+    return res
 
 
 def freeze_layers(model: Module, layer_prefix_names: List[str]) -> None:

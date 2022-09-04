@@ -139,6 +139,5 @@ if __name__ == "__main__":
         res2 = trainer.test(ldm.test_dataloader)
         res.update(res2)
         return res
-    res, res_str = libs_ml.multi_runs(collect_res, 3, seed=42)
-    print(res_str)
+    res = libs_ml.multi_runs(collect_res, 3, seed=42)
     # pprint(res)

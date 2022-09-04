@@ -1,8 +1,6 @@
 # ML-ALG
 
 
-
-
 ## Introduction
 1. 这个仓库是一个机器学习的集成库, 现在主要是自己在使用. 所在文件夹为`libs/`, 下面将会介绍各个文件的用途.
 2. 若在使用中出现问题, 请提issue. 你提出的issue, 将对我有巨大的帮助, Thanks.
@@ -14,7 +12,7 @@
 ## 文件功能介绍
 1. `libs/ml/mini_lightning.py`: mini-lightning
    1. pytorch-lightning的mini版本(更快, 更简洁, 更灵活). 
-   2. 支持ddp, sync_bn, amp, dp, 梯度累加, warmup, lr_scheduler, 梯度裁剪, tensorboard, 模型和超参数和结果保存, 支持torchmetrics等.
+   2. 支持ddp(multi-node, multi-gpu), sync_bn, dp, amp, 梯度累加, warmup, lr_scheduler, 梯度裁剪, tensorboard, 模型和超参数和结果保存, 支持torchmetrics等.
    3. 未来将会提供: 自动调参的功能. 
    4. examples见 `examples/*`文件夹
 2. `examples/*`: mini-lightning使用的例子. 包括在cv, nlp, dqn, ddp中的使用. 
@@ -31,9 +29,8 @@
 
 
 
-
-
 ## 环境:
 1. python>=3.8
 2. torch>=1.12
+3. torchmetrics==0.9.3
 

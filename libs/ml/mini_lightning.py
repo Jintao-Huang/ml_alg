@@ -24,6 +24,7 @@ from torch.nn import Module, SyncBatchNorm
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler as LRScheduler
 import torch.cuda as cuda
+# https://torchmetrics.readthedocs.io/en/stable/pages/overview.html. (支持ddp)
 from torchmetrics import Metric, MeanMetric
 import os
 from typing import List, Any, Dict, Optional, Tuple, Callable, Union, Sequence, Mapping, Literal
@@ -33,7 +34,6 @@ import logging
 from torch.nn.utils.clip_grad import clip_grad_norm_
 from torch.cuda.amp.grad_scaler import GradScaler
 from torch.amp.autocast_mode import autocast
-
 from torch.nn.parallel import DataParallel as DP, DistributedDataParallel as DDP
 import re
 import torch.distributed as dist
@@ -100,8 +100,6 @@ class LModule:
         """
         # 如何log. 我们调用lmodule的log, 将信息存储在lmodule中
         # 当单次迭代结束时, 会修改lmodule._mes, 随后加到trainer的全局log中...
-        if RANK not in {-1, 0}:
-            return
         if self.trainer is None:
             raise ValueError(f"self.trainer: {self.trainer}")
         #
@@ -261,7 +259,7 @@ class LDataModule:
         num_workers: int = 0,
         collate_fn: Optional[Callable[[List[Any]], Any]] = None,
         *,
-        drop_last_train: bool = True,
+        drop_last_train: bool = True,  # drop_last=False在dp/ddp情况下可能造成切分不均匀
         shuffle_train: bool = True,
         pin_memory_train: bool = True
     ) -> None:
@@ -275,7 +273,7 @@ class LDataModule:
                                                num_workers=num_workers, pin_memory=pin_memory_train,
                                                drop_last=drop_last_train, collate_fn=collate_fn)
         for dataset, loader_name in zip([val_dataset, test_dataset], ["val_dataloader", "test_dataloader"]):
-            if dataset and RANK in {-1, 0}:
+            if RANK in {-1, 0} and dataset is not None:
                 loader = DataLoader(dataset, batch_size, shuffle=False,
                                     num_workers=num_workers, pin_memory=False,
                                     drop_last=False, collate_fn=collate_fn)
@@ -298,16 +296,16 @@ class Trainer:
         verbose: bool = True
     ) -> None:
         """
-        关于ddp mode: 不需要设置. 使用torchrun进行运行, Trainer会对此进行分辨(通过RANK/LOCAL_RANK). 例子见examples/cv_ddp.py
-            note: DP mode下, train,val,test都会使用DP.
-                DDP mode下, 只有train使用DDP. val,test使用single-gpu. 可以使用torchmetrics进行metrics评估
+        关于ddp mode: 不需要设置. 使用torchrun进行运行, Trainer会对此进行分辨(通过RANK). 例子见examples/cv_ddp.py
+            note: DDP mode下, train使用multi-gpu/node. val,test使用single gpu. (避免最后个batch无法均分导致的metrics误差)
+                Ref: https://torchmetrics.readthedocs.io/en/stable/pages/overview.html#metrics-in-distributed-data-parallel-ddp-mode
             note: 推荐使用DDP而不是DP. DDP使用多进程, DP使用多线程. DDP具有更快的训练速度. 且DDP支持sync-bn. 
         # 
         device_ids: 若传入多个device_ids, 则使用DP. (暂时不支持DDP). 使用`CUDA_VISIBLE_DEVICES`环境变量进行选择
             e.g. []: 代表"cpu", [0], [0, 1, 2]
             note: DP: batch_size会被拆分到各个gpu中. 请确保batch_size % n_gpus == 0.
-                DDP: 总的batch_size = world_size * batch_size. (与DP不同)
-            note: DP, DDP, sync_bn会对lmodel.model进行修改.   
+                DDP: 总的batch_size = batch_size * WORLD_SIZE. (与DP不同)
+            note: DP, DDP, sync_bn会对lmodel.model进行修改. 训练结束后需要手动de_parallel
         n_accumulate_grad: 梯度累加.
             若为Dict[int, int]: e.g. {5:2, 20:4} or {0:1, 5:2, 20:4}. 表示前5个(0-4)epoch使用1(no累计), 5-19使用2, 20以后使用4. 
                 这可以在初期加快训练速度, 并在最后不影响收敛性能. 
@@ -332,10 +330,11 @@ class Trainer:
         replace_sampler_ddp: (只在DDP情况下有效)在DDP情况下, 是否使用DistributedSampler(仅train_dataloader). 
             若不使用: train时, 每个gpu都会使用完整的数据集(相当于一个epoch训练了world_size次dataset). 
             使用sampler, 可以将数据集切成world_size块, 分发给各个gpu. 
+            note: 只replace train_dataloader. 因为DDP中val/test仍使用single gpu. 
         *
-        log_every_n_steps: 几步需要将信息log入tensorboard(使用每n步采样的方式, 而不是均值). 使用global_step % .
+        log_every_n_steps: 信息写入tensorboard的频率(使用每n步采样的方式, 而不是均值). 使用global_step % .
         prog_bar_n_steps: 进度条的显示的频率. batch_idx % .
-            note: 在DDP+train的情况下, 使用多进程多GPU, 只采样rank=0的scalar. DDP+val/test使用单GPUs.(log_every_n_steps同理)
+            note: 在DDP+train的情况下, 会取所有gpu上的metrics计算(reduce or gather). (log_every_n_steps同理)
             note: 推荐使用torchmetrics进行metrics计算. 
                 不推荐使用log的均值作为真正的metrics. 因为当最后一个batch的长度不等于batch_size时会造成误差.
             note: 在train情况下, 若记录到inf, nan的scalar, 在计算mean时会跳过. (val/test则会记录inf, nan)
@@ -357,7 +356,7 @@ class Trainer:
             parallel_mode = "DP" if len(device_ids) > 1 else None
         else:
             parallel_mode = "DDP"
-            self.device = Device(LOCAL_RANK)
+            self.device = Device(LOCAL_RANK)  # 覆盖
             cuda.set_device(LOCAL_RANK)  # 设置当前cuda.
             assert dist.is_available()
             if not dist.is_initialized():
@@ -466,11 +465,12 @@ class Trainer:
         save_to_yaml(saved_hparams, self.hparams_path)
 
     @staticmethod
-    def _metrics_update(metrics: Dict[str, MeanMetric], new_mes: Dict[str, float], ignore_inf_nan: bool = False) -> None:
+    def _metrics_update(metrics: Dict[str, MeanMetric], new_mes: Dict[str, float], device: Device,
+                        ignore_inf_nan: bool = False, sync_on_compute: bool = True) -> None:
         # alpha: 系数: 一个batch中的N
         for k, v in new_mes.items():
             if k not in metrics:
-                metrics[k] = MeanMetric()
+                metrics[k] = MeanMetric(sync_on_compute=sync_on_compute).to(device)
             if ignore_inf_nan and (math.isinf(v) or math.isnan(v)):  # ignore
                 continue
             metrics[k].update(v)
@@ -481,7 +481,7 @@ class Trainer:
         for k in metrics.keys():
             v: Tensor = metrics[k].compute()
             res[k] = v.item()
-        return res
+        return res if RANK in {-1, 0} else {}
 
     def _logger_add_scalars(self, mes: Dict[str, float], step: int) -> None:
         # mes(not sum)
@@ -531,6 +531,17 @@ class Trainer:
         return res
 
     @staticmethod
+    def _reduce_mes(mes: Dict[str, float], device: Device) -> None:
+        "inplace. 只修改RANK0. 多gpu的reduce"
+        if RANK == -1:
+            return
+        tensors = torch.tensor([v for v in mes.values()]).to(device)
+        dist.reduce(tensors, dst=0, op=dist.ReduceOp.SUM)
+        tensors /= WORLD_SIZE
+        for k, t in zip(mes.keys(), tensors):
+            mes[k] = t.item() if RANK == 0 else 0.
+
+    @staticmethod
     def _get_epoch_end_log_string(log_mes: Dict[str, float], mode: Literal["train", "val", "test"]) -> str:
         res = "Epoch End: "
         for i, (k, v) in enumerate(log_mes.items()):
@@ -539,7 +550,20 @@ class Trainer:
             res += f"{k}={v:.6f}"
         return res
 
-    def _train_epoch(self, lmodel: LModule, dataloader: DataLoader) -> Dict[str, float]:
+    @staticmethod
+    def _replace_sampler_ddp(dataloader: DataLoader) -> DataLoader:
+        shuffle = True
+        if isinstance(dataloader.sampler, SequentialSampler):
+            shuffle = False
+        sampler = DistributedSampler(dataloader.dataset, shuffle=shuffle)
+        logger.info(f"Using DistributedSampler; shuffle: {shuffle}")
+        dataloader = DataLoader(dataloader.dataset, dataloader.batch_size, sampler=sampler,
+                                num_workers=dataloader.num_workers, pin_memory=dataloader.pin_memory,
+                                drop_last=dataloader.drop_last, collate_fn=dataloader.collate_fn)
+        return dataloader
+
+    def _train_epoch(self, dataloader: DataLoader) -> Dict[str, float]:
+        lmodel = self.lmodel
         lmodel.training_epoch_start()
         model = lmodel.model
         device = self.device
@@ -557,19 +581,16 @@ class Trainer:
         else:
             raise TypeError(f"self.n_accumulate_grad: {self.n_accumulate_grad}, type: {type(self.n_accumulate_grad)}")
         #
-        mes: Dict[str, float] = {}
-        if RANK in {-1, 0}:
-            prog_bar = tqdm(total=len(dataloader),
-                            desc=f"Epoch {self.global_epoch}", dynamic_ncols=True)  # mininterval=0.01, disable=RANK > 0
-            metrics: Dict[str, MeanMetric] = {}  #
-            metrics2: Dict[str, MeanMetric] = {}  # optimize metrics
-            new_mes: Dict[str, float] = {}
-            new_mes2: Dict[str, float] = {}  # optimize new mes
+        metrics: Dict[str, MeanMetric] = {}  #
+        metrics2: Dict[str, MeanMetric] = {}  # optimize metrics
+        new_mes: Dict[str, float] = {}
+        new_mes2: Dict[str, float] = {}  # optimize new mes
+        prog_bar = tqdm(total=len(dataloader),
+                        desc=f"Epoch {self.global_epoch}", dynamic_ncols=True, disable=RANK > 0)  # mininterval=0.01
 
         for batch_idx, batch in enumerate(dataloader):
             self.global_step += 1
-            if RANK in {-1, 0}:
-                self.new_mes.clear()
+            self.new_mes.clear()
             #
             batch = lmodel.batch_to_device(batch, device)
             with autocast(device_type=self.device.type, enabled=self.amp):
@@ -577,14 +598,12 @@ class Trainer:
             loss.div_(n_accumulate_grad)
             scaler.scale(loss).backward()
             #
-            if RANK in {-1, 0}:
-                new_mes = self.new_mes.copy()
-                self._metrics_update(metrics, new_mes, ignore_inf_nan=True)
+            new_mes = self.new_mes.copy()
+            self._metrics_update(metrics, new_mes, device, ignore_inf_nan=True)
 
             # 优化
             if (batch_idx + 1) % n_accumulate_grad == 0 or (batch_idx + 1) == len(dataloader):
-                if RANK in {-1, 0}:
-                    self.new_mes.clear()
+                self.new_mes.clear()
                 if self.gradient_clip_norm:
                     # grad裁剪需要下面这行.
                     scaler.unscale_(lmodel.optimizer)
@@ -609,31 +628,33 @@ class Trainer:
                 #
                 self.found_inf = False
                 self.found_nan = False
+                new_mes2 = self.new_mes.copy()
+                self._metrics_update(metrics2, new_mes2, device, ignore_inf_nan=True)
+
+            # prog_bar
+            if (batch_idx + 1) % self.prog_bar_n_steps == 0:
+                mean_mes = self._metrics_compute(metrics)
+                mean_mes2 = self._metrics_compute(metrics2)
+                log_mes = self._get_log_mes(mean_mes, new_mes, self.prog_bar_mean, self.verbose)
+                log_mes2 = self._get_log_mes(mean_mes2, new_mes2, self.prog_bar_mean, self.verbose)
+                log_mes.update(log_mes2)
+                # rank > 0 disable.
+                prog_bar.set_postfix(log_mes, refresh=False)
+                prog_bar.update(self.prog_bar_n_steps)
+            # tensorboard
+            if self.global_step % self.log_every_n_steps == 0:
+                self._reduce_mes(new_mes, device)
+                self._reduce_mes(new_mes2, device)
                 if RANK in {-1, 0}:
-                    new_mes2 = self.new_mes.copy()
-                    self._metrics_update(metrics2, new_mes2, ignore_inf_nan=True)
-            if RANK in {-1, 0}:
-                # tensorboard
-                if self.global_step % self.log_every_n_steps == 0:
                     self._logger_add_scalars(new_mes, self.global_step)
                     self._logger_add_scalars(new_mes2, self.global_step)
-                # prog_bar
-                if (batch_idx + 1) % self.prog_bar_n_steps == 0:
-                    mean_mes = self._metrics_compute(metrics)
-                    mean_mes2 = self._metrics_compute(metrics2)
-                    log_mes = self._get_log_mes(mean_mes, new_mes, self.prog_bar_mean, self.verbose)
-                    log_mes2 = self._get_log_mes(mean_mes2, new_mes2, self.prog_bar_mean, self.verbose)
-                    log_mes.update(log_mes2)
-                    prog_bar.set_postfix(log_mes, refresh=False)
-                    prog_bar.update(self.prog_bar_n_steps)
         mes: Dict[str, float] = {}
-        if RANK in {-1, 0}:
-            prog_bar.update(prog_bar.total - prog_bar.n)
-            prog_bar.close()
-            mes.update(self._metrics_compute(metrics))
-            mes.update(self._metrics_compute(metrics2))
-            #
-            mes = remove_keys(mes, ["lr", "grad_norm"])  # 不返回出去.
+        prog_bar.update(prog_bar.total - prog_bar.n)
+        prog_bar.close()
+        mes.update(self._metrics_compute(metrics))
+        mes.update(self._metrics_compute(metrics2))
+        #
+        mes = remove_keys(mes, ["lr", "grad_norm"])  # 不返回出去.
         # 后处理
         self.new_mes.clear()
         lmodel.training_epoch_end()
@@ -642,12 +663,25 @@ class Trainer:
             mes.update(self.new_mes)
         return mes
 
-    def _val_test(self, lmodel: LModule, dataloader: DataLoader, mode: Literal["val", "test"],
-                  desc: str, epoch_idx: int) -> Tuple[float, Dict[str, float]]:
-        # 用于val, test
+    def _val_test(self, dataloader: Optional[DataLoader], mode: Literal["val", "test"],
+                  desc: str, epoch_idx: int) -> Tuple[Optional[float], Dict[str, float]]:
+        # 用于val, test. 若core_metrics返回None, 则表示未进行val/test. (e.g. DDP时)
+        if RANK not in {-1, 0}:
+            dist.barrier()
+            return None, {}
+        #
+        if dataloader is None:
+            return None, {}
+        #
+        lmodel = self.lmodel
+        device = self.device
         model_r = lmodel.model
         lmodel.model = de_parallel(lmodel.model)
-        device = self.device
+        metrics_r = {k: m._to_sync for k, m in lmodel.metrics.items()}
+        for m in lmodel.metrics.values():
+            # torchmetrics==0.9.3 的私有变量. 不知道后面是否会修改. 若修改可以提issue.
+            m._to_sync = False
+            m.sync_on_compute = False
         #
         if mode == "val":
             val_test_epoch_start = lmodel.validation_epoch_start
@@ -659,7 +693,6 @@ class Trainer:
             val_test_epoch_end = lmodel.test_epoch_end
         else:
             raise ValueError(f"mode: {mode}")
-
         #
         val_test_epoch_start()
         #
@@ -673,7 +706,7 @@ class Trainer:
                 batch = lmodel.batch_to_device(batch, device)
                 val_test_step(batch)
             new_mes = self.new_mes.copy()
-            self._metrics_update(metrics, new_mes)
+            self._metrics_update(metrics, new_mes, device, False, False)
             # prog_bar
             if (batch_idx + 1) % self.prog_bar_n_steps == 0:
                 mean_mes = self._metrics_compute(metrics)
@@ -693,27 +726,27 @@ class Trainer:
             print("- " + self._get_epoch_end_log_string(self.new_mes, mode))
             mes.update(self.new_mes)
         self._logger_add_scalars(mes, epoch_idx)
+        # 复原
+        lmodel.model = model_r
+        for k, b in metrics_r.items():
+            lmodel.metrics[k]._to_sync = b
+            lmodel.metrics[k].sync_on_compute = b
         #
-        if isinstance(model_r, DDP):
-            lmodel.model = model_r
+        if RANK == 0:
+            dist.barrier()
         return core_metric, mes
 
-    def _train(self, lmodel: LModule, train_dataloader: DataLoader,
+    def _train(self, train_dataloader: DataLoader,
                val_dataloader: Optional[DataLoader]) -> Dict[str, float]:
         if RANK == -1 and len(self.device_ids) > 1:
             # DP并不会因为 无法平均拆分inputs而崩溃. 但这里为了规范性, 进行检查.
             assert train_dataloader.batch_size % len(self.device_ids) == 0
-            assert val_dataloader.batch_size % len(self.device_ids) == 0
+            if val_dataloader:
+                assert val_dataloader.batch_size % len(self.device_ids) == 0
         if self.replace_sampler_ddp and RANK != -1:
-            shuffle = True
-            if isinstance(train_dataloader.sampler, SequentialSampler):
-                shuffle = False
-            sampler = DistributedSampler(train_dataloader.dataset, shuffle=shuffle)
-            logger.info(f"Using DistributedSampler; shuffle: {shuffle}")
-            train_dataloader = DataLoader(train_dataloader.dataset, train_dataloader.batch_size, sampler=sampler,
-                                          num_workers=train_dataloader.num_workers, pin_memory=train_dataloader.pin_memory,
-                                          drop_last=train_dataloader.drop_last, collate_fn=train_dataloader.collate_fn)
+            train_dataloader = self._replace_sampler_ddp(train_dataloader)
         #
+        lmodel = self.lmodel
         model = lmodel.model
         mes: Dict[str, float] = {}
         best_mes: Dict[str, float] = {}
@@ -721,43 +754,47 @@ class Trainer:
         #
         for _ in range(self.global_epoch + 1, self.max_epochs):
             self.global_epoch += 1
-            mes = self._train_epoch(lmodel, train_dataloader)
+            mes = self._train_epoch(train_dataloader)
             #
+            metric, val_mes = self._val_test(val_dataloader, "val", "  Val: ", self.global_epoch)
+            mes.update(val_mes)
+            # 若metric为None： 只保存最后的模型, 而不保存最好的模型(用于dqn).
+            # 不使用train_loss作为best_ckpt的原因: train_loss一定随着epoch增加而越来越小. 所以不需要.
             if RANK in {-1, 0}:
-                if val_dataloader is not None:
-                    metric, val_mes = self._val(lmodel, val_dataloader)
-                    mes.update(val_mes)
-                else:
-                    # 只保存最后的模型, 而不保存最好的模型(用于dqn).
-                    #   不使用train_loss作为best_ckpt的原因: train_loss一定随着epoch增加而越来越小. 所以不需要.
-                    metric = None
                 is_best = self._epoch_end(mes, metric)  # 保存模型和results
-
                 mes.update({"global_epoch": self.global_epoch,
                             "global_step": self.global_step})
                 if is_best:
                     best_mes = mes
-            if RANK != -1:
-                dist.barrier()
+
         if not best_mes:
             best_mes = mes  # last
         #
         return best_mes if RANK in {-1, 0} else {}
 
-    def _val(self, lmodel: LModule, dataloader: DataLoader) -> Tuple[float, Dict[str, float]]:
-        desc = "  Val: "
-        metric, mes = self._val_test(lmodel, dataloader, "val", desc, self.global_epoch)
-        return metric, mes
-
-    def _test(self, lmodel: LModule, dataloader: DataLoader,
+    def _test(self, dataloader: Optional[DataLoader],
               model_type: Literal["last", "best"]) -> Dict[str, float]:
         if RANK == -1 and len(self.device_ids) > 1:
             assert dataloader.batch_size % len(self.device_ids) == 0
-        desc = "Test Last: " if model_type == "last" else "Test Best: "
-        epoch_idx = self.global_epoch if model_type == "last" else self.best_epoch_idx
-        _, mes = self._val_test(lmodel, dataloader, "test", desc, epoch_idx)
+        if RANK in {-1, 0} and model_type == "best" and not self.best_ckpt_path:
+            return {}
+        #
+        if model_type == "best":
+            self.lmodel.load_from_checkpoint(self.best_ckpt_path)
+            epoch_idx = self.best_epoch_idx
+            desc = "Test Best: "
+        else:
+            epoch_idx = self.global_epoch
+            desc = "Test Last: "
+        #
+        _, mes = self._val_test(dataloader, "test", desc, epoch_idx)
         mes.update({"global_epoch": epoch_idx})
-        return mes
+        if model_type == "best":
+            self.lmodel.load_from_checkpoint(self.last_ckpt_path)  # 复原
+            mes = self._key_add_suffix(mes, "_best")
+        else:
+            mes = self._key_add_suffix(mes, "_last")
+        return mes if RANK in {-1, 0} else {}
 
     @ staticmethod
     def _key_add_suffix(mes: Dict[str, Any], suffix: str) -> Dict[str, Any]:
@@ -772,12 +809,12 @@ class Trainer:
         # best_mes除了rank in {-1, 0}. 其他都是返回 {}.
         lmodel = self.lmodel
         device_r = next(lmodel.model.parameters()).device
-        best_mes = self._train(lmodel, train_dataloader, val_dataloader)
+        best_mes = self._train(train_dataloader, val_dataloader)
         lmodel.model.to(device_r)
         cuda.empty_cache()
         return best_mes
 
-    def test(self, dataloader: DataLoader, only_best: bool = True) -> Dict[str, float]:
+    def test(self, dataloader: Optional[DataLoader], only_best: bool = True) -> Dict[str, float]:
         """返回best, last model的test的log信息
         only_best: 只测试best. 理论上测试集不能作为验证集的作用使用. 所以默认为True.
         """
@@ -786,20 +823,12 @@ class Trainer:
         # mes除了rank in {-1, 0}. 其他都是返回 {}.
         device_r = next(self.lmodel.model.parameters()).device
         mes = {}
-        if RANK in {-1, 0}:
-            if self.best_ckpt_path:
-                assert self.last_ckpt_path  # 一般都满足
-                self.lmodel.load_from_checkpoint(self.best_ckpt_path)
-                mes = self._test(self.lmodel, dataloader, "best")
-                self.lmodel.load_from_checkpoint(self.last_ckpt_path)  # 复原
-                mes = self._key_add_suffix(mes, "_best")
-            # test "last"
-            if not only_best:
-                mes2 = self._test(self.lmodel, dataloader, "last")
-                mes2 = self._key_add_suffix(mes2, "_last")
-                mes.update(mes2)
-        if RANK != -1:
-            dist.barrier()
+        m = self._test(dataloader, "best")
+        mes.update(m)
+        # test "last"
+        if not only_best:
+            m = self._test(dataloader, "last")
+            mes.update(m)
         self.lmodel.model.to(device_r)
         cuda.empty_cache()
         return mes
@@ -822,7 +851,7 @@ if __name__ == "__main__":
     train_dataset = XORDataset(512)
     val_dataset = XORDataset(256)
     test_dataset = XORDataset(256)
-    ldm = LDataModule(train_dataset, val_dataset, test_dataset, 64)
+    ldm = LDataModule(train_dataset, None, test_dataset, 64)
 
     #
     model = MLP_L2(2, 4, 1)
