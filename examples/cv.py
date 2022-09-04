@@ -1,5 +1,5 @@
 # Author: Jintao Huang
-# Email: hjt_study@qq.com
+# Email: huangjintao@mail.ustc.edu.cn
 # Date:
 
 # 运行: python examples/cv.py > train.out 2>&1

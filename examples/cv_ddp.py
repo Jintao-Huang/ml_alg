@@ -1,5 +1,5 @@
 # Author: Jintao Huang
-# Email: hjt_study@qq.com
+# Email: huangjintao@mail.ustc.edu.cn
 # Date:
 
 # 运行: python examples/cv_ddp.py > train.out 2>&1
@@ -11,7 +11,7 @@
 # (nohup同理)
 ##
 # multi-node: 使用默认 --master_port 29500, 或者自定义master_port避免端口冲突.
-#   torchrun --nnodes 2 --node_rank 0 --nproc_per_node 4 examples/cv_ddp.py --device_ids 0 1 2 3
+#   torchrun --nnodes 2 --node_rank 0 --master_addr 127.0.0.1 --nproc_per_node 4 examples/cv_ddp.py --device_ids 0 1 2 3
 #   torchrun --nnodes 2 --node_rank 1 --master_addr xxx.xxx.xxx.xxx --nproc_per_node 4 examples/cv_ddp.py --device_ids 0 1 2 3
 
 from pre import *

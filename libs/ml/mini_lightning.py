@@ -1,5 +1,5 @@
 # Author: Jintao Huang
-# Email: hjt_study@qq.com
+# Email: huangjintao@mail.ustc.edu.cn
 # Date:
 try:
     from .utils import print_model_info, select_device, remove_keys, de_parallel, en_parallel, smart_load_state_dict

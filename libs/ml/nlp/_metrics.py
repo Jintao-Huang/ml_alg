@@ -1,5 +1,5 @@
 # Author: Jintao Huang
-# Email: hjt_study@qq.com
+# Email: huangjintao@mail.ustc.edu.cn
 # Date:
 
 from typing import List, Literal, Dict, Tuple, Union

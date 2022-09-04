@@ -1,5 +1,5 @@
 # Author: Jintao Huang
-# Email: hjt_study@qq.com
+# Email: huangjintao@mail.ustc.edu.cn
 # Date: 
 
 from torch.nn import Module
