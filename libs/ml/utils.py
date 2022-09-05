@@ -10,10 +10,10 @@ from copy import deepcopy
 from typing import List, Tuple, Any, Dict, Optional, Literal
 from typing import Optional, Callable, Tuple, List, Dict, Any, Union
 from collections import defaultdict
-# 
+#
 import numpy as np
 from numpy import ndarray
-# 
+#
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -25,12 +25,8 @@ from torch.nn.parallel import DataParallel as DP, DistributedDataParallel as DDP
 from torch.nn.modules.module import _IncompatibleKeys as IncompatibleKeys
 
 
-__all__ = ["de_parallel", "select_device", "split_dataset", "extract_dataset", "stat",
-           "test_time", "seed_everything", "time_synchronize",
-           "remove_keys", "gen_seed_list", "multi_runs",
-           #
-           "freeze_layers", "print_model_info",
-           "fuse_conv_bn", "fuse_linear_bn"]
+__all__ = ["de_sync_batchnorm", "split_dataset", "extract_dataset",
+           "freeze_layers", "fuse_conv_bn", "fuse_linear_bn"]
 
 #
 LOCAL_RANK = int(os.getenv('LOCAL_RANK', -1))
@@ -67,72 +63,6 @@ def de_sync_batchnorm(module: Module, bn_type: Literal["1d", "2d", "3d"]) -> Mod
             k, de_sync_batchnorm(v, bn_type)
         )
     return res
-
-
-def de_parallel(model: Module, bn_type: Literal["1d", "2d", "3d", None] = None) -> Module:
-    """not inplace"""
-    if isinstance(model, (DP, DDP)):
-        model = model.module
-    if bn_type is not None:
-        model = de_sync_batchnorm(model, bn_type)
-    # logger.info("DeParallel Success...")
-    return model
-
-
-def en_parallel(model: Module, parallel_mode: Literal["DP", "DDP", None], sync_bn: bool = False) -> Module:
-    """not inplace"""
-    if parallel_mode is None:
-        assert sync_bn is False
-        return model
-
-    if parallel_mode == "DP":
-        if not isinstance(model, DP):
-            assert not isinstance(model, DDP)
-            model = DP(model)  # 使用所有device_ids
-        logger.info("Using DP")
-    elif parallel_mode == "DDP":
-        if not isinstance(model, DDP):
-            assert not isinstance(model, DP)
-            model = DDP(model)
-        logger.info("Using DDP")
-    else:
-        raise ValueError(f"parallel_mode: {parallel_mode}")
-
-    if sync_bn:
-        assert parallel_mode == "DDP"
-        model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
-        logger.info("Using SyncBatchNorm")
-    return model
-
-
-def smart_load_state_dict(model: Module, state_dict: Dict[str, Tensor], prefix_key: str = "", strict: bool = True) -> IncompatibleKeys:
-    """prefix"""
-    # prefix
-    if prefix_key != "":
-        new_state_dict = {}
-        for k, v in state_dict.items():
-            new_state_dict[prefix_key + k] = v
-        state_dict = new_state_dict
-    #
-    return model.load_state_dict(state_dict, strict=strict)
-
-
-def select_device(device_ids: List[int]) -> Device:
-    """
-    device: e.g. []: 代表"cpu", [0], [0, 1, 2]
-    """
-    log_s = "Using device: "
-    if len(device_ids) == 0:
-        os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-        device: str = "cpu"
-        log_s += device
-    else:
-        os.environ["CUDA_VISIBLE_DEVICES"] = ",".join([str(d) for d in device_ids])
-        assert torch.cuda.is_available() and torch.cuda.device_count() >= len(device_ids)
-        log_s += f"cuda:{','.join([str(d) for d in device_ids])}"  # e.g. "cuda:1,7,8"
-        device = "cuda:0"
-    logger.info(log_s)
-    return torch.device(device)
 
 
 def extract_dataset(dataset: Dataset, idxs: Union[slice, List[int], ndarray], split_keys: List[str]) -> Dataset:
@@ -176,86 +106,6 @@ def split_dataset(dataset: Dataset, n_list: List[int], split_keys: List[str],
     return res
 
 
-def stat(x: ndarray) -> Tuple[Tuple[float, float, float, float], str]:
-    """统计. 返回: (mean, std, max_, min_), stat_str"""
-    mean = x.mean().item()
-    std = x.std().item()
-    max_ = x.max().item()
-    min_ = x.min().item()
-    stat_str = f"{mean:.6f}±{std:.6f}, max={max_:.6f}, min={min_:.6f}"
-    return (mean, std, max_, min_), stat_str
-
-
-def test_time(func: Callable[[], Any], number: int = 1, warm_up: int = 0,
-              timer: Optional[Callable[[], float]] = None) -> Any:
-    # timer: e.g. time_synchronize
-    timer = timer if timer is not None else time.perf_counter
-    #
-    ts = []
-    res = None
-    # 预热
-    for _ in range(warm_up):
-        res = func()
-    #
-    for _ in range(number):
-        t1 = timer()
-        res = func()
-        t2 = timer()
-        ts.append(t2 - t1)
-    # 打印平均, 标准差, 最大, 最小
-    ts = np.array(ts)
-    _, stat_str = stat(ts)
-    # print
-    logger.info(f"time[number={number}]: {stat_str}")
-    return res
-
-
-def seed_everything(seed: Optional[int] = None, gpu_dtm: bool = False) -> int:
-    """gpu_dtm: gpu_deterministic"""
-    # 返回seed
-    if seed is None:
-        # seed_min = np.iinfo(np.uint32).min
-        seed_max = np.iinfo(np.uint32).max
-        seed = random.randint(0, seed_max)
-
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    if gpu_dtm is True:
-        # https://pytorch.org/docs/stable/backends.html#torch.backends.cudnn.torch.backends.cudnn.benchmark
-        # True: cudnn只选择deterministic的卷积算法
-        torch.backends.cudnn.deterministic = True
-        # torch.use_deterministic_algorithms(True)  # 会报错
-        # True: cuDNN从多个卷积算法中进行benchmark, 选择最快的
-        # 若deterministic=True, 则benchmark一定为False
-        torch.backends.cudnn.benchmark = False
-        logger.info(f"Setting deterministic: {True}, benchmark: {False}")
-
-    logger.info(f"Global seed set to {seed}")
-    return seed
-
-
-def time_synchronize() -> float:
-    # 单位: 秒
-    cuda.synchronize()
-    return time.perf_counter()
-
-
-def remove_keys(state_dict: Dict[str, Any], prefix_keys: List[str]) -> Dict[str, Any]:
-    """将带某前缀的keys删除(不存在不报错). 不是inplace的. 应用: load_state_dict时"""
-    res = {}
-    for k, v in state_dict.items():
-        need_saved = True  # 是否需要保存到res中
-        for pk in prefix_keys:
-            if k.startswith(pk):
-                need_saved = False
-                break
-        if need_saved:
-            res[k] = v
-    return res
-
-
 if __name__ == "__main__":
     import sys
     import os
@@ -264,67 +114,6 @@ if __name__ == "__main__":
         raise IOError(f"_ROOT_DIR: {_ROOT_DIR}")
     sys.path.append(_ROOT_DIR)
     from libs import *
-
-# if __name__ == "__main__":
-#     # test seed_everything
-#     s = seed_everything(3234335211)
-#     print(s)
-#     # test time_synchronize
-#     x = torch.randn(10000, 10000, device='cuda')
-#     res = test_time(lambda: x@x, 10, 0, time_synchronize)
-#     print(res[1, :100])
-
-
-def gen_seed_list(n: int, seed: Optional[int] = None,) -> List[int]:
-    max_ = np.iinfo(np.uint32).max
-    random_state = np.random.RandomState(seed)
-    return random_state.randint(0, max_, n).tolist()
-
-
-def multi_runs(collect_res: Callable[[int], Dict[str, float]], n: int, seed: Optional[int] = None, *,
-               seed_list: Optional[List[int]] = None) -> Dict[str, Dict[str, Any]]:
-    """跑n次的结果.
-    collect_res: 函数: 传入seed, 返回result.
-    n: 跑的次数. {seed_list的优先级更高, 若提供seed_list, 则n, seed无效}
-    """
-    t = time.perf_counter()
-    if seed_list is None:
-        seed_list = gen_seed_list(n, seed)
-    n = len(seed_list)
-    result: Dict[str, List] = defaultdict(list)
-    for _seed in seed_list:
-        _res = collect_res(_seed)
-        if RANK in {-1, 0}:
-            logger.info(f"Result: {_res}")
-        for k, v in _res.items():
-            result[k].append(v)
-    t = int(time.perf_counter() - t)
-    h, m, s = t // 3600, t // 60 % 60, t % 60
-    t = f"{h:02d}:{m:02d}:{s:02d}"
-    # 计算mean, std等.
-    res: Dict[str, Dict[str, Any]] = {}
-    res_str: List = []
-    res_str.append(
-        f"[RUNS_MES] n_runs: {n} |time: {t} |seed_list: {seed_list}"
-    )
-    res["runs_mes"] = {
-        "n_runs": n,
-        "time": t,
-        "seed_list": seed_list
-    }
-    for k, v_list in result.items():
-        v_list = np.array(v_list)
-        (mean, std, max_, min_), stat_str = stat(v_list)
-        res_str.append(f"  {k}: {stat_str}")
-        res[k] = {
-            "mean": mean,
-            "std": std,
-            "max_": max_,
-            "min_": min_,
-        }
-    if RANK in {-1, 0}:
-        logger.info("\n".join(res_str))
-    return res
 
 
 def freeze_layers(model: Module, layer_prefix_names: List[str]) -> None:
@@ -336,44 +125,6 @@ def freeze_layers(model: Module, layer_prefix_names: List[str]) -> None:
                 requires_grad = False
                 break
         p.requires_grad_(requires_grad)
-
-
-def print_model_info(model: Module, inputs: Optional[Tuple[Any, ...]] = None) -> None:
-    n_layers = len(list(model.modules()))
-    n_params = sum(p.numel() for p in model.parameters())
-    n_grads = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    n_buffers = sum(p.numel() for p in model.buffers())
-    # FLOPs
-    #
-    n_params /= 1e6
-    n_grads /= 1e6
-    n_buffers /= 1e6
-    s = [
-        f"{model.__class__.__name__}: ",
-        f"{n_layers} Layers, ",
-        f"{n_params:.4f}M Params, ",
-        f"{n_grads:.4f}M Grads, ",  # Trainable Params(no freeze)
-        f"{n_buffers:.4f}M Buffers",
-    ]
-    if inputs is not None:
-        from thop import profile
-        macs, _ = profile(deepcopy(model), inputs, verbose=False)
-        flops = macs * 2
-        flops /= 1e9
-        s += f", {flops:.4f}G FLOPs"
-    s += '.'
-    logger.info("".join(s))
-
-
-# if __name__ == "__main__":
-#     from torchvision.models import resnet50
-#     import torch
-
-#     model = resnet50()
-#     input = torch.randn(1, 3, 224, 224)
-#     print_model_info(model, (input, ))
-#     print_model_info(model)
-#     print_model_info(model, (input, ))
 
 
 @torch.no_grad()

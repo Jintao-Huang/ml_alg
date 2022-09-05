@@ -9,7 +9,8 @@ __pycache__/
 /asset/
 /tutorials/
 trash/
-/examples/_examples
+/ml/_trash/
+/examples/
 /tools/
 train.out
 nohup.out

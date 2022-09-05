@@ -4,7 +4,7 @@
 
 import math
 from typing import Optional, List, Union, Callable, Dict, Tuple
-# 
+#
 import numpy as np
 import matplotlib.pyplot as plt
 from numpy import ndarray
@@ -12,7 +12,7 @@ from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.colors import to_rgb
-# 
+#
 import torch
 from torch import device as Device, Tensor
 from torch.nn import Module
@@ -20,14 +20,13 @@ from torch.utils.data import DataLoader, TensorDataset
 from torchvision.utils import make_grid as _make_grid
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
 
-__all__ = ["bincount", "plot_classification_map", "visualize_samples", "config_ax", 
-           "plot_lines", "plot_subplots", "make_grid", "normalize", "make_grid2",
-           "tensorboard_smoothing", "read_tensorboard_file"]
+__all__ = ["bincount", "plot_classification_map", "visualize_samples", "config_ax",
+           "plot_lines", "plot_subplots", "make_grid", "normalize", "make_grid2"]
 
 
 def bincount(x: ndarray, n_bin: int = None, step: int = None,
-                  min_: int = None, max_: int = None,
-                  show: bool = False) -> ndarray:
+             min_: int = None, max_: int = None,
+             show: bool = False) -> ndarray:
     """for debug. 
     n_bin, step必须提供一个参数. n_bin表示桶的个数, step表示bin的宽度. 
     """
@@ -316,55 +315,3 @@ def config_ax(ax: Axes, title: str = None, xlabel: str = None, ylabel: str = Non
     #
     if xticks_rotate90:
         ax.tick_params(axis='x', which='major', rotation=90)
-
-
-Item = Dict[str, float]  # e.g. step, loss
-
-
-def read_tensorboard_file(fpath: str) -> Dict[str, List[Item]]:
-    """读取fpath中的scalars信息"""
-    ea = EventAccumulator(fpath)
-    ea.Reload()
-    res = {}
-    tags = ea.Tags()['scalars']
-    for tag in tags:
-        values = ea.Scalars(tag)
-        _res = []
-        for v in values:
-            _res.append({"step": v.step, "value": v.value})
-        res[tag] = _res
-    return res
-
-
-def tensorboard_smoothing(values: List[float], smooth: float = 0.9) -> List[float]:
-    """不需要传入step"""
-    # [0.81 0.9 1]. res[2] = (0.81 * values[0] + 0.9 * values[1] + values[2]) / 2.71
-    norm_factor = 1
-    x = 0
-    res = []
-    for i in range(len(values)):
-        x = x * smooth + values[i]  # 指数衰减
-        res.append(x / norm_factor)
-        #
-        norm_factor *= smooth
-        norm_factor += 1
-    return res
-
-
-# if __name__ == "__main__":
-#     fpath = "/home/jintao/Desktop/coding/python/ml_alg/asset/events.out.tfevents.1658302059.jintao.13896.0"
-#     loss = read_tensorboard_file(fpath)["train_loss"]
-#     v = [l["value"] for l in loss]
-#     step = [l["step"] for l in loss]
-#     sv = tensorboard_smoothing(v, 0.9)
-#     print(sv[490//5 - 1], v[490//5-1])
-
-#     def plot_loss():
-#         fig, ax = plt.subplots(figsize=(10, 5))
-#         cg, cb = "#FFE2D9", "#FF7043"
-#         config_ax(ax, title="Plot_Loss", xlabel="Epoch", ylabel="Loss")
-#         ax.plot(step, v, color=cg)
-#         ax.plot(step, sv, color=cb)
-#     plot_loss()
-#     plt.savefig("runs/images/1.png", dpi=200, bbox_inches='tight')
-#     # plt.show()

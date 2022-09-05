@@ -1,6 +1,7 @@
 torch>=1.12
 torchmetrics==0.9.3
-tqdm
 tensorboard
 numpy
 PyYAML
+tqdm
+mini-lightning==0.1.0

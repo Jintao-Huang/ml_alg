@@ -29,7 +29,6 @@ f1 = (2 * prec * recall) / (prec + recall)
 f_beta = (1+beta^2)*prec*recall/ ((beta^2)*prec + recall)
   (1+beta^2)/f1 = 1/prec + beta^2/recall
 """
-
 if __name__ == "__main__":
     import sys
     import os
@@ -200,11 +199,11 @@ if __name__ == "__main__":
             m.update(p, t)
     print([m.compute()for m in metrics])
     print()
-    exit(0)
 
     #
     preds = torch.tensor([0, 1, 3, 3, 1], device='cuda')
     target = torch.tensor([0, 2, 1, 3, 1], device='cuda')
+    num_classes = int(target.max().item()) + 1
     print(_f1_score(preds, target, 10000, "macro", num_classes=num_classes))
     print(_fbeta_score(preds, target, 1, "macro", num_classes=num_classes))
     print(precision_recall(preds, target, "macro", num_classes=num_classes))
@@ -259,21 +258,21 @@ def euclidean_distances(X: Tensor, Y: Tensor, XX: Optional[Tensor] = None, YY: O
 #     y2 = euclidean_distances(x, x2)
 #     print(torch.allclose(y1, y2))  # True
 
-# if __name__ == "__main__":
-#     # test einsum 的speed
-#     X = torch.randn(2000, 2000)
-#     Y = X.T.contiguous()
-#     a = libs_ml.test_time(lambda: X@Y)
-#     a = libs_ml.test_time(lambda: X@X.T)
-#     Y = X.T.contiguous()
-#     b = libs_ml.test_time(lambda: torch.einsum("ij,ij->i", X, Y))
-#     c = libs_ml.test_time(lambda: torch.einsum("ij,ji->i", X, X))  # 慢!
-#     print(torch.allclose(b, c, rtol=1e-4, atol=1e-4))
-#     #
-#     print()
-#     libs_ml.test_time(lambda: torch.einsum("ij,ij->ij", X, Y))
-#     libs_ml.test_time(lambda: X ** 2)  # 慢!
-#     libs_ml.test_time(lambda: X * X)
+if __name__ == "__main__":
+    # test einsum 的speed
+    X = torch.randn(2000, 2000)
+    Y = X.T.contiguous()
+    a = libs_ml.test_time(lambda: X@Y)
+    a = libs_ml.test_time(lambda: X@X.T)
+    Y = X.T.contiguous()
+    b = libs_ml.test_time(lambda: torch.einsum("ij,ij->i", X, Y))
+    c = libs_ml.test_time(lambda: torch.einsum("ij,ji->i", X, X))  # 慢!
+    print(torch.allclose(b, c, rtol=1e-4, atol=1e-4))
+    #
+    print()
+    libs_ml.test_time(lambda: torch.einsum("ij,ij->ij", X, Y))
+    libs_ml.test_time(lambda: X ** 2)  # 慢!
+    libs_ml.test_time(lambda: X * X)
 
 # if __name__ == "__main__":
 #     # test inplace. 速度类似. 见max
@@ -458,7 +457,6 @@ if __name__ == "__main__":
 
 
 if __name__ == "__main__":
-
     y_score = torch.rand(10)
     y_true = torch.randint(0, 2, (10,))
     p, r, _ = precision_recall_curve(y_score, y_true)
