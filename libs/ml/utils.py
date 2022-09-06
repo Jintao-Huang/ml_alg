@@ -25,44 +25,11 @@ from torch.nn.parallel import DataParallel as DP, DistributedDataParallel as DDP
 from torch.nn.modules.module import _IncompatibleKeys as IncompatibleKeys
 
 
-__all__ = ["de_sync_batchnorm", "split_dataset", "extract_dataset",
+__all__ = ["split_dataset", "extract_dataset",
            "freeze_layers", "fuse_conv_bn", "fuse_linear_bn"]
 
-#
-LOCAL_RANK = int(os.getenv('LOCAL_RANK', -1))
-RANK = int(os.getenv('RANK', -1))
-WORLD_SIZE = int(os.getenv('WORLD_SIZE', 1))
 logger = logging.getLogger(__name__)
 #
-
-
-def de_sync_batchnorm(module: Module, bn_type: Literal["1d", "2d", "3d"]) -> Module:
-    """not inplace. 一般不de_sync_bn不影响 load_state_dict和state_dict. 即不影响保存和导入模型. """
-    mapper = {"1d": nn.BatchNorm1d, "2d": nn.BatchNorm2d, "3d": nn.BatchNorm3d}
-    BatchNorm = mapper[bn_type]
-    if isinstance(module, nn.SyncBatchNorm):
-        res = BatchNorm(
-            module.num_features,
-            module.eps,
-            module.momentum,
-            module.affine,
-            module.track_running_stats,
-        )
-        if module.affine:
-            with torch.no_grad():
-                res.weight = module.weight
-                res.bias = module.bias
-        res.running_mean = module.running_mean
-        res.running_var = module.running_var
-        res.num_batches_tracked = module.num_batches_tracked
-        return res
-    #
-    res = module
-    for k, v in module.named_children():
-        res.add_module(
-            k, de_sync_batchnorm(v, bn_type)
-        )
-    return res
 
 
 def extract_dataset(dataset: Dataset, idxs: Union[slice, List[int], ndarray], split_keys: List[str]) -> Dataset:
