@@ -61,6 +61,7 @@ if __name__ == "__main__":
 def relu(x: Tensor, inplace=False) -> Tensor:
     """
     x: Tensor[float]. [...]
+    return: Tensor[float]. [...]
     """
     if not inplace:
         x = x.clone()
@@ -115,6 +116,7 @@ def nll_loss(pred: Tensor, target: Tensor) -> Tensor:
     """
     pred: Tensor[float]. [N, F]
     target: Tensor[long]. [N]
+    return: []
     """
     N, n_labels = pred.shape[:2]
     target = F.one_hot(target, n_labels)  # long
@@ -135,6 +137,7 @@ def cross_entropy(pred: Tensor, target: Tensor) -> Tensor:
     """
     pred: Tensor[float]. [N, F]
     target: Tensor[long]. [N]
+    return: []
     """
 
     return F.nll_loss(F.log_softmax(pred, dim=1), target)
@@ -154,6 +157,7 @@ def label_smoothing_cross_entropy(pred: Tensor, target: Tensor,
     target: [N]. Tensor[long]
     smoothing: 若smoothing为0.1, 则target=4, n_labels=5, 对应:
         [0.02, 0.02, 0.02, 0.02, 0.92]
+    return: []
     """
     n_labels = pred.shape[1]
     # 构造target. 将target->[N, F]. ，target[i]的第target和样本设为1-smoothing.
@@ -179,6 +183,7 @@ def binary_cross_entropy_with_logits(pred: Tensor, target: Tensor) -> Tensor:
     """binary_cross_entropy数值不稳定. 
     pred: Tensor[float]. [N]
     target: Tensor[float]. [N]
+    return: []
     """
     # -logsigmoid(x)*target-logsigmoid(-x)*(1-target)
     # logsigmoid(-x)) == log(1 - sigmoid(x))
@@ -204,6 +209,7 @@ def mse_loss(pred: Tensor, target: Tensor) -> Tensor:
     """
     pred: [N, F]. Tensor[float]
     target: [N, F]. Tensor[float]
+    return: []
     """
     # torch.mean((y_pred - y_true) ** 2, dim=0)
     res = target.sub(pred)
@@ -253,6 +259,7 @@ def _bn_1d(
     running_var: [F]. inplace
     weight: [F]
     bias: [F]
+    return: [N, F]
     """
     if training is True:
         mean = x.mean(0)  # []
@@ -286,11 +293,12 @@ def _bn_2d(
     eps: float = 1e-5
 ):
     """
-    x: [N, C, H, W]
+    x: [N, C=F, H, W]
     running_mean: [F]. inplace
     running_var: [F]. inplace
     weight: [F]
     bias: [F]
+    return: [N, C=F, H, W]
     """
     if training is True:
         mean = x.mean((0, 2, 3))  # []
@@ -435,6 +443,7 @@ def layer_norm(
         normalized_shape需要和weight, bias的shape一致. 
     weight: [F]
     bias: [F]
+    return: [N, L, F]
     """
     # check normalized_shape
     _dim = []
@@ -541,12 +550,50 @@ def conv2d(
     stride: Tuple[int, int] = (1, 1), padding: Tuple[int, int] = (0, 0),
     dilation: int = 1, groups: int = 1
 ) -> Tensor:
+    """faster than conv2d_2, but more memory. (recommend)
+    x: [N, Cin, Hin, Win]
+    weight: [Cout, Cin//G, KH, KW]. 
+    bias: [Cout]
+    stride: SH, SW
+    padding: PH, PW
+    return: [N, Cout, Hout, Wout]
+    """
+    Hin, Win = x.shape[2:]
+    D, G = dilation, groups
+    KH, KW = weight.shape[2:]
+    KH_D, KW_D = (KH - 1) * D + 1, (KW - 1) * D + 1
+    PH, PW = padding
+    SH, SW = stride
+    N, Cin = x.shape[:2]
+    Cout = weight.shape[0]
+    # Out = (In + 2*P − ((K-1)*D+1)) // S + 1
+    Hout, Wout = (Hin + 2 * PH - KH_D) // SH + 1, (Win + 2 * PW - KW_D) // SW + 1
+    assert weight.shape[1] * G == Cin
+    # [N, Cin, Hin, Win] -> [N, G, Cin//G, KH*KW, Hout*Wout]
+    x = F.unfold(x, (KH, KW), D, (PH, PW), (SH, SW))
+    #
+    x = x.view(N, G, Cin//G, KH*KW, Hout*Wout)
+    weight = weight.contiguous().view(G, Cout // G, Cin//G, KH*KW)
+    # [N, G, Cout//G, Hout*Wout] -> [N, Cout, Hout, Wout]
+    res = torch.einsum("abcde,bfcd->abfe", x, weight).contiguous().view(N, Cout, Hout, Wout)
+    #
+    if bias is not None:
+        res.add_(bias[None, :,  None, None])
+    return res
+
+
+def conv2d_2(
+    x: Tensor, weight: Tensor, bias: Optional[Tensor] = None,
+    stride: Tuple[int, int] = (1, 1), padding: Tuple[int, int] = (0, 0),
+    dilation: int = 1, groups: int = 1
+) -> Tensor:
     """
     x: [N, Cin, Hin, Win]
     weight: [Cout, Cin//G, KH, KW]. 
     bias: [Cout]
     stride: SH, SW
     padding: PH, PW
+    return: [N, Cout, Hout, Wout]
     """
     if padding != (0, 0):
         x = F.pad(x, [padding[1], padding[1], padding[0], padding[0]])  # lrtb
@@ -558,7 +605,7 @@ def conv2d(
     N, Cin = x.shape[:2]
     Cout = weight.shape[0]
     assert weight.shape[1] * G == Cin
-    # Out = (In + 2*P − (K-1)*D+1)) // S + 1. (P, D已经在In, K中算进去了)
+    # Out = (In + 2*P − ((K-1)*D+1)) // S + 1. (P, D已经在In, K中算进去了)
     Hout, Wout = (Hin - KH_D) // SH + 1, (Win - KW_D) // SW + 1
     res = []
     x = x.contiguous().view(N, G, Cin//G, Hin, Win)
@@ -576,29 +623,66 @@ def conv2d(
     return res
 
 
-# if __name__ == "__main__":
-#     libs_ml.seed_everything(42, gpu_dtm=True)
-#     x = torch.randn(64, 128, 112, 112, device="cuda")
-#     w = torch.randn(256, 128, 3, 3, device="cuda")
-#     b = torch.randn(256, device="cuda")
-#     y2 = libs_ml.test_time(lambda: F.conv2d(
-#         x, w, b, (1, 1), (1, 1), 2, 1), 10, timer=libs_ml.time_synchronize)
-#     y1 = libs_ml.test_time(lambda: conv2d(
-#         x, w, b, (1, 1), (1, 1), 2, 1), 10, timer=libs_ml.time_synchronize)
-#     print(torch.allclose(y1, y2, atol=1e-3))
+if __name__ == "__main__":
+    libs_ml.seed_everything(42, gpu_dtm=True)
+    x = torch.randn(16, 128, 112, 112, device="cuda")
+    w = torch.randn(256, 128, 3, 3, device="cuda")
+    b = torch.randn(256, device="cuda")
+    y1 = libs_ml.test_time(lambda: F.conv2d(
+        x, w, b, (1, 1), (1, 1), 2, 1), 10, timer=libs_ml.time_synchronize)
+    y2 = libs_ml.test_time(lambda: conv2d(
+        x, w, b, (1, 1), (1, 1), 2, 1), 10, timer=libs_ml.time_synchronize)
+    y3 = libs_ml.test_time(lambda: conv2d_2(
+        x, w, b, (1, 1), (1, 1), 2, 1), 10, timer=libs_ml.time_synchronize)
+    print(torch.allclose(y1, y2, atol=1e-3))
+    print(torch.allclose(y2, y3, atol=1e-3))
 
-#     x = torch.randn(64, 128, 112, 112, device="cuda")
-#     w = torch.randn(256, 1, 3, 3, device="cuda")
-#     b = torch.randn(256, device="cuda")
-#     y2 = libs_ml.test_time(lambda: F.conv2d(
-#         x, w, b, (1, 1), (1, 1), 2, 128), 10, timer=libs_ml.time_synchronize)
-#     y1 = libs_ml.test_time(lambda: conv2d(
-#         x, w, b, (1, 1), (1, 1), 2, 128), 10, timer=libs_ml.time_synchronize)
-
-#     print(torch.allclose(y1, y2, atol=1e-3))
+    x = torch.randn(16, 128, 112, 112, device="cuda")
+    w = torch.randn(256, 1, 3, 3, device="cuda")
+    b = torch.randn(256, device="cuda")
+    y1 = libs_ml.test_time(lambda: F.conv2d(
+        x, w, b, (1, 1), (1, 1), 2, 128), 10, timer=libs_ml.time_synchronize)
+    y2 = libs_ml.test_time(lambda: conv2d(
+        x, w, b, (1, 1), (1, 1), 2, 128), 10, timer=libs_ml.time_synchronize)
+    y3 = libs_ml.test_time(lambda: conv2d_2(
+        x, w, b, (1, 1), (1, 1), 2, 128), 10, timer=libs_ml.time_synchronize)
+    print(torch.allclose(y1, y2, atol=1e-3))
+    print(torch.allclose(y1, y3, atol=1e-3))
 
 
 def conv1d(
+    x: Tensor, weight: Tensor, bias: Optional[Tensor] = None,
+    stride: int = 1, padding: int = 0,
+    dilation: int = 1, groups: int = 1
+) -> Tensor:
+    """more faster
+    x: [N, Cin, Lin]
+    weight: [Cout, Cin//G, KL]. 
+    bias: [Cout]
+    stride: SL
+    padding: PL
+    return: [N, Cout, Lout]
+    """
+    Lin = x.shape[2]
+    S, P, D, G = stride, padding, dilation, groups
+    K = weight.shape[2]
+    K_D = (K - 1) * D + 1
+    N, Cin = x.shape[:2]
+    Cout = weight.shape[0]
+    assert weight.shape[1] * G == Cin
+    # Out = (In + 2*P − (K-1)*D+1)) // S + 1. (P, D已经在In, K中算进去了)
+    Lout = (Lin + 2*P - K_D) // S + 1
+    x = F.unfold(x[..., None], (K, 1), D, (P, 0), (S, 1))
+    x = x.view(N, G, Cin // G, K, Lout)
+    weight = weight.contiguous().view(G, Cout // G, Cin//G, K)
+    # [N, G, Cout//G, Lout] -> [N, Cout, Lout]
+    res = torch.einsum("abcde,bfcd->abfe", x, weight).contiguous().view(N, Cout, Lout)
+    if bias is not None:
+        res.add_(bias[None, :,  None])
+    return res
+
+
+def conv1d_2(
     x: Tensor, weight: Tensor, bias: Optional[Tensor] = None,
     stride: int = 1, padding: int = 0,
     dilation: int = 1, groups: int = 1
@@ -609,6 +693,7 @@ def conv1d(
     bias: [Cout]
     stride: SL
     padding: PL
+    return: [N, Cout, Lout]
     """
     if padding != 0:
         x = F.pad(x, [padding, padding])  # lr
@@ -636,20 +721,24 @@ def conv1d(
     return res
 
 
-# if __name__ == "__main__":
-#     x = torch.randn(32, 128, 32*32)
-#     w = torch.randn(256, 128, 8)
-#     b = torch.randn(256)
-#     y1 = libs_ml.test_time(lambda: conv1d(x, w, b, 1, 1))
-#     y2 = libs_ml.test_time(lambda: F.conv1d(x, w, b, 1, 1))
-#     print(torch.allclose(y1, y2, atol=1e-4))
-#     #
-#     x = torch.randn(32, 128, 32*32)
-#     w = torch.randn(256, 1, 7)
-#     b = torch.randn(256)
-#     y1 = libs_ml.test_time(lambda: conv1d(x, w, b, 1, 1, 2, 128))
-#     y2 = libs_ml.test_time(lambda: F.conv1d(x, w, b, 1, 1, 2, 128))
-#     print(torch.allclose(y1, y2, atol=1e-4))
+if __name__ == "__main__":
+    x = torch.randn(32, 128, 32*32)
+    w = torch.randn(256, 128, 8)
+    b = torch.randn(256)
+    y1 = libs_ml.test_time(lambda: F.conv1d(x, w, b, 1, 1))
+    y2 = libs_ml.test_time(lambda: conv1d(x, w, b, 1, 1))
+    y3 = libs_ml.test_time(lambda: conv1d_2(x, w, b, 1, 1))
+    print(torch.allclose(y1, y2, atol=1e-4))
+    print(torch.allclose(y1, y3, atol=1e-4))
+    #
+    x = torch.randn(32, 128, 32*32)
+    w = torch.randn(256, 1, 7)
+    b = torch.randn(256)
+    y1 = libs_ml.test_time(lambda: F.conv1d(x, w, b, 1, 1, 2, 128))
+    y2 = libs_ml.test_time(lambda: conv1d(x, w, b, 1, 1, 2, 128))
+    y3 = libs_ml.test_time(lambda: conv1d_2(x, w, b, 1, 1, 2, 128))
+    print(torch.allclose(y1, y2, atol=1e-4))
+    print(torch.allclose(y1, y3, atol=1e-4))
 
 
 def linear(x: Tensor, weight: Tensor, bias: Optional[Tensor] = None) -> Tensor:
@@ -657,6 +746,7 @@ def linear(x: Tensor, weight: Tensor, bias: Optional[Tensor] = None) -> Tensor:
     x: [N, F]
     weight: [F2, F]
     bias: [F2]
+    return: [N, F2]
     """
     res = torch.einsum("ab,cb->ac", x, weight)
     if bias is not None:
@@ -750,7 +840,7 @@ def gru_cell(
     w_hh: [3*Ch, Ch].
     b_ih: [3*Ch].
     b_hh: [3*Ch].
-    return: y. y也可以理解为hx_
+    return: y: [N, Ch]. y也可以理解为hx_
     """
 
     Cin = x.shape[1]
