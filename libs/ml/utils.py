@@ -26,7 +26,7 @@ from torch.nn.modules.module import _IncompatibleKeys as IncompatibleKeys
 
 
 __all__ = ["split_dataset", "extract_dataset",
-           "freeze_layers", "fuse_conv_bn", "fuse_linear_bn"]
+           "fuse_conv_bn", "fuse_linear_bn"]
 
 logger = logging.getLogger(__name__)
 #
@@ -82,16 +82,6 @@ if __name__ == "__main__":
     sys.path.append(_ROOT_DIR)
     from libs import *
 
-
-def freeze_layers(model: Module, layer_prefix_names: List[str]) -> None:
-    """inplace"""
-    for n, p in model.named_parameters():
-        requires_grad = True
-        for lpn in layer_prefix_names:
-            if n.startswith(lpn):
-                requires_grad = False
-                break
-        p.requires_grad_(requires_grad)
 
 
 @torch.no_grad()
