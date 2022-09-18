@@ -4,4 +4,4 @@ tensorboard
 numpy
 PyYAML
 tqdm
-mini-lightning==0.1.0
+mini-lightning==0.1.*

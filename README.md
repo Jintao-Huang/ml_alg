@@ -17,7 +17,8 @@
    1. `_nn_functional.py`: 实现torch.nn.functional包中的算法.
    2. `_metrics.py`: ml的metrics的torch实现
 7. `libs/utils/*`: 一些工具函数的实现
-8. 其他文件没啥用(特别是`_`开头的文件.). 
+8. `libs/alg/*`: 传统算法库
+9. 其他文件没啥用(特别是`_`开头的文件.). 
 
 
 
@@ -25,5 +26,5 @@
 1. python>=3.8
 2. torch>=1.12
 3. torchmetrics==0.9.3
-4. mini-lightning==0.1.0
+4. mini-lightning==0.1.*
 

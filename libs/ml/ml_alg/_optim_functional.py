@@ -48,7 +48,7 @@ def adam(params: List[Tensor],  # inplace
          beta2: float = 0.999,
          weight_decay: float = 0.,
          eps: float = 1e-8) -> None:
-
+    # Ref: https://arxiv.org/pdf/1412.6980.pdf
     for i, param in enumerate(params):
         grad = grads[i]
         exp_avg = exp_avgs[i]

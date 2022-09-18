@@ -25,8 +25,10 @@ import multiprocessing as mp
 from queue import Queue, SimpleQueue
 import re
 from hashlib import sha256
+import unittest as ut
 #
 from numpy import ndarray
+from numpy.random import RandomState
 import numpy as np
 import pandas as pd
 from pandas import DataFrame, Series
@@ -100,3 +102,4 @@ from gym import Env
 #
 from . import utils as libs_utils
 from . import ml as libs_ml
+from . import alg as libs_alg

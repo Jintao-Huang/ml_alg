@@ -51,7 +51,6 @@ def accuracy_score(y_pred: Tensor, y_true: Tensor) -> Tensor:
 # if __name__ == "__main__":
 #     from torchmetrics.functional.classification.accuracy import accuracy
 #     preds = torch.randint(0, 10, (1000,))
-#     preds2 = torch.randint(0, 10, (1000,))
 #     target = torch.randint(0, 10, (1000,))
 #     y = accuracy_score(preds, target)
 #     y2 = accuracy(preds, target)
@@ -436,7 +435,7 @@ def r2_score(y_pred: Tensor, y_true: Tensor) -> Tensor:
     return: shape[]. Tensor[float]. 
     """
     # R2 = 1 - u/v. 其中u=MSE(y_true, y_pred). v=Var(y_true)
-    # v的方差越大, 大可以缓解预测的方差大.
+    # v的方差越大, 可以缓解预测u的误差大.
     # 可以把F理解为batch.
     u = F.mse_loss(y_pred, y_true, reduction="none").mean(dim=0)
     v = torch.var(y_true, dim=0, unbiased=False)

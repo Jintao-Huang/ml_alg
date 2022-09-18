@@ -1,6 +1,6 @@
 from .utils import *
 from .visualize import *
-from mini_lightning import _remove_keys
+from mini_lightning import _remove_keys, _stat
 from mini_lightning import *
 #
 from .cv import *

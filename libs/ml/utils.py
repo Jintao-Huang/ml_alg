@@ -33,6 +33,9 @@ logger = logging.getLogger(__name__)
 
 
 def extract_dataset(dataset: Dataset, idxs: Union[slice, List[int], ndarray], split_keys: List[str]) -> Dataset:
+    """
+    idxs: ndarray可以是ndarray[bool]等.
+    """
     keys = dataset.__dict__
     new_dataset = dataset.__new__(dataset.__class__)
     #
