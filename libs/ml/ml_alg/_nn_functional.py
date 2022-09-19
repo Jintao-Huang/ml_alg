@@ -506,44 +506,6 @@ def dropout(
 #     print(torch.allclose(y1, y2))  # True
 #     print(y1.count_nonzero(), y2.count_nonzero())
 
-# def conv2d(
-#     x: Tensor, weight: Tensor, bias: Optional[Tensor] = None,
-#     stride: Tuple[int, int] = (1, 1), padding: Tuple[int, int] = (0, 0),
-#     dilation: int = 1, groups: int = 1
-# ) -> Tensor:
-#     """
-#     x: [N, Cin, Hin, Win]
-#     weight: [Cout, Cin//G, KH, KW].
-#     bias: [Cout]
-#     stride: SH, SW
-#     padding: PH, PW
-#     """
-#     if padding != (0, 0):
-#         x = F.pad(x, [padding[1], padding[1], padding[0], padding[0]])  # lrtb
-#     Hin, Win = x.shape[2:]
-#     D, G = dilation, groups
-#     KH, KW = weight.shape[2:]
-#     KH_D, KW_D = (KH - 1) * D + 1, (KW - 1) * D + 1
-#     SH, SW = stride
-#     N, Cin = x.shape[:2]
-#     Cout = weight.shape[0]
-#     assert weight.shape[1] * G == Cin
-#     # Out = (In + 2*P − (K-1)*D+1)) // S + 1. (P, D已经在In, K中算进去了)
-#     Hout, Wout = (Hin - KH_D) // SH + 1, (Win - KW_D) // SW + 1
-#     res = torch.empty((N, Cout, Hout, Wout), device=x.device, dtype=x.dtype)
-#     x = x.contiguous().view(N, G, Cin//G, Hin, Win)
-#     weight = weight.contiguous().view(G, Cout // G, Cin//G, KH, KW)
-#     for i in range(Hout):
-#         for j in range(Wout):
-#             h_start, w_start = i * SH, j * SW
-#             h_pos, w_pos = slice(h_start, (h_start + KH_D), D), \
-#                 slice(w_start, (w_start + KW_D), D)
-#             # [N, G, Cin//G, KH, KW], [G, Cout//G, Cin//G, KH, KW] -> [N, G, Cout//G] -> [N, Cout]
-#             res[:, :, i, j].copy_(torch.einsum(
-#                 "abcde,bfcde->abf", x[:, :, :, h_pos, w_pos], weight).contiguous().view(N, Cout))
-#     if bias is not None:
-#         res.add_(bias[None, :,  None, None])
-#     return res
 
 def conv2d(
     x: Tensor, weight: Tensor, bias: Optional[Tensor] = None,
