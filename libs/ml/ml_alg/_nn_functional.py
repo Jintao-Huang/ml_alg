@@ -531,6 +531,7 @@ def conv2d(
     # Out = (In + 2*P − ((K-1)*D+1)) // S + 1
     Hout, Wout = (Hin + 2 * PH - KH_D) // SH + 1, (Win + 2 * PW - KW_D) // SW + 1
     assert weight.shape[1] * G == Cin
+    assert Cout % G == 0
     # [N, Cin, Hin, Win] -> [N, G, Cin//G, KH*KW, Hout*Wout]
     x = F.unfold(x, (KH, KW), D, (PH, PW), (SH, SW))
     #
@@ -567,6 +568,7 @@ def conv2d_2(
     N, Cin = x.shape[:2]
     Cout = weight.shape[0]
     assert weight.shape[1] * G == Cin
+    assert Cout % G == 0
     # Out = (In + 2*P − ((K-1)*D+1)) // S + 1. (P, D已经在In, K中算进去了)
     Hout, Wout = (Hin - KH_D) // SH + 1, (Win - KW_D) // SW + 1
     res = []

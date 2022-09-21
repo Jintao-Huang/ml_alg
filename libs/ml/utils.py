@@ -23,10 +23,13 @@ from torch import Tensor, device as Device
 from torch.utils.data import Dataset
 from torch.nn.parallel import DataParallel as DP, DistributedDataParallel as DDP
 from torch.nn.modules.module import _IncompatibleKeys as IncompatibleKeys
-
+# 
+from torchmetrics import Metric
+from torch import Tensor
+from torch.utils.data import TensorDataset, DataLoader
 
 __all__ = ["split_dataset", "extract_dataset",
-           "fuse_conv_bn", "fuse_linear_bn"]
+           "fuse_conv_bn", "fuse_linear_bn", "test_metric"]
 
 logger = logging.getLogger(__name__)
 #
@@ -162,3 +165,34 @@ def fuse_linear_bn(linear: nn.Linear, bn: nn.BatchNorm1d):
 #     new_linear = fuse_linear_bn(linear, bn)
 #     y2 = new_linear(x)
 #     print(torch.allclose(y, y2, atol=1e-6))
+
+
+def test_metric(metric: Metric, *args: Tensor) -> Tuple[Tensor, List[Tensor]]:
+    # args: preds, target
+    td = TensorDataset(*args)
+    loader = DataLoader(td, batch_size=16, shuffle=True)
+    mes = []
+    for batch_args in loader:
+        # metric.update(*batch_args)
+        mes.append(metric(*batch_args))
+    return metric.compute(), mes
+
+
+if __name__ == "__main__":
+    import mini_lightning as ml
+    from torchmetrics import MeanMetric
+    from torchmetrics.classification.accuracy import Accuracy
+    from torchmetrics.functional.classification.accuracy import accuracy
+    ml.seed_everything(1, False)
+    preds = torch.randint(0, 10, (17,), dtype=torch.long)
+    target = torch.randint(0, 10, (17,), dtype=torch.long)
+    acc_metric = Accuracy()
+    acc = test_metric(acc_metric, preds, target)
+    acc2 = accuracy(preds, target)
+    print(acc, acc2)
+    #
+    loss = torch.randint(0, 10, (17,), dtype=torch.float32)
+    mean_metric = MeanMetric()
+    mean = test_metric(mean_metric, loss)
+    mean2 = loss.mean()
+    print(mean, mean2)

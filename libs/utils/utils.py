@@ -13,9 +13,11 @@ import xml.etree.ElementTree as ET
 from xml.etree.ElementTree import ElementTree, Element
 from collections import deque
 import logging
+import unittest as ut
 
 
-__all__ = ["download_files", "calculate_hash", "xml_to_dict", "mywalk"]
+__all__ = ["download_files", "calculate_hash", "xml_to_dict", "mywalk",
+           "test_unit"]
 #
 logger = logging.getLogger(__name__)
 
@@ -151,3 +153,14 @@ def mywalk(dir_: str, ignore_dirs: Optional[List[str]] = None) -> Iterator[Item]
                     continue
                 dq.append(os.path.join(curr_dir, folder))
         level += 1
+
+
+def test_unit(test_cases: List[type]) -> ut.TestResult:
+    """test所有以test开头的类方法"""
+    runner = ut.TextTestRunner()
+    suite = ut.TestSuite()
+    for tc in test_cases:
+        for k, v in tc.__dict__.items():
+            if k.startswith("test") and callable(v):
+                suite.addTest(tc(k))
+    return runner.run(suite)

@@ -3,7 +3,6 @@
 
 ## Introduction
 1. 这个仓库是一个机器学习的集成库, 现在主要是自己在使用. 所在文件夹为`libs/`, 下面将会介绍各个文件的用途.
-2. mini-lightning发布版: [https://github.com/ustcml/mini-lightning](https://github.com/ustcml/mini-lightning)
 
 
 
