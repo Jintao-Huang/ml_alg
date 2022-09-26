@@ -1,6 +1,7 @@
 
 from typing import Optional, List, Deque, Any, Dict, Tuple
 from collections import deque
+from functools import partial
 
 __all__ = ["ListNode", "TreeNode", "to_list", "from_list", "to_tree", "from_tree",
            "call_callable_list"]
@@ -125,14 +126,18 @@ if __name__ == "__main__":
     print(from_tree(tree))
 
 
-def call_callable_list(callable_list: List[str], args_list: List[List[Any]], globals: Dict[str, Any]) -> List[Any]:
+def call_callable_list(callable_list: List[str], args_list: List[List[Any]], globals: Dict[str, Any], ) -> List[Any]:
     """调用一系列可调用的函数或类. 返回可调用类/函数的返回.
     思路: 循环callable_list, args_list. 获取callable_str, args. 并从globals获取callable_obj. 并获取res
     """
     res = []
+    globals = globals.copy()
     for callable_str, args in zip(callable_list, args_list):
         callable_obj = globals[callable_str]
-        res.append(callable_obj(*args))
+        r = callable_obj(*args)
+        if isinstance(callable_obj, type):
+            globals.update({k: partial(v, r) for k, v in callable_obj.__dict__.items() if callable(v)})
+        res.append(r)
     return res
 
 
@@ -141,3 +146,13 @@ if __name__ == "__main__":
     tree = call_callable_list(["to_tree"], [[li]], globals())[0]
     li2 = call_callable_list(["from_tree"], [[tree]], globals())[0]
     print(li2)
+
+if __name__ == "__main__":
+    class A:
+        def aaa(self):
+            print(1)
+
+    a = A()
+    a.aaa()
+    print()
+    print(call_callable_list(["A", "aaa"], [[], []], globals()))

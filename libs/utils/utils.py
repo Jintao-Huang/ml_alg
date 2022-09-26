@@ -3,7 +3,7 @@
 # Date:
 
 import time
-from typing import Callable, Any, Optional, List, Dict, Union, Tuple, Iterator
+from typing import Callable, Any, Optional, List, Dict, Union, Tuple, Iterator, Set
 import os
 from urllib.parse import urljoin
 from urllib.error import HTTPError
@@ -155,12 +155,22 @@ def mywalk(dir_: str, ignore_dirs: Optional[List[str]] = None) -> Iterator[Item]
         level += 1
 
 
-def test_unit(test_cases: List[type]) -> ut.TestResult:
+def test_unit(test_cases: List[type], prefix_method_name="test") -> ut.TestResult:
     """test所有以test开头的类方法"""
     runner = ut.TextTestRunner()
     suite = ut.TestSuite()
     for tc in test_cases:
         for k, v in tc.__dict__.items():
-            if k.startswith("test") and callable(v):
+            if k.startswith(prefix_method_name) and callable(v):
                 suite.addTest(tc(k))
     return runner.run(suite)
+
+
+if __name__ == "__main__":
+    import torch
+
+    class Test1(ut.TestCase):
+        def test1(self):
+            print(torch.randn(10))
+
+    test_unit([Test1])

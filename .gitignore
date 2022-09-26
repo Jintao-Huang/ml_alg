@@ -3,7 +3,7 @@
 /test/
 /.vscode/
 /runs/
-/pre.py
+/_pre.py
 __pycache__/
 /private/
 /asset/
@@ -14,3 +14,6 @@ trash/
 /tools/
 train.out
 nohup.out
+/leetcode/
+/build
+/jintao_libs.egg-info
