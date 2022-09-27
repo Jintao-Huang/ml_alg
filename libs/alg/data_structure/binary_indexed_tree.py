@@ -1,6 +1,6 @@
 
 
-from typing import overload, List, Union, Literal
+from typing import overload, List, Union
 
 __all__ = ["BinaryIndexedTree"]
 

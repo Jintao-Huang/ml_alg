@@ -19,7 +19,7 @@ class SegmentTree:
         self.n = nums if isinstance(nums, int) else len(nums)
         h = self._get_tree_height(self.n)
         # 最大节点数=2^h-1
-        len_tree = 2 ** h - 1
+        len_tree = (1 << h) - 1
         self.tree = [0] * len_tree
         if not isinstance(nums, int):
             self._build_tree(nums, 0, self.n-1, 0)
@@ -84,17 +84,20 @@ class SegmentTree:
 
     def _update(self, i: int, diff: int, t_lo: int, t_hi: int, ti: int) -> None:
         """
-        -: 若i在t_lo..t_hi内, 则更新. 使用树的前序迭代. 
+        -: 单向树遍历, O(logn), 使用迭代法.
+            进行while True循环, 直到t_lo==t_hi跳出循环. 否则重新设置t_lo, t_hi,
         """
-        self.tree[ti] += diff
-        if t_lo == t_hi:
-            return
-        #
-        mid = (t_lo + t_hi) // 2
-        if i <= mid:
-            self._update(i, diff, t_lo, mid, self._lc(ti))
-        else:
-            self._update(i, diff, mid + 1, t_hi, self._rc(ti))
+        while True:
+            self.tree[ti] += diff
+            if t_lo == t_hi:
+                break
+            mid = (t_lo + t_hi) // 2
+            if i <= mid:
+                t_hi = mid
+                ti = self._lc(ti)
+            else:
+                t_lo = mid + 1
+                ti = self._rc(ti)
 
     def update(self, i: int, diff: int) -> None:
         assert 0 <= i < self.n
