@@ -1,34 +1,43 @@
+
+
+from typing import TypeVar, List, Any
+
+
 __all__ = []
-from heapq import heapify, heappop, heappush, heappushpop, heapreplace
-from heapq import _siftdown as __siftdown, _siftup as __siftup
+
+T = TypeVar("T")
 
 
-def _parent(ci: int) -> int:
+def siftup(heap: List[Any], i: int, lo: int) -> None:
+    """上滤
+        将heap[i]的元素进行上滤, 直到i < lo.
+        堆的边界: [lo..hi]
+    note: 与python heapq中命名不同, heapq中为_siftdown
+    -: 
     """
-    思路: 1,2 -> 0. p=(c-1) // 2
+
+
+def siftdown(heap: List[Any], i: int, hi: int) -> None:
+    """下滤
+    -: 为什么在最后调用siftup. Ref: https://stackoverflow.com/questions/71632226/why-does-the-python-heapq-siftup-call-siftdown-at-the-end
     """
-    return (ci - 1) >> 1
 
 
-def _lc(pi: int) -> int:
-    """
-    思路: 0->1; 1->3. lc=2p + 1
-    """
-    return pi >> 1 + 1
-
-
-def _rc(pi: int) -> int:
-    """
-    思路: 0->2; 1->4
-    """
-    return (pi + 1) >> 1
-
-
-def siftdown(heap, startpos, pos):
+def heapify(heap: List[Any]) -> None:
     pass
 
 
-def siftup():
+def heappop(heap: List[T]) -> T:
     pass
 
 
+def heappush(heap: List[T], x: T) -> None:
+    pass
+
+
+def heappushpop(heap: List[T], x: T) -> T:
+    pass
+
+
+def heapreplace(heap: List[T], x: T) -> T:
+    pass
