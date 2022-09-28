@@ -3,6 +3,7 @@
 import os
 import sys
 import heapq
+import bisect
 import pickle
 import json
 import warnings
@@ -10,7 +11,7 @@ import math
 import time
 import datetime
 import logging
-# import random
+import random
 import threading as td
 import multiprocessing as mp
 import re
@@ -18,7 +19,7 @@ import unittest as ut
 
 #
 from pprint import pprint
-from functools import partial
+from functools import partial, cache, lru_cache, cmp_to_key
 from types import SimpleNamespace
 from collections import deque, namedtuple, OrderedDict, defaultdict, Counter
 from copy import copy, deepcopy

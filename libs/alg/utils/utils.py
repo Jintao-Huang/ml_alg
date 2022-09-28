@@ -1,5 +1,5 @@
 
-from typing import Dict, List, Any, Union
+from typing import Dict, List, Any, Union, TypeVar
 
 __all__ = ["dict_sorted_key", "unique", "flatten_list"]
 
@@ -18,8 +18,9 @@ def dict_sorted_key(d: Dict[int, int]) -> Dict[int, int]:
 # if __name__ == "__main__":
 #     print(dict_sorted_key({1: 2, 3: 4, 5: 3}))
 
+T = TypeVar("T")
 
-def unique(_list: List[Any], keep_order: bool = True) -> List[Any]:
+def unique(_list: List[T], keep_order: bool = True) -> List[T]:
     """not inplace. 复杂度: O(NLogN)
     -: 先获得mapper: idx(第一个)->elem. 然后将list使用set去重, 变为无序无重的list. 
         再根据mapper进行排序.  

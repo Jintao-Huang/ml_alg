@@ -1,5 +1,5 @@
 
-from typing import Optional, List, Deque, Any, Dict, Tuple
+from typing import Optional, List, Deque, Any, Dict, Tuple, TypeVar
 from collections import deque
 from functools import partial
 
@@ -125,8 +125,10 @@ if __name__ == "__main__":
     tree = to_tree(li)
     print(from_tree(tree))
 
+T = TypeVar("T")
 
-def call_callable_list(callable_list: List[str], args_list: List[List[Any]], globals: Dict[str, Any], ) -> List[Any]:
+
+def call_callable_list(callable_list: List[str], args_list: List[List[T]], globals: Dict[str, Any]) -> List[T]:
     """调用一系列可调用的函数或类. 返回可调用类/函数的返回.
     思路: 循环callable_list, args_list. 获取callable_str, args. 并从globals获取callable_obj. 并获取res
     """

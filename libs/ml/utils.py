@@ -23,12 +23,12 @@ from torch import Tensor, device as Device
 from torch.utils.data import Dataset
 from torch.nn.parallel import DataParallel as DP, DistributedDataParallel as DDP
 from torch.nn.modules.module import _IncompatibleKeys as IncompatibleKeys
-# 
+#
 from torchmetrics import Metric
 from torch import Tensor
 from torch.utils.data import TensorDataset, DataLoader
 
-__all__ = ["split_dataset", "extract_dataset",
+__all__ = ["split_dataset", "extract_dataset", "smart_load_state_dict",
            "fuse_conv_bn", "fuse_linear_bn", "test_metric"]
 
 logger = logging.getLogger(__name__)
@@ -88,6 +88,16 @@ if __name__ == "__main__":
     sys.path.append(_ROOT_DIR)
     from libs import *
 
+
+def smart_load_state_dict(model: Module, state_dict: Dict[str, Tensor],
+                          prefix_key: str = "", strict: bool = True) -> IncompatibleKeys:
+    if prefix_key != "":
+        new_state_dict = {}
+        for k, v in state_dict.items():
+            new_state_dict[prefix_key + k] = v
+        state_dict = new_state_dict
+    #
+    return model.load_state_dict(state_dict, strict=strict)
 
 
 @torch.no_grad()

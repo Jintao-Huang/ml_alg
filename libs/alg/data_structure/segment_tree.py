@@ -37,14 +37,8 @@ class SegmentTree:
         """
         e.g. 0->1; 1->3
         """
-        return (i << 1) + 1
+        return (2 * i) + 1
 
-    @staticmethod
-    def _rc(i: int) -> int:
-        """
-        e.g. 0->2; 1->4
-        """
-        return (i << 1) + 2
 
     def _build_tree(self, nums: List[int], t_lo: int, t_hi: int, ti: int) -> int:
         """[lo..hi]
@@ -58,8 +52,10 @@ class SegmentTree:
         #
         mid = (t_lo + t_hi) // 2
         # [lo..mid], [mid+1, hi]. [0..2], [3..4]: 左偏树
-        x1 = self._build_tree(nums, t_lo, mid, self._lc(ti))
-        x2 = self._build_tree(nums, mid+1, t_hi, self._rc(ti))
+        lc = self._lc(ti)
+        rc = lc + 1
+        x1 = self._build_tree(nums, t_lo, mid, lc)
+        x2 = self._build_tree(nums, mid+1, t_hi, rc)
         self.tree[ti] = x1 + x2
         return self.tree[ti]
 
@@ -72,10 +68,11 @@ class SegmentTree:
             return self.tree[ti]
         mid = (t_lo + t_hi) // 2
         res = 0
+        lc = self._lc(ti)
         if lo <= mid:
-            res += self._sum_range(lo, min(mid, hi), t_lo, mid, self._lc(ti))
+            res += self._sum_range(lo, min(mid, hi), t_lo, mid, lc)
         if hi >= mid + 1:
-            res += self._sum_range(max(lo, mid + 1), hi, mid + 1, t_hi, self._rc(ti))
+            res += self._sum_range(max(lo, mid + 1), hi, mid + 1, t_hi, lc + 1)
         return res
 
     def sum_range(self, lo: int, hi: int) -> int:
@@ -92,12 +89,13 @@ class SegmentTree:
             if t_lo == t_hi:
                 break
             mid = (t_lo + t_hi) // 2
+            lc = self._lc(ti)
             if i <= mid:
                 t_hi = mid
-                ti = self._lc(ti)
+                ti = lc
             else:
                 t_lo = mid + 1
-                ti = self._rc(ti)
+                ti = lc + 1
 
     def update(self, i: int, diff: int) -> None:
         assert 0 <= i < self.n
