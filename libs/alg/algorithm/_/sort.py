@@ -1,14 +1,12 @@
 
 import random
 from typing import TypeVar, List, Any
-from copy import copy
 from heapq import heapify, heappop
 
 __all__ = []
-T = TypeVar("T", float, int)
 
 
-def partition(arr: List[T], lo: int, hi: int) -> int:
+def partition(arr: List[Any], lo: int, hi: int) -> int:
     """
     -: 将arr[lo]为标杆, 将小于的放置其右边, 大于的放置其左. 等于的随意. 
         使用相撞二指针实现. 当lo == hi时跳出循环. 
@@ -43,7 +41,7 @@ if __name__ == "__main__":
     print(arr)
 
 
-def _quick_sort(arr: List[T], lo: int, hi: int) -> None:
+def _quick_sort(arr: List[Any], lo: int, hi: int) -> None:
     """[lo..hi]. 右偏划分
     -: 划分法. 使用随机算法
     """
@@ -56,7 +54,7 @@ def _quick_sort(arr: List[T], lo: int, hi: int) -> None:
     _quick_sort(arr, idx + 1, hi)
 
 
-def quick_sort(arr: List[T]) -> None:
+def quick_sort(arr: List[Any]) -> None:
     _quick_sort(arr, 0, len(arr) - 1)
 
 
@@ -66,14 +64,14 @@ if __name__ == "__main__":
     print(arr)
 
 
-def merge(arr: List[T], lo: int, mid: int, hi: int) -> None:
+def merge(arr: List[Any], lo: int, mid: int, hi: int) -> None:
     """merge arr[lo..mid], arr[mid+1..hi]
     -: A:arr[lo..mid]和B:arr[mid+1..hi]都是顺序的(小->大)
         我们创建一个A_copy, 随后不断将A_copy和B的较小值, 放入arr中. 
     # 
         如果有一个放完后, 我们将A_copy剩余的放入arr中.
     """
-    A_copy = copy(arr[lo:mid + 1])
+    A_copy = arr[lo:mid + 1]  # 浅复制
     i, j, k = 0, mid + 1, lo
     n = len(A_copy)
     while i < n and j <= hi:  # 避免A, B为空
@@ -103,7 +101,7 @@ if __name__ == "__main__":
     print(arr)
 
 
-def _merge_sort(arr: List[T], lo: int, hi: int) -> None:
+def _merge_sort(arr: List[Any], lo: int, hi: int) -> None:
     """[lo..hi]左偏划分
     """
     if lo == hi:
@@ -115,7 +113,7 @@ def _merge_sort(arr: List[T], lo: int, hi: int) -> None:
     merge(arr, lo, mid, hi)
 
 
-def merge_sort(arr: List[T]) -> None:
+def merge_sort(arr: List[Any]) -> None:
     _merge_sort(arr, 0, len(arr) - 1)
 
 
@@ -123,6 +121,8 @@ if __name__ == "__main__":
     arr = [1, 4, 6, 3, 2, 5, 0, 8, 9, 7]
     merge_sort(arr)
     print(arr)
+
+T = TypeVar("T")
 
 
 def heap_sort(arr: List[T], dst: List[T]) -> None:
@@ -134,7 +134,7 @@ def heap_sort(arr: List[T], dst: List[T]) -> None:
     heapify(arr)
     for _ in range(len(arr)):
         dst.append(heappop(arr))
-    
+
 
 if __name__ == "__main__":
     arr = [1, 4, 6, 3, 2, 5, 0, 8, 9, 7]

@@ -6,8 +6,8 @@ import heapq
 import bisect
 import pickle
 import json
-import warnings
 import math
+import statistics as stat
 import time
 import datetime
 import logging
@@ -16,22 +16,31 @@ import threading as td
 import multiprocessing as mp
 import re
 import unittest as ut
+import platform
 
 #
+from warnings import filterwarnings
+from operator import itemgetter
 from pprint import pprint
 from functools import partial, cache, lru_cache, cmp_to_key
 from types import SimpleNamespace
 from collections import deque, namedtuple, OrderedDict, defaultdict, Counter
 from copy import copy, deepcopy
 from argparse import ArgumentParser, Namespace
-from queue import Queue, SimpleQueue
+from queue import Queue, SimpleQueue, PriorityQueue
 from hashlib import sha256
 from typing import (
     Literal, List, Tuple, Dict, Set, Callable, Optional, Union, Any,
     Deque, Sequence, Mapping, Iterable, Iterator, DefaultDict, overload
 )
+from typing_extensions import TypeAlias
+from xml.etree import ElementTree as ET
+from contextlib import contextmanager
 
 #
+import yaml
+import requests
+from sortedcontainers import SortedList, SortedDict, SortedSet
 from tqdm import tqdm
 import numpy as np
 import pandas as pd
@@ -49,6 +58,7 @@ import seaborn as sns
 from PIL import Image
 import cv2 as cv
 #
+import sklearn
 import torch
 from torch import Tensor, device as Device
 from torch.nn import Module
@@ -78,7 +88,6 @@ import torchvision.datasets as tvd
 from torchvision.utils import make_grid
 import torchvision.models as tvm
 #
-import sklearn
 import pytorch_lightning as pl
 import pytorch_lightning.callbacks as plc
 #
@@ -88,6 +97,7 @@ from transformers.models.auto.tokenization_auto import AutoTokenizer
 from transformers.data.data_collator import DataCollatorWithPadding
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 from transformers.modeling_utils import PreTrainedModel
+from transformers.configuration_utils import PretrainedConfig
 from datasets.load import load_dataset, load_metric
 #
 from torchmetrics import MeanMetric, Metric
@@ -110,3 +120,7 @@ from . import ml as libs_ml
 from . import alg as libs_alg
 #
 Number = Union[int, float]
+# 以下环境变量需要用户自定义设置, 这里为了自己方便进行导入
+TORCH_HOME = os.environ.get("TORCH_HOME", None)
+DATASETS_PATH = os.environ.get("DATASETS_PATH", None)
+HF_HOME = os.environ.get("HF_HOME", None)

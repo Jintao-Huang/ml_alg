@@ -6,57 +6,22 @@ from torch import Tensor
 from torch.nn import Module
 import torch
 from torch.nn.modules.module import _IncompatibleKeys as IncompatibleKeys
+from transformers.configuration_utils import PretrainedConfig
 
-__all__ = ["hf_hash", "get_hf_fname", "hf_load_state_dict", "replace_callback"]
-
-HEADERS = {
-    # 'user-agent':
-    # 'transformers/4.19.2; python/3.9.12; session_id/f3ef440752714dc7931cd95cd605a60e; torch/1.12.1+cu116; file_type/config; from_auto_class/True'
-}
-
-# 代理
-PROXIES = {
-    # 'http': '127.0.0.1:7890',
-    # 'https': '127.0.0.1:7890'
-}
-
-HF_HOME = os.environ.get("HF_HOME", None)
-HF_URL = 'https://huggingface.co/{model_id:s}/resolve/{revision:s}/{filename:s}'
-assert(HF_HOME is not None)
+__all__ = ["model_from_pretrained", "hf_load_state_dict", "replace_callback"]
 
 
-def hf_hash(url: str, etag: Optional[str] = None) -> str:
-    url_b: bytes = url.encode("utf-8")
-    fname: str = sha256(url_b).hexdigest()
-    if etag is not None:
-        etag_b: bytes = etag.encode("utf-8")
-        fname += "." + sha256(etag_b).hexdigest()
-    return fname
-
-
-def get_hf_fname(model_id: str) -> Tuple[str, str]:
-    """返回config, model的fname"""
-
-    cache_dir = os.path.join(HF_HOME, "transformers")
-    #
-    revision = "main"
-    config_url = HF_URL.format(model_id=model_id, revision=revision, filename="config.json")
-    model_url = HF_URL.format(model_id=model_id, revision=revision, filename="pytorch_model.bin")
-    #
-    r = requests.head(config_url, headers=HEADERS, allow_redirects=False, proxies=PROXIES, timeout=10)
-    etag = r.headers.get("X-Linked-Etag") or r.headers.get("ETag")
-    config_fname = hf_hash(config_url, etag)
-    config_path = os.path.join(cache_dir, config_fname)
-    #
-    r = requests.head(model_url, headers=HEADERS, allow_redirects=False, proxies=PROXIES, timeout=10)
-    etag = r.headers.get("X-Linked-Etag") or r.headers.get("ETag")
-    model_fname = hf_hash(model_url, etag)
-    model_path = os.path.join(cache_dir, model_fname)
-    return config_path, model_path
+def model_from_pretrained(model_type: type, hf_home: str, model_id: str, config: PretrainedConfig, replace_keys: Dict[str, str]) -> Module:
+    commit_hash = config._commit_hash
+    model_fpath = os.path.join(hf_home, "hub", f"models--{model_id}", "snapshots", commit_hash, "pytorch_model.bin")
+    state_dict = torch.load(model_fpath)
+    model: Module = model_type(config)
+    hf_load_state_dict(model, state_dict, "", replace_callback(replace_keys))
+    return model
 
 
 def hf_load_state_dict(model: Module, state_dict: Dict[str, Tensor], prefix_key: str = "",
-                       callback_func: Callable[[Dict[str, Tensor]], Dict[str, Tensor]] = None) -> IncompatibleKeys:
+                       callback_func: Optional[Callable[[Dict[str, Tensor]], Dict[str, Tensor]]] = None) -> IncompatibleKeys:
     """先fix, 再replace, 再prefix"""
     def _fix_keys(state_dict: Dict[str, Tensor]) -> Dict[str, Tensor]:
         new_state_dict = {}

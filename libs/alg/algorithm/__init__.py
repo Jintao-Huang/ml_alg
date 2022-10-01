@@ -4,5 +4,5 @@ from .graph import *
 from .knapsack import *
 from .math_ import *
 from .monotone_deque import *
-from .string import *
+from .string_ import *
 from .utils import *

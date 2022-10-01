@@ -1,10 +1,9 @@
-
+import bisect
 from typing import List, TypeVar, Optional
 
 __all__ = []
 
-T = TypeVar("T", float, int)
-
+T = TypeVar("T")
 
 def bisect_left(arr: List[T], x: T, lo: int = 0, hi: Optional[int] = None) -> int:
     """[lo..hi).
