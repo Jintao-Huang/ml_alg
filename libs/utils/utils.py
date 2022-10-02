@@ -14,12 +14,12 @@ from xml.etree.ElementTree import ElementTree, Element
 from collections import deque
 import logging
 import unittest as ut
-
+import mini_lightning as ml
 
 __all__ = ["download_files", "calculate_hash", "xml_to_dict", "mywalk",
            "test_unit"]
 #
-logger = logging.getLogger(__name__)
+logger = ml.logger
 
 
 def download_files(base_url: str, fnames: List[str], save_dir: str):

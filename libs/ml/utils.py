@@ -11,6 +11,7 @@ from typing import List, Tuple, Any, Dict, Optional, Literal
 from typing import Optional, Callable, Tuple, List, Dict, Any, Union
 from collections import defaultdict
 #
+from tqdm import tqdm
 import numpy as np
 from numpy import ndarray
 #
@@ -27,11 +28,13 @@ from torch.nn.modules.module import _IncompatibleKeys as IncompatibleKeys
 from torchmetrics import Metric
 from torch import Tensor
 from torch.utils.data import TensorDataset, DataLoader
+from torchvision.models import resnet152
+import mini_lightning as ml
 
 __all__ = ["split_dataset", "extract_dataset", "smart_load_state_dict",
-           "fuse_conv_bn", "fuse_linear_bn", "test_metric"]
+           "fuse_conv_bn", "fuse_linear_bn", "test_metric", "reserve_memory"]
 
-logger = logging.getLogger(__name__)
+logger = ml.logger
 #
 
 
@@ -206,3 +209,27 @@ if __name__ == "__main__":
     mean = test_metric(mean_metric, loss)
     mean2 = loss.mean()
     print(mean, mean2)
+
+
+def reserve_memory(device_ids: List[int], max_G: int = 9) -> None:
+    """占用显存, 防止被抢"""
+    ml.select_device(device_ids)
+    for d in range(len(device_ids)):
+        device = Device(d)
+        model = resnet152().to(device)
+        for i in tqdm(range(128)):
+            image = torch.randn(i, 3, 224, 224).to(device)
+            try:
+                model(image)
+            except RuntimeError:
+                break
+            gb = cuda.memory_reserved(device) / 1e9
+            if gb >= max_G:
+                break
+            cuda.empty_cache()
+        #
+        logger.info(f"reserved memory: {cuda.memory_reserved(device) / 1e9:.4f}GB")
+
+
+if __name__ == "__main__":
+    reserve_memory([0], 5)

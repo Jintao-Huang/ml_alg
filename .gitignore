@@ -10,7 +10,8 @@ __pycache__/
 /tutorials/
 trash/
 /ml/_trash/
-/examples/
+/examples/trash/
+/examples/_examples/
 /tools/
 train.out
 nohup.out

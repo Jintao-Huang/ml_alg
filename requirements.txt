@@ -13,7 +13,7 @@ seaborn
 pillow
 opencv-python
 sklearn
-pytorch_lightning
-transformers
-datasets
-gym
+transformers>=4.22.*
+datasets>=2.5.*
+gym>=0.26.*
+pygame

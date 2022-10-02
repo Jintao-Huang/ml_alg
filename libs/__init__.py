@@ -88,8 +88,8 @@ import torchvision.datasets as tvd
 from torchvision.utils import make_grid
 import torchvision.models as tvm
 #
-import pytorch_lightning as pl
-import pytorch_lightning.callbacks as plc
+# import pytorch_lightning as pl
+# import pytorch_lightning.callbacks as plc
 #
 from transformers.pipelines import pipeline
 from transformers.models.auto.modeling_auto import AutoModel
