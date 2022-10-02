@@ -7,8 +7,10 @@ from torch.nn import Module
 import torch
 from torch.nn.modules.module import _IncompatibleKeys as IncompatibleKeys
 from transformers.configuration_utils import PretrainedConfig
+import mini_lightning as ml
 
 __all__ = ["model_from_pretrained", "hf_load_state_dict", "replace_callback"]
+logger = ml.logger
 
 
 def model_from_pretrained(model_type: type, hf_home: str, model_id: str, config: PretrainedConfig, replace_keys: Dict[str, str]) -> Module:
@@ -16,7 +18,7 @@ def model_from_pretrained(model_type: type, hf_home: str, model_id: str, config:
     model_fpath = os.path.join(hf_home, "hub", f"models--{model_id}", "snapshots", commit_hash, "pytorch_model.bin")
     state_dict = torch.load(model_fpath)
     model: Module = model_type(config)
-    hf_load_state_dict(model, state_dict, "", replace_callback(replace_keys))
+    logger.info(hf_load_state_dict(model, state_dict, "", replace_callback(replace_keys)))
     return model
 
 

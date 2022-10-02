@@ -5,7 +5,7 @@ tensorboard
 numpy
 PyYAML
 tqdm
-mini-lightning==0.1.*
+mini-lightning>=0.1.*
 # 
 pandas
 matplotlib
