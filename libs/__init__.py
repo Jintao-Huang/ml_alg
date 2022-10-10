@@ -94,7 +94,7 @@ import torchvision.models as tvm
 from transformers.pipelines import pipeline
 from transformers.models.auto.modeling_auto import AutoModel
 from transformers.models.auto.tokenization_auto import AutoTokenizer
-from transformers.data.data_collator import DataCollatorWithPadding
+from transformers.data.data_collator import DataCollatorForLanguageModeling, DataCollatorWithPadding
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 from transformers.modeling_utils import PreTrainedModel
 from transformers.configuration_utils import PretrainedConfig
