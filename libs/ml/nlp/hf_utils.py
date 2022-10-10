@@ -15,6 +15,7 @@ logger = ml.logger
 
 def model_from_pretrained(model_type: type, hf_home: str, model_id: str, config: PretrainedConfig, replace_keys: Dict[str, str]) -> Module:
     commit_hash = config._commit_hash
+    model_id = model_id.replace("/", "--")
     model_fpath = os.path.join(hf_home, "hub", f"models--{model_id}", "snapshots", commit_hash, "pytorch_model.bin")
     state_dict = torch.load(model_fpath)
     model: Module = model_type(config)

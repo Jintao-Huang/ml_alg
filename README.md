@@ -23,5 +23,5 @@
 1. python>=3.8
 2. torch>=1.12
 3. torchmetrics==0.9.3
-4. mini-lightning==0.1.*
+4. mini-lightning>=0.1.3
 

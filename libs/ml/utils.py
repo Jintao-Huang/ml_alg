@@ -19,7 +19,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.cuda as cuda
+import torch.optim as optim
 from torch.nn import Module
+from torch.optim import Optimizer
 from torch import Tensor, device as Device
 from torch.utils.data import Dataset
 from torch.nn.parallel import DataParallel as DP, DistributedDataParallel as DDP
@@ -30,12 +32,64 @@ from torch import Tensor
 from torch.utils.data import TensorDataset, DataLoader
 from torchvision.models import resnet152
 import mini_lightning as ml
+try:
+    from ..utils.utils import get_date_now
+except ImportError:
+    from libs.utils import get_date_now  # for test
 
-__all__ = ["split_dataset", "extract_dataset", "smart_load_state_dict",
+
+__all__ = ["load_state_dict", "save_state_dict", "save_ckpt", "load_ckpt",
+           "split_dataset", "extract_dataset", "smart_load_state_dict",
            "fuse_conv_bn", "fuse_linear_bn", "test_metric", "reserve_memory"]
 
 logger = ml.logger
 #
+
+
+def load_state_dict(model: Module, fpath: str) -> IncompatibleKeys:
+    device = next(model.parameters()).device
+    return model.load_state_dict(torch.load(fpath, device))
+
+
+def save_state_dict(model: Module, fpath: str) -> None:
+    torch.save(model.state_dict(), fpath)
+
+
+# def save_ckpt(fpath: str, model: Module, optimizer: Optimizer, last_epoch: int, **kwargs) -> None:
+#     ckpt: Dict[str, Any] = {
+#         "model": model,  # 含模型结构.
+#         "optimizer_state_dict": optimizer.state_dict(),
+#         "last_epoch": last_epoch,  # 规定: 未训练的模型last_epoch=-1(同lr_scheduler)
+#         "date": get_date_now()[0]
+#     }
+#     ckpt.update(kwargs)
+#     torch.save(ckpt, fpath)
+
+
+# def load_ckpt(fpath: str) -> Tuple[Module, Dict[str, Any], Dict[str, Any]]:
+#     ckpt = torch.load(fpath)
+#     model = ckpt["model"]
+#     optimizer_state_dict = ckpt["optimizer_state_dict"]
+#     ckpt.pop("model")
+#     ckpt.pop("optimizer_state_dict")
+#     return model, optimizer_state_dict, ckpt
+
+
+# if __name__ == "__main__":
+#     model = nn.Linear(10, 10)
+#     optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9)
+#     for i in range(10):
+#         x = torch.randn(10, 10)
+#         loss = model(x).mean()
+#         optimizer.zero_grad()
+#         loss.backward()
+#         optimizer.step()
+#     save_ckpt("asset/tmp.ckpt", model, optimizer, 0)
+#     #
+#     model, optimizer_state_dict, ckpt = load_ckpt("asset/tmp.ckpt", )
+#     optimizer2 = optim.SGD(model.parameters(), lr=0.1, momentum=0.9)
+#     optimizer2.load_state_dict(optimizer_state_dict)
+#     print(ckpt)
 
 
 def extract_dataset(dataset: Dataset, idxs: Union[slice, List[int], ndarray], split_keys: List[str]) -> Dataset:

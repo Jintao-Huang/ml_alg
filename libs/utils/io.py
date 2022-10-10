@@ -4,10 +4,14 @@
 
 import os
 import pickle
-from typing import Any
+from typing import Any, Literal, Optional
 import json
 import yaml
 import pandas as pd
+import torch
+from torch import device as Device
+from torch.nn import Module
+from torch.nn.modules.module import _IncompatibleKeys as IncompatibleKeys
 from pandas import DataFrame
 
 __all__ = [
@@ -18,7 +22,15 @@ __all__ = [
 ]
 
 
-def read_from_pickle(fpath: str,) -> Any:
+# def torch_load(fpath: str, map_location: Optional[Device]) -> Any:
+#     return torch.load(fpath, map_location)
+
+
+# def torch_save(obj: Any, fpath: str) -> None:
+#     torch.save(obj, fpath)
+
+
+def read_from_pickle(fpath: str) -> Any:
     with open(fpath, "rb") as f:
         res = pickle.load(f)
     return res

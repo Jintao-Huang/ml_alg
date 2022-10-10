@@ -12,9 +12,10 @@ trash/
 /ml/_trash/
 /examples/trash/
 /examples/_examples/
-/tools/
-train.out
-nohup.out
 /leetcode/
 /build
 /jintao_libs.egg-info
+/lock.txt
+*.out
+*.txt
+*.out2

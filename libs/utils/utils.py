@@ -15,9 +15,10 @@ from collections import deque
 import logging
 import unittest as ut
 import mini_lightning as ml
+import datetime as dt
 
 __all__ = ["download_files", "calculate_hash", "xml_to_dict", "mywalk",
-           "test_unit"]
+           "test_unit", "ProgramQueue"]
 #
 logger = ml.logger
 
@@ -174,3 +175,43 @@ if __name__ == "__main__":
             print(torch.randn(10))
 
     test_unit([Test1])
+
+
+class ProgramQueue:
+    def __init__(self, cur_id: Union[int, str], next_id: Union[int, str]) -> None:
+        self.cur_id = str(cur_id)
+        self.next_id = str(next_id)
+        self.lock_fpath = "./lock.txt"
+
+    def start(self):
+        logger.info("Program Waiting...")
+        p_start = False
+        if not os.path.exists(self.lock_fpath):
+            with open(self.lock_fpath, "w") as f:
+                f.write(self.cur_id)
+            p_start = True
+        else:
+            with open(self.lock_fpath, "r+") as f:
+                if f.read() == "":
+                    f.write(self.cur_id)
+                    p_start = True
+        #
+        while not p_start:
+            time.sleep(1)
+            with open(self.lock_fpath, "r") as f:
+                if f.read() == self.cur_id:
+                    p_start = True
+        #
+        logger.info("Program Start...")
+
+    def end(self):
+        with open(self.lock_fpath, "w") as f:
+            f.write(self.next_id)
+        logger.info("Program End...")
+
+
+if __name__ == "__main__":
+    pq = ProgramQueue(1, 2)
+    pq.start()
+    time.sleep(30)
+    pq.end()
