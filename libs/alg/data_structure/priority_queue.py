@@ -1,97 +1,12 @@
-from heapq import nlargest, nsmallest, merge
-from heapq import heapify, heappush, heappop, heappushpop, heapreplace
-from bisect import bisect_left
-from typing import Generic, List, TypeVar, Optional, Dict, Any, Tuple
-import heapq
 
+from typing import Generic, List, TypeVar, Optional, Dict, Any, Tuple
+from .heapq_ import *
 __all__ = [
-    "siftdown", "siftup", "siftdown_max", "siftup_max",
-    "heapify", "heappush", "heappop", "heappushpop", "heapreplace",
-    "heapify_max", "heappush_max", "heappop_max", "heappushpop_max", "heapreplace_max",
-    "PriorityQueue"
+    "PriorityQueue", "MutablePQ"
 ]
 
-siftdown = heapq._siftdown
-siftup = heapq._siftup
-siftdown_max = heapq._siftdown_max
-siftup_max = heapq._siftup_max
-#
-try:
-    heapify_max = heapq._heapify_max
-except AttributeError:
-    def heapify_max(x):
-        n = len(x)
-        for i in reversed(range(n//2)):
-            siftup_max(x, i)
-#
+
 T = TypeVar("T")
-try:
-    heapreplace_max = heapq._heapreplace_max
-except AttributeError:
-    def heapreplace_max(heap: List[T], x: T) -> T:
-        x, heap[0] = heap[0], x
-        siftup_max(heap, 0)
-        return x
-try:
-    heappop_max = heapq._heappop_max
-except AttributeError:
-    def heappop_max(heap: List[T]) -> T:
-        res = heap.pop()
-        if not heap:
-            return res
-        #
-        res, heap[0] = heap[0], res
-        siftup_max(heap, 0)
-        return res
-
-
-def heappush_max(heap: List[T], x: T) -> None:
-    heap.append(x)
-    siftdown_max(heap, 0, len(heap) - 1)
-
-
-def heappushpop_max(heap: List[T], x: T) -> T:
-    if not heap or heap[0] <= x:
-        return x
-    #
-    x, heap[0] = heap[0], x
-    siftup_max(heap, 0)
-    return x
-
-
-if __name__ == "__main__":
-    """test"""
-    import mini_lightning as ml
-    import numpy as np
-
-    def heap_sort(arr: List[T], dst: List[T]) -> None:
-        heapify(arr)
-        for _ in range(len(arr)):
-            dst.append(heappop(arr))
-    ml.seed_everything(42)
-    x: List[float] = np.random.rand(100000).tolist()
-    dst = []
-    ml.test_time(lambda: heap_sort(x, dst), 10)
-    #
-
-    def heap_sort2(arr: List[T], dst: List[T]) -> None:
-        heapify_max(arr)
-        for _ in range(len(arr)):
-            dst.append(heappop_max(arr))
-    ml.seed_everything(42)
-    x: List[float] = np.random.rand(100000).tolist()
-    dst = []
-    ml.test_time(lambda: heap_sort2(x, dst), 10)
-
-
-def _parent(i: int) -> int:
-    """1,2->0"""
-    return (i - 1) // 2
-
-
-def _lc(i: int) -> int:
-    """rc = lc + 1"""
-    return (2 * i) + 1
 
 
 class PriorityQueue(Generic[T]):
@@ -132,12 +47,27 @@ if __name__ == "__main__":
     print(pq.heap)
 
 
+def _parent(i: int) -> int:
+    """1,2->0"""
+    return (i - 1) // 2
+
+
+def _lc(i: int) -> int:
+    """rc = lc + 1"""
+    return (2 * i) + 1
+
+
 class MutablePQ(Generic[T]):
-    """小根堆实现"""
+    """小根堆实现: v越小, 优先级越高
+    -: 通过唯一标识符id, 优先级v. 得到的优先级队列.
+        比PQ增加的功能: 可以通过id, 对v的优先级进行调整
+    Test Ref: Graph dijkstra. https://leetcode.cn/problems/minimum-weighted-subgraph-with-the-required-paths/
+    """
 
     def __init__(self) -> None:
         self.heap: List[Tuple[int, T]] = []  # 存储id
         self.id_to_idx: Dict[int, int] = {}  # id映射到index
+        # 当然也可以通过id, 获取index后, 从heap中获得优先级v.
 
     def _siftdown(self, i: int, lo: int) -> None:
         """见`heapq_.py`. 上滤
@@ -211,8 +141,20 @@ class MutablePQ(Generic[T]):
     def peek(self) -> Tuple[int, T]:
         return self.heap[0]
 
-    def increase_key(self, k: int, v: T) -> None:
-        pass
+    def modify_priority(self, id: int, v: T) -> None:
+        idx = self.id_to_idx[id]
+        _, v_o = self.heap[idx]
+        self.heap[idx] = id, v
+        if v_o < v:  # 降低优先级, 下滤
+            self._siftup(idx)
+        else:
+            self._siftdown(idx, 0)
+
+    def __contains__(self, id: int) -> bool:
+        return id in self.id_to_idx
+
+    def __len__(self) -> int:
+        return len(self.heap)
 
 
 if __name__ == "__main__":
@@ -225,5 +167,11 @@ if __name__ == "__main__":
     print(mpq.id_to_idx)
     print(mpq.heap)
     print(mpq.pop())
+    print(mpq.id_to_idx)
+    print(mpq.heap)
+    mpq.modify_priority(1, 0)
+    print(mpq.id_to_idx)
+    print(mpq.heap)
+    mpq.modify_priority(1, 5)
     print(mpq.id_to_idx)
     print(mpq.heap)

@@ -12,6 +12,7 @@ V = TypeVar("V")
 
 
 class MyOrderedDict(Generic[K, V]):
+    """Test Ref: https://leetcode.cn/problems/lru-cache/"""
     def __init__(self, d: Optional[Dict[K, V]] = None) -> None:
         """
         -: 将顺序存储在list中

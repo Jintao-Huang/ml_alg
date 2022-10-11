@@ -1,5 +1,6 @@
 from ._ import *
 from .binary_indexed_tree import *
+from .heapq_ import *
 from .linked_list import *
 from .priority_queue import *
 from .rb_tree import *

@@ -14,6 +14,7 @@ class BinaryIndexedTree:
     tree[3]=nums[0..3]
     tree[4]=nums[4]
     tree[7]=nums[0..7]
+    Test Ref: https://leetcode.cn/problems/range-sum-query-mutable/
     """
 
     def __init__(self, nums: Union[List[int], int]) -> None:

@@ -8,7 +8,8 @@ class SegmentTree:
     """线段树: 不支持区间更新. 区间更新可以使用lazy线段树. 
         只支持diff. 若要支持value. 可以用存储nums, 从value计算出diff. 
     -: 使用数组存储树. 树根为0. 
-    self.tree[0]: 存储整个段的: 树根. (与树状数组不同)
+        self.tree[0]: 存储整个段的: 树根. (与树状数组不同)
+    Test Ref: https://leetcode.cn/problems/range-sum-query-mutable/
     """
 
     def __init__(self, nums: Union[List[int], int]) -> None:
@@ -38,7 +39,6 @@ class SegmentTree:
         e.g. 0->1; 1->3
         """
         return (2 * i) + 1
-
 
     def _build_tree(self, nums: List[int], t_lo: int, t_hi: int, ti: int) -> int:
         """[lo..hi]

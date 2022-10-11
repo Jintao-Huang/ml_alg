@@ -1,4 +1,6 @@
-"""小根堆的实现"""
+"""小根堆的实现
+Ref: 标准库: heapq; 做了一些小修改. 包括: siftup, siftdown的名称符合教材叫法.
+"""
 
 from typing import TypeVar, List, Optional
 

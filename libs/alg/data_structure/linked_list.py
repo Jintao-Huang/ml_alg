@@ -22,6 +22,7 @@ class LinkedListNode(Generic[T]):
 class LinkedList(Generic[T]):
     """循环双向链表
     -: 刚开始的使用头尾两个哑节点相接
+    Test Ref: MyOrderedDict: https://leetcode.cn/problems/lru-cache/
     """
 
     def __init__(self, nums: Optional[List[T]] = None) -> None:

@@ -14,6 +14,7 @@ class TrieTreeNode:
 class Trie:
     """
     -: 多叉树
+    Test Ref: https://leetcode.cn/problems/implement-trie-prefix-tree/
     """
 
     def __init__(self) -> None:
