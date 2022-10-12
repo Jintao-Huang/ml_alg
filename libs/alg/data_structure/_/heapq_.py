@@ -5,7 +5,7 @@ Ref: 标准库: heapq; 做了一些小修改. 包括: siftup, siftdown的名称�
 from typing import TypeVar, List, Optional
 
 
-__all__ = []
+__all__ = ["_parent", "_lc"]
 
 T = TypeVar("T", float, int)
 
@@ -56,7 +56,7 @@ def siftdown(heap: List[T], i: int, hi: Optional[int] = None) -> None:
     """
     if hi is None:
         hi = len(heap) - 1
-    # 
+    #
     lo = i
     x = heap[i]
     while True:
@@ -78,7 +78,7 @@ def siftdown2(heap: List[T], i: int, hi: Optional[int] = None) -> None:
     """heapify使用可以加快速度"""
     if hi is None:
         hi = len(heap) - 1
-    # 
+    #
     x = heap[i]
     while True:
         c = _lc(i)
@@ -150,6 +150,8 @@ def heap_sort2(arr: List[T]) -> None:
     for i in reversed(range(1, len(arr))):
         arr[0], arr[i] = arr[i], arr[0]
         siftdown2(arr, 0, i - 1)
+
+
 """使用heapq实现的版本见sort.py"""
 
 if __name__ == "__main__":

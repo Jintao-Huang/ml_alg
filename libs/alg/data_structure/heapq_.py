@@ -6,6 +6,7 @@ __all__ = [
     "siftdown", "siftup", "siftdown_max", "siftup_max",
     "heapify", "heappush", "heappop", "heappushpop", "heapreplace",
     "heapify_max", "heappush_max", "heappop_max", "heappushpop_max", "heapreplace_max",
+    "heap_sort"
 ]
 
 siftdown = heapq._siftdown
@@ -56,26 +57,31 @@ def heappushpop_max(heap: List[T], x: T) -> T:
     return x
 
 
+def heap_sort(arr: List[T], dst: List[T], reversed: bool = False) -> None:
+    if reversed:
+        _heapify = heapify_max
+        _heappop = heappop_max
+    else:  # 从小到大
+        _heapify = heapify
+        _heappop = heappop
+    _heapify(arr)
+    for _ in range(len(arr)):
+        dst.append(_heappop(arr))
+
+
 if __name__ == "__main__":
     """test"""
     import mini_lightning as ml
     import numpy as np
 
-    def heap_sort(arr: List[T], dst: List[T]) -> None:
-        heapify(arr)
-        for _ in range(len(arr)):
-            dst.append(heappop(arr))
     ml.seed_everything(42)
     x: List[float] = np.random.rand(100000).tolist()
     dst = []
     ml.test_time(lambda: heap_sort(x, dst), 10)
+    print(dst[:100])
     #
-
-    def heap_sort2(arr: List[T], dst: List[T]) -> None:
-        heapify_max(arr)
-        for _ in range(len(arr)):
-            dst.append(heappop_max(arr))
     ml.seed_everything(42)
     x: List[float] = np.random.rand(100000).tolist()
     dst = []
-    ml.test_time(lambda: heap_sort2(x, dst), 10)
+    ml.test_time(lambda: heap_sort(x, dst, True), 10)
+    print(dst[:100])

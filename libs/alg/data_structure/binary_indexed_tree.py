@@ -42,7 +42,7 @@ class BinaryIndexedTree:
         return i + cls._lowbit(i + 1)
 
     @classmethod
-    def _prev_next(cls, i: int) -> int:
+    def _prev(cls, i: int) -> int:
         """
         e.g. 4->3; 3->-1; 2->1
         """
@@ -67,7 +67,7 @@ class BinaryIndexedTree:
         res = 0
         while i >= 0:
             res += self.tree[i]
-            i = self._prev_next(i)
+            i = self._prev(i)
         return res
 
     def sum_range(self, lo: int, hi: int) -> int:

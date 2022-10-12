@@ -3,7 +3,7 @@ import random
 from typing import TypeVar, List, Any
 from heapq import heapify, heappop
 
-__all__ = []
+__all__ = ["partition", "quick_sort", "merge_sort"]
 
 
 def partition(arr: List[Any], lo: int, hi: int) -> int:
@@ -122,23 +122,7 @@ if __name__ == "__main__":
     merge_sort(arr)
     print(arr)
 
-T = TypeVar("T")
 
-
-def heap_sort(arr: List[T], dst: List[T]) -> None:
-    """处理后arr将成为空列表
-    -: 迭代法. 不是inplace, 但空间复杂度O(1)
-    -: 先用小根堆, 不断产生最小值, 然后不断加入dst中. 
-    Note: inplace的算法见`heapq_.py`
-    """
-    heapify(arr)
-    for _ in range(len(arr)):
-        dst.append(heappop(arr))
-
-
-if __name__ == "__main__":
-    arr = [1, 4, 6, 3, 2, 5, 0, 8, 9, 7]
-    dst = []
-    heap_sort(arr, dst)
-    print(arr)
-    print(dst)
+def heap_sort():
+    """见`data_structure/heapq_.py`"""
+    ...

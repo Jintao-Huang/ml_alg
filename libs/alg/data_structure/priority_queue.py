@@ -1,9 +1,8 @@
 
 from typing import Generic, List, TypeVar, Optional, Dict, Any, Tuple
 from .heapq_ import *
-__all__ = [
-    "PriorityQueue", "MutablePQ"
-]
+from ._ import _parent, _lc
+__all__ = ["PriorityQueue", "MutablePQ"]
 
 
 T = TypeVar("T")
@@ -45,16 +44,6 @@ if __name__ == "__main__":
     print(pq.peek())
     print(pq.pop())
     print(pq.heap)
-
-
-def _parent(i: int) -> int:
-    """1,2->0"""
-    return (i - 1) // 2
-
-
-def _lc(i: int) -> int:
-    """rc = lc + 1"""
-    return (2 * i) + 1
 
 
 class MutablePQ(Generic[T]):

@@ -1,5 +1,5 @@
-
-from typing import Optional, List, Deque, Any, Dict, Tuple, TypeVar
+import json
+from typing import Optional, List, Deque, Any, Dict, Tuple, TypeVar, Union
 from collections import deque
 from functools import partial
 
@@ -29,11 +29,15 @@ class TreeNode:
         self.right = right
 
 
-def to_list(li: List[int]) -> Optional[ListNode]:
+def to_list(li: Union[List[int], str]) -> Optional[ListNode]:
     """将list(vector)转为linked-list
     思路: 对每个li中的元素, 分别加入链表中. 
     return: 若len(li)==0, 则返回None. 否则返回头结点. 
     """
+    if isinstance(li, str):
+        li = json.loads(li)
+    assert isinstance(li, list)
+    # 
     head = ListNode()
     p = head
     for x in li:
@@ -59,7 +63,7 @@ if __name__ == "__main__":
     print(from_list(ln))
 
 
-def to_tree(li: List[Optional[int]]) -> Optional[TreeNode]:
+def to_tree(li: Union[List[Optional[int]], str]) -> Optional[TreeNode]:
     """
     思路: 将需要填的左右节点的坑放入deque. 然后按着list遍历的顺序, 不断填入坑中.
         遍历list按周期为二采取不同的行为. 
@@ -67,8 +71,13 @@ def to_tree(li: List[Optional[int]]) -> Optional[TreeNode]:
             若is_left=True: 则使用新的pn(弹出dq). 
     return: 若li为空, 返回None. 
     """
+    if isinstance(li, str):
+        li = json.loads(li)
+    assert isinstance(li, list)
     if len(li) == 0:
         return None
+    assert li[0] is not None
+    # 
     root = TreeNode(li[0])
     dq: Deque[TreeNode] = deque([root])
     is_left = True  # 重复True False
@@ -76,7 +85,8 @@ def to_tree(li: List[Optional[int]]) -> Optional[TreeNode]:
         if is_left:
             pn = dq.popleft()  # parent_node
         #
-        cn = TreeNode(li[i]) if li[i] is not None else None  # child_node
+        v = li[i]
+        cn = TreeNode(v) if v is not None else None  # child_node
         if is_left:
             pn.left = cn
         else:

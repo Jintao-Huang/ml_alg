@@ -5,9 +5,11 @@ __all__ = []
 
 T = TypeVar("T")
 
+
 def bisect_left(arr: List[T], x: T, lo: int = 0, hi: Optional[int] = None) -> int:
     """[lo..hi).
     -: 找到res(i), 使得res是最小的>=x的值
+    Test Ref: https://leetcode.cn/problems/search-insert-position/
     """
     if hi is None:
         hi = len(arr)
@@ -42,10 +44,13 @@ def bisect_right(arr: List[T], x: T, lo: int = 0, hi: Optional[int] = None) -> i
 def bisect_left2(arr: List[T], x: T, lo: int = 0, hi: Optional[int] = None) -> int:
     """[lo..hi).
     -: 找到res(i), 使得res是最大<x的值 + 1
+    Test Ref: https://leetcode.cn/problems/search-insert-position/
     """
     if hi is None:
         hi = len(arr)
     #
+    lo -= 1
+    hi -= 1
     while lo < hi:
         mid = (lo + hi + 1) // 2
         if arr[mid] < x:
