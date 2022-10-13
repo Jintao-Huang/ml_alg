@@ -1,6 +1,6 @@
 
 try:
-    from ..linked_list import LinkedList, LinkedListNode
+    from .._linked_list import LinkedList, LinkedListNode
 except ImportError:
     from libs.alg import LinkedList, LinkedListNode
 from typing import TypeVar, Dict, Tuple, Generic, Optional, Iterator

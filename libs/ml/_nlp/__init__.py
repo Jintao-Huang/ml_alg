@@ -1,2 +1,2 @@
 from ._metrics import *
-from .hf_utils import *
+from ._hf_utils import *

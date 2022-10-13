@@ -119,6 +119,7 @@ if __name__ == "__main__":
 class LazySegmentTree:
     """(左偏树)
     Test Ref(diff_style=False): https://leetcode.cn/problems/QO5KpG/
+        python会超时, 这里只是为了验证算法正确性. cpp下可以通过.
     """
 
     def __init__(self, nums: Union[List[int], int], diff_style: bool = True) -> None:

@@ -1,6 +1,6 @@
 
 from typing import Generic, List, TypeVar, Optional, Dict, Any, Tuple
-from .heapq_ import *
+from ._heapq import *
 from ._ import _parent, _lc
 __all__ = ["PriorityQueue", "MutablePQ"]
 
