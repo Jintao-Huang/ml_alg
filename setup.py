@@ -6,7 +6,6 @@ def read_file(path: str) -> str:
         res = f.read()
     return res
 
-print(find_packages("libs"))
 description = "Jintao的算法集成库"
 long_description = read_file("README.md")
 install_requires = read_file("requirements.txt").splitlines(False)

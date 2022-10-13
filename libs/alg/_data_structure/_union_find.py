@@ -8,7 +8,9 @@ class UFSet:
     -: 使用_set_size来记录每个set的数量. 只有其根节点的_set_size值是有效的.
     -: 当union时, 使用小set接在大set下的算法实现. 
         不使用树高, 因为一般树高都是2(find_root对树高进行调整).
-    Test Ref: https://leetcode.cn/problems/surrounded-regions/
+    Test Ref: 
+        https://leetcode.cn/problems/surrounded-regions/
+        Graph Kruskal: https://leetcode.cn/problems/min-cost-to-connect-all-points/
     """
 
     def __init__(self, n: int) -> None:

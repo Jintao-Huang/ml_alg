@@ -14,6 +14,7 @@ __all__ = ["gcd", "lcm", "factorial", "comb", "perm",
 def _gcd(x: int,  y: int) -> int:
     """辗转相除法: Ref: https://zh.m.wikipedia.org/zh-hans/%E8%BC%BE%E8%BD%89%E7%9B%B8%E9%99%A4%E6%B3%95#%E8%AE%A1%E7%AE%97%E6%9C%BA%E5%AE%9E%E7%8E%B0
     思路: 使用辗转相除法. 使用x mod y. 直到y==0. 
+    Test Ref: 分子分母约分: https://leetcode.cn/problems/deep-dark-fraction/submissions/
     """
     while y > 0:
         x, y = y, x % y
@@ -170,6 +171,7 @@ def _naive(n: int) -> List[int]:
 
 
 def find_prime_nums(n: int, algo: Literal["naive", "fast"] = "fast") -> List[int]:
+    """返回从[2..n]之间的所有的质数(含n)"""
     if algo == "naive":
         return _naive(n)
     elif algo == "fast":
@@ -220,8 +222,8 @@ if __name__ == "__main__":
 def get_factor_count(x: int) -> int:
     """获取因数的个数. 
     思路: 
-        方法1: 先获取质因数, 然后利用组合原理计算因数个数. 
-            e.g. 质因数是: {2:3, 3:4, 5:3}. 则因数=2^a*3^b*5^c. a,b,c可以分别有4,5,4种选择. 
+        方法1: 先获取质因数, 然后利用"组合原理"计算因数个数. 
+            e.g. 质因数是: {2:3, 3:4, 5:3}. 则因数=2^a*3^b*5^c. a,b,c分别有4(0..3),5,4种选择. 
                 共有4*5*4个因数.
         方法2: 遍历[1..int(sqrt(x))+1]. 若i == x//j, 则res+=1; 否则res+=2.
     """

@@ -16,7 +16,7 @@
 4. `libs/utils/*`: 一些工具函数的实现
 5. `libs/alg/*`: 传统算法库. (开发中)
    1. 数据结构: 树状数组, 堆, 优先级队列, 可变的优先级队列, 红黑树, 链表, 线段树, Lazy线段树, 字符串哈希, 字典树, 并查集等.
-   2. 算法: 图算法: (dijkstra, kruskal, prim, dinic), 背包, math, 单调栈/队列, 大数运算, 字符串匹配KMP算法等.
+   2. 算法: 图算法(dijkstra, kruskal, prim, dinic, 匈牙利算法), 背包问题, math, 单调栈/队列, 大数运算, 字符串匹配KMP算法等.
 
 
 
@@ -24,5 +24,5 @@
 1. python>=3.8
 2. torch>=1.12
 3. torchmetrics==0.9.3
-4. mini-lightning>=0.1.3
+4. mini-lightning>=0.1.4
 

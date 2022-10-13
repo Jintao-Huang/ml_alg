@@ -50,7 +50,9 @@ class MutablePQ(Generic[T]):
     """小根堆实现: v越小, 优先级越高
     -: 通过唯一标识符id, 优先级v. 得到的优先级队列.
         比PQ增加的功能: 可以通过id, 对v的优先级进行调整
-    Test Ref: Graph dijkstra. https://leetcode.cn/problems/minimum-weighted-subgraph-with-the-required-paths/
+    Test Ref: 
+        Graph dijkstra: https://leetcode.cn/problems/minimum-weighted-subgraph-with-the-required-paths/
+        Graph prim: https://leetcode.cn/problems/min-cost-to-connect-all-points/
     """
 
     def __init__(self) -> None:
@@ -95,7 +97,7 @@ class MutablePQ(Generic[T]):
                 break
             #
             rc = c + 1
-            if rc <= hi and heap[c][1] < heap[rc][1]:
+            if rc <= hi and heap[rc][1] < heap[c][1]:
                 c = rc
             #
             heap[i] = heap[c]
@@ -138,6 +140,9 @@ class MutablePQ(Generic[T]):
             self._siftup(idx)
         else:
             self._siftdown(idx, 0)
+
+    def __getitem__(self, id: int) -> T:
+        return self.heap[self.id_to_idx[id]][1]
 
     def __contains__(self, id: int) -> bool:
         return id in self.id_to_idx
