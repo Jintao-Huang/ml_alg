@@ -16,7 +16,7 @@ def bisect_left(arr: List[T], x: T, lo: int = 0, hi: Optional[int] = None) -> in
     #
     while lo < hi:
         mid = (lo + hi) // 2
-        if arr[mid] >= x:
+        if arr[mid] >= x:  # 找满足该条件的mid的下界, 即为res
             hi = mid
         else:
             lo = mid + 1
@@ -53,7 +53,7 @@ def bisect_left2(arr: List[T], x: T, lo: int = 0, hi: Optional[int] = None) -> i
     hi -= 1
     while lo < hi:
         mid = (lo + hi + 1) // 2
-        if arr[mid] < x:
+        if arr[mid] < x:  # 找满足该条件的mid的上界
             lo = mid
         else:
             hi = mid - 1

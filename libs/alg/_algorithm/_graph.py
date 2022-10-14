@@ -7,7 +7,7 @@ from collections import deque, defaultdict
 
 __all__ = ["WEdge", "WEdge2",
            "dijkstra", "dijkstra2", "dijkstra3",  "bfs",
-           "kruskal", "prim", "prim2", "Dinic", "dinic", "hungarian"]
+           "kruskal", "prim", "prim2", "Dinic", "dinic", "hungarian", "topo_sort"]
 
 WEdge = NamedTuple("WEdge", to=int, val=int)  # val: e.g. 距离等
 WEdge2 = NamedTuple("WEdge2", from_=int, to=int, val=int)
@@ -103,6 +103,7 @@ def bfs(graph: List[List[int]], s: int) -> List[int]:
     """无权图的最短路. 邻接表存储: 无向图需要存两条边
     -: 使用visited数组, deque. 使用每次拓展一个位置的方式进行拓展.
         在入队列时修改res, visited. 即队列中不存在已被访问过的节点.
+    复杂度: Ot(m)
     """
     n = len(graph)
     res = [-1] * n
@@ -230,7 +231,7 @@ def prim2(graph: List[Dict[int, int]], inf=int(1e9)) -> int:
 4. Dinic: 
     主要思想: bfs中的level保证找的是最短路. dfs中多路增广+当前弧优化. 确保一次迭代不仅仅找一条路, 而是多条路的流量(阻塞流).
     直到bfs中找不到s->t的路径, 则退出训练. 找到的为最大流. 
-    复杂度: Ot(mn^2)
+    复杂度: Ot(mn^2) ? (我感觉是O(nm), bfs, dfs复杂度O(m), 最多循环n次)
 
 最小割: 最小割=最大流.
 """
@@ -267,6 +268,7 @@ class Dinic:
     def _bfs(self, s: int, t: int) -> List[int]:
         """
         return: level. 若level[t]==-1, 则表示未找到s->t的路径
+        复杂度: O(m)
         """
         n = len(self.rg)
         level = [-1] * n
@@ -299,6 +301,7 @@ class Dinic:
         cur: 用于当前弧优化. 即每个顶点的每条边, 一次dfs只会遍历一次. 
             这在二部图匹配中无作用, 但在最大流中有用. 
         return: 后面流的大小, 即消耗的流.
+        复杂度: O(m)? 我不知道O(mn)怎么来的.
         """
         if v == t:
             return flow
@@ -366,7 +369,7 @@ def _find(graph: List[List[int]], s: int, visited: List[bool], matching: List[in
     return: 是否成功找到
     """
     if visited[s]:
-       return False 
+        return False
     visited[s] = True
     for v in graph[s]:
         # v未匹配, 或matching[v]可以挪位置
@@ -384,6 +387,10 @@ def hungarian(graph: List[List[int]]) -> int:
     -: 不断遍历每一个节点, 对于每一个节点, 采用回溯法. 
         若可以匹配, 则返回. 若不能匹配, 则令已经匹配的点依次挪位置
     复杂度: O(nm)
+    Ref: https://www.bilibili.com/video/BV1Wx411L7Di/
+    Test Ref: 
+        https://leetcode.cn/problems/maximum-students-taking-exam/
+        https://leetcode.cn/problems/broken-board-dominoes/
     """
     res = 0
     n = len(graph)
@@ -393,4 +400,32 @@ def hungarian(graph: List[List[int]]) -> int:
         visited = [False] * n
         if _find(graph, s, visited, matching):
             res += 1
+    return res
+
+
+def topo_sort(graph: List[List[int]]) -> List[int]:
+    """若不存在拓扑排序, 则返回空List
+    -: 不断将入度为0的节点加入dq
+    Test Ref: https://leetcode.cn/problems/course-schedule-ii/
+    """
+    n = len(graph)
+    in_degree = [0] * n
+    for v in range(n):
+        for v2 in graph[v]:
+            in_degree[v2] += 1
+    #
+    dq = deque()
+    for i, in_d in enumerate(in_degree):
+        if in_d == 0:
+            dq.append(i)
+    res = []
+    while len(dq) > 0:
+        v = dq.popleft()
+        res.append(v)
+        for v2 in graph[v]:
+            in_degree[v2] -= 1
+            if in_degree[v2] == 0:
+                dq.append(v2)
+    if len(res) != n:
+        res = []
     return res

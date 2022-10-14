@@ -116,7 +116,7 @@ if __name__ == "__main__":
 """
 
 
-class LazySegmentTree:
+class LazySegmentTree(SegmentTree):
     """(左偏树)
     Test Ref(diff_style=False): https://leetcode.cn/problems/QO5KpG/
         python会超时, 这里只是为了验证算法正确性. cpp下可以通过.
@@ -124,7 +124,7 @@ class LazySegmentTree:
 
     def __init__(self, nums: Union[List[int], int], diff_style: bool = True) -> None:
         """
-        lazy_tag[i]: 表示以i为树根的子树. 树根已更新, 但左右树未更新.
+        lazy_tag[i]: 表示以i为树根的子树. 树根已更新(note), 但左右树未更新.
         """
         self.n = nums if isinstance(nums, int) else len(nums)
         self.diff_style = diff_style
@@ -137,31 +137,12 @@ class LazySegmentTree:
         if not isinstance(nums, int):
             self._build_tree(nums, 0, self.n-1, 0)
 
-    @staticmethod
-    def _get_tree_height(n: int) -> int:
-        """n表示树叶子节点的数量"""
-        return math.ceil(math.log2(n) + 1)
-
-    def _build_tree(self, nums: List[int], t_lo: int, t_hi: int, ti: int) -> int:
-        if t_lo == t_hi:
-            self.tree[ti] = nums[t_lo]
-            return self.tree[ti]
-        #
-        mid = (t_lo + t_hi) // 2
-        # [lo..mid], [mid+1, hi]. [0..2], [3..4]: 左偏树
-        lc = _lc(ti)
-        rc = lc + 1
-        x1 = self._build_tree(nums, t_lo, mid, lc)
-        x2 = self._build_tree(nums, mid+1, t_hi, rc)
-        self.tree[ti] = x1 + x2
-        return self.tree[ti]
-
     def _update_lazy_tag(self, t_lo: int, t_hi: int, ti: int) -> None:
         # lazy tag
         lc = _lc(ti)
         mid = (t_lo + t_hi) // 2
         lazyt = self.lazy_tag[ti]
-        # 
+        #
         if self.diff_style:
             assert lazyt is not None
             if lazyt != 0:
@@ -187,7 +168,7 @@ class LazySegmentTree:
         """
         if lo == t_lo and hi == t_hi:
             return self.tree[ti]
-        
+
         #
         self._update_lazy_tag(t_lo, t_hi, ti)
         lc = _lc(ti)
@@ -199,11 +180,6 @@ class LazySegmentTree:
             res += self._sum_range(max(lo, mid + 1), hi, mid + 1, t_hi, lc + 1)
         return res
 
-    def sum_range(self, lo: int, hi: int) -> int:
-
-        assert 0 <= lo <= hi < self.n
-        return self._sum_range(lo, hi, 0, self.n - 1, 0)
-
     def _update(self, lo: int, hi: int, d_v: int, t_lo: int, t_hi: int, ti: int) -> None:
         """更新tree[ti], lazy_tag[ti].
         -: 将lo, hi进行分割, 直到lo, hi修改完所有的lazy tag. 并顺便更新lazy_tag
@@ -211,7 +187,7 @@ class LazySegmentTree:
         if lo == t_lo and hi == t_hi:
             if ti < len(self.lazy_tag):
                 self.lazy_tag[ti] = d_v
-            # 
+            #
             if self.diff_style:
                 self.tree[ti] += (t_hi - t_lo + 1) * d_v
             else:
@@ -227,11 +203,9 @@ class LazySegmentTree:
             self._update(max(lo, mid + 1), hi, d_v, mid + 1, t_hi, lc + 1)
         self.tree[ti] = self.tree[lc] + self.tree[lc + 1]
 
-
-
-    def update(self, lo: int, hi: int, diff: int) -> None:
+    def update(self, lo: int, hi: int, d_v: int) -> None:
         assert 0 <= lo <= hi < self.n
-        self._update(lo, hi, diff, 0, self.n-1, 0)
+        self._update(lo, hi, d_v, 0, self.n-1, 0)
 
 
 if __name__ == "__main__":
