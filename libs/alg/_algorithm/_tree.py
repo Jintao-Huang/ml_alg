@@ -1,5 +1,5 @@
 
-from ..leetcode_utils import TreeNode
+from .._leetcode_utils import TreeNode
 from typing import List, Optional
 __all__ = ["preorder_traversal", "inorder_traversal", "postorder_traversal"]
 

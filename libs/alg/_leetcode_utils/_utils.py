@@ -143,12 +143,12 @@ def call_callable_list(callable_list: List[str], args_list: List[List[T]], globa
     思路: 循环callable_list, args_list. 获取callable_str, args. 并从globals获取callable_obj. 并获取res
     """
     res = []
-    globals = globals.copy()
+    g = globals.copy()
     for callable_str, args in zip(callable_list, args_list):
-        callable_obj = globals[callable_str]
+        callable_obj = g[callable_str]
         r = callable_obj(*args)
         if isinstance(callable_obj, type):
-            globals.update({k: partial(v, r) for k, v in callable_obj.__dict__.items() if callable(v)})
+            g.update({k: partial(v, r) for k, v in callable_obj.__dict__.items() if callable(v)})
         res.append(r)
     return res
 

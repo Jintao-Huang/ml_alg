@@ -22,6 +22,7 @@ class LinkedListNode(Generic[T]):
 class LinkedList(Generic[T]):
     """循环双向链表
     -: 刚开始的使用头尾两个哑节点相接
+    特点: 删除节点: O(1). 可用于实现OrderedDict. 
     Test Ref: MyOrderedDict: https://leetcode.cn/problems/lru-cache/
     """
 
@@ -95,7 +96,7 @@ class LinkedList(Generic[T]):
         res = []
         for x in self:
             res.append(x)
-        return f"{self.__class__.__name__}({res})"
+        return f"{self.__class__.__name__}({res!r})"
 
     def __len__(self) -> int:
         return self._len
