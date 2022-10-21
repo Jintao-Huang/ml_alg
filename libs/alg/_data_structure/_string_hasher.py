@@ -1,4 +1,7 @@
-
+try:
+    from .._algorithm._utils import accumulate
+except ImportError:
+    from libs.alg import accumulate
 
 __all__ = ["StringHasher"]
 
@@ -20,16 +23,9 @@ class StringHasher:
         self.max_char = ord(max_char)
         base_o = self.max_char - self.min_char + 2
         self.mod = mod
-        self.prefix_sum = [0]  # ps[0] 表示空字符串. (n+1个)
-        for i in range(n):
-            ps = self.prefix_sum[-1]
-            c = ord(s[i]) - self.min_char + 1
-            self.prefix_sum.append((ps * base_o + c) % mod)
         #
-        self.base = [1]  # diff. 存储从0..n-1的base. (n个)
-        for _ in range(1, n):
-            b = self.base[-1]
-            self.base.append(b * base_o % mod)
+        self.prefix_sum = accumulate(s, lambda x, y: (x * base_o + (ord(y) - self.min_char + 1) % mod), [0])
+        self.base = accumulate(range(n - 1), lambda b, _: ((b * base_o) % mod), [1])
 
     def get_hash(self, lo: int, hi: int) -> int:
         """[lo,hi)"""
@@ -43,6 +39,6 @@ class StringHasher:
 
 if __name__ == "__main__":
     sh = StringHasher("abc")
-    print(sh.prefix_sum,  sh.base)
+    print(sh.prefix_sum, sh.base)
     print(sh.get_hash(2, 3))
     print(sh.get_hash(1, 3))  # 2*27+3

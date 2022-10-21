@@ -132,24 +132,24 @@ if __name__ == "__main__":
     ml.test_time(lambda: heapify2(l), 10)
 
 
-def heap_sort(arr: List[T]) -> None:
+def heap_sort(nums: List[T]) -> None:
     """从大到小排序. Os(1)
     -: 建最小堆. 然后将不断将最大元素放到后面(交换), 并下滤. 
     """
-    heapify(arr)
-    for i in reversed(range(1, len(arr))):
-        arr[0], arr[i] = arr[i], arr[0]
-        siftdown(arr, 0, i - 1)
+    heapify(nums)
+    for i in reversed(range(1, len(nums))):
+        nums[0], nums[i] = nums[i], nums[0]
+        siftdown(nums, 0, i - 1)
 
 
-def heap_sort2(arr: List[T]) -> None:
+def heap_sort2(nums: List[T]) -> None:
     """从大到小排序. Os(1)
     -: 建最小堆. 然后将不断将最大元素放到后面(交换), 并下滤. 
     """
-    heapify(arr)
-    for i in reversed(range(1, len(arr))):
-        arr[0], arr[i] = arr[i], arr[0]
-        siftdown2(arr, 0, i - 1)
+    heapify(nums)
+    for i in reversed(range(1, len(nums))):
+        nums[0], nums[i] = nums[i], nums[0]
+        siftdown2(nums, 0, i - 1)
 
 
 """使用heapq实现的版本见sort.py"""

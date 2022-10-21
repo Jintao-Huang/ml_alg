@@ -5,7 +5,7 @@ __all__ = ["dict_sorted_key", "unique", "flatten_list"]
 
 
 def dict_sorted_key(d: Dict[int, int]) -> Dict[int, int]:
-    """不通过sort value进行输出, 而是通过sort key
+    """不通过sort value进行输出, 而是通过sort key. (not inplace)
     -: 将keys进行排序, 按k的顺序输出res. 
     """
     keys = sorted(d.keys())

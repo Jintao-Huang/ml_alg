@@ -57,16 +57,16 @@ def heappushpop_max(heap: List[T], x: T) -> T:
     return x
 
 
-def heap_sort(arr: List[T], dst: List[T], reversed: bool = False) -> None:
+def heap_sort(nums: List[T], dst: List[T], reversed: bool = False) -> None:
     if reversed:
         _heapify = heapify_max
         _heappop = heappop_max
     else:  # 从小到大
         _heapify = heapify
         _heappop = heappop
-    _heapify(arr)
-    for _ in range(len(arr)):
-        dst.append(_heappop(arr))
+    _heapify(nums)
+    for _ in range(len(nums)):
+        dst.append(_heappop(nums))
 
 
 if __name__ == "__main__":

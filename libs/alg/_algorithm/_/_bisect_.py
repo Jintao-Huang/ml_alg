@@ -6,72 +6,72 @@ __all__ = []
 T = TypeVar("T")
 
 
-def bisect_left(arr: List[T], x: T, lo: int = 0, hi: Optional[int] = None) -> int:
+def bisect_left(nums: List[T], x: T, lo: int = 0, hi: Optional[int] = None) -> int:
     """[lo..hi).
     -: 找到res(i), 使得res是最小的>=x的值
     Test Ref: https://leetcode.cn/problems/search-insert-position/
     """
     if hi is None:
-        hi = len(arr)
+        hi = len(nums)
     #
     while lo < hi:
         mid = (lo + hi) // 2
-        if arr[mid] >= x:  # 找满足该条件的mid的下界, 即为res
+        if nums[mid] >= x:  # 找满足该条件的mid的下界, 即为res
             hi = mid
         else:
             lo = mid + 1
     return lo
 
 
-def bisect_right(arr: List[T], x: T, lo: int = 0, hi: Optional[int] = None) -> int:
+def bisect_right(nums: List[T], x: T, lo: int = 0, hi: Optional[int] = None) -> int:
     """[lo..hi).
     -: 找到res(i), 使得res是最小的>x的值
     """
     if hi is None:
-        hi = len(arr)
+        hi = len(nums)
     #
     lo -= 1
     hi -= 1
     while lo < hi:
         mid = (lo + hi) // 2
-        if arr[mid] > x:
+        if nums[mid] > x:
             hi = mid
         else:
             lo = mid + 1
     return lo
 
 
-def bisect_left2(arr: List[T], x: T, lo: int = 0, hi: Optional[int] = None) -> int:
+def bisect_left2(nums: List[T], x: T, lo: int = 0, hi: Optional[int] = None) -> int:
     """[lo..hi).
     -: 找到res(i), 使得res是最大<x的值 + 1
     Test Ref: https://leetcode.cn/problems/search-insert-position/
     """
     if hi is None:
-        hi = len(arr)
+        hi = len(nums)
     #
     lo -= 1
     hi -= 1
     while lo < hi:
         mid = (lo + hi + 1) // 2
-        if arr[mid] < x:  # 找满足该条件的mid的上界
+        if nums[mid] < x:  # 找满足该条件的mid的上界
             lo = mid
         else:
             hi = mid - 1
     return lo + 1
 
 
-def bisect_right2(arr: List[T], x: T, lo: int = 0, hi: Optional[int] = None) -> int:
+def bisect_right2(nums: List[T], x: T, lo: int = 0, hi: Optional[int] = None) -> int:
     """[lo..hi).
     -: 找到res(i), 使得res是最大的<=x的值 + 1
     """
     if hi is None:
-        hi = len(arr)
+        hi = len(nums)
     #
     lo -= 1
     hi -= 1
     while lo < hi:
         mid = (lo + hi + 1) // 2
-        if arr[mid] <= x:
+        if nums[mid] <= x:
             lo = mid
         else:
             hi = mid - 1
