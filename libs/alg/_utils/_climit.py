@@ -1,4 +1,2 @@
-INT32_MAX = 0x7fff_ffff
-INT64_MAX = 0x7fff_ffff_ffff_ffff
-INT32_MIN = 0x8000_0000
-INT64_MIN = 0x8000_0000_0000_0000
+INT32_INF = int(1e9)
+INT64_INF = int(1e18)

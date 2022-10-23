@@ -40,6 +40,9 @@ def accumulate(
     res: Optional[List[int]] = None,
     start: int = 0
 ) -> List[int]:
+    """
+    Test Ref: _data_structure/_string_hasher.py
+    """
     if accumulate_func is None:
         accumulate_func: Callable[[T, int], int] = lambda x, y: x + y
     if res is None:

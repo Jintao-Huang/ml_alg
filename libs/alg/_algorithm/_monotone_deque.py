@@ -1,15 +1,17 @@
 from typing import List, Iterable, Callable, Tuple
 from collections import deque
 try:
-    from .._utils._climit import INT32_MAX
+    from .._utils._climit import INT32_INF
 except ImportError:
-    from libs.alg import INT32_MAX
+    from libs.alg import INT32_INF
 __all__ = [
-    "next_gt", "prev_gt", "next_lt", "next_ge",
-    "next_gt2", "next_ge_prev_gt",
+    "next_gt", "prev_gt", "next_lt", "prev_lt", "next_ge",
+    "next_gt2",
+    "next_ge_prev_gt",
     "next_ge_min",
     "next_k_max", "prev_k_max", "next_k_min",
-    "next_ge_k_len", "prev_le_k_len"
+    "next_ge_k_len", "prev_le_k_len",
+    "largest_rect"
 ]
 
 
@@ -76,8 +78,17 @@ def prev_gt(nums: List[int]) -> List[int]:
 
 
 def next_lt(nums: List[int]) -> List[int]:
-    """(逆向; 递增栈)"""
+    """(逆向; 递增栈)
+    Test Ref: https://leetcode.cn/problems/largest-rectangle-in-histogram/
+    """
     return _1(nums, lambda n: reversed(range(n)), lambda x, y: x >= y)
+
+
+def prev_lt(nums: List[int]) -> List[int]:
+    """(正向; 递增栈)
+    Test Ref: https://leetcode.cn/problems/largest-rectangle-in-histogram/
+    """
+    return _1(nums, lambda n: range(n), lambda x, y: x >= y)
 
 
 def next_ge(nums: List[int]) -> List[int]:
@@ -86,7 +97,10 @@ def next_ge(nums: List[int]) -> List[int]:
 
 
 def next_ge_prev_gt(nums: List[int]) -> Tuple[List[int], List[int]]:
-    """(逆向; 非递增栈). 同时"""
+    """(逆向; 非递增栈). 同时
+    Test Ref: https://leetcode.cn/problems/trapping-rain-water/
+        当然可以分开求, 只是速度会慢一点.
+    """
     return _3(nums, lambda n: reversed(range(n)), lambda x, y: x < y)
 
 
@@ -170,7 +184,7 @@ def _5(
 ) -> int:
     assert k > 0
     n = len(nums)
-    res = INT32_MAX
+    res = INT32_INF
     dq = deque()
     for i in iter_range(n):
         x = nums[i]
@@ -180,7 +194,7 @@ def _5(
             res = min(res, abs(i - dq.popleft()))
         #
         dq.append(i)
-    if res == INT32_MAX:
+    if res == INT32_INF:
         res = -1
     return res
 
@@ -208,3 +222,29 @@ if __name__ == "__main__":
     print(prev_le_k_len(nums, 1))
     print(prev_le_k_len(nums, 2))
     print(prev_le_k_len(nums, 3))
+
+
+def largest_rect(nums: List[int]) -> int:
+    """
+    Test Ref: https://leetcode.cn/problems/largest-rectangle-in-histogram/
+        https://leetcode.cn/problems/maximal-rectangle/
+    """
+    nlt = next_lt(nums)
+    plt = prev_lt(nums)
+    n = len(nums)
+    res = 0
+    for i in range(n):
+        j = nlt[i]
+        k = plt[i]
+        if j == -1:
+            j = n
+        if k == -1:
+            k = -1
+        w = j - k - 1
+        res = max(res, nums[i] * w)
+    return res
+
+
+if __name__ == "__main__":
+    heights = [2, 1, 2]
+    print(largest_rect(heights))
