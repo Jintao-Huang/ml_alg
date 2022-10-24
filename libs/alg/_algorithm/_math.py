@@ -14,7 +14,7 @@ __all__ = ["gcd", "lcm", "factorial", "comb", "perm",
 def _gcd(x: int,  y: int) -> int:
     """辗转相除法: Ref: https://zh.m.wikipedia.org/zh-hans/%E8%BC%BE%E8%BD%89%E7%9B%B8%E9%99%A4%E6%B3%95#%E8%AE%A1%E7%AE%97%E6%9C%BA%E5%AE%9E%E7%8E%B0
     思路: 使用辗转相除法. 使用x mod y. 直到y==0. 
-    Test Ref: 分子分母约分: https://leetcode.cn/problems/deep-dark-fraction/submissions/
+    Test Ref: 分子分母约分: https://leetcode.cn/problems/deep-dark-fraction
     """
     while y > 0:
         x, y = y, x % y

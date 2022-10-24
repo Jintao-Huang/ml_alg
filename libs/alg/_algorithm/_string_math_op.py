@@ -2,7 +2,7 @@
 from typing import Dict, List, Tuple
 
 
-__all__ = ["string_add", "string_mul"]
+__all__ = ["string_add", "string_mul", "string_to_int"]
 
 
 def _string_add(x1: List[int], x2: List[int]) -> List[int]:
@@ -84,3 +84,21 @@ if __name__ == "__main__":
     num1 = "0"
     num2 = "0"
     print(string_mul(num1, num2))
+
+
+def string_to_int(s: str) -> int:
+    """
+    Test Ref: https://leetcode.cn/problems/string-to-integer-atoi/
+    """
+    n = len(s)
+    res = 0
+    ord_0 = ord('0')
+    for i in range(n):
+        res *= 10
+        res += ord(s[i]) - ord_0
+    return res
+
+
+if __name__ == "__main__":
+    s = "42"
+    print(string_to_int(s))

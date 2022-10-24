@@ -14,9 +14,9 @@
    2. `_metrics.py`: ml的metrics的torch实现
    3. `_optim_functional.py`: ml中的优化器的实现
 4. `libs/utils/*`: 一些工具函数的实现
-5. `libs/alg/*`: 传统算法库. (开发中)
+5. `libs/alg/*`: 传统算法库
    1. 数据结构: 树状数组, 堆, 优先级队列, 可变的优先级队列, 红黑树, 链表, 线段树, Lazy线段树, 字符串哈希, 字典树, 并查集等.
-   2. 算法: 图算法(dijkstra, kruskal, prim, dinic, 匈牙利算法, 拓扑排序), 背包问题, math, 单调栈/队列, 大数运算, 字符串匹配KMP算法等.
+   2. 算法: 图算法(dijkstra, kruskal, prim, dinic, 匈牙利算法, 拓扑排序), 背包问题, math, 单调栈/队列, 大数运算, 字符串匹配KMP算法, 二分法等.
 
 
 

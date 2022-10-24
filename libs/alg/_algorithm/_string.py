@@ -1,6 +1,7 @@
 
-from typing import List
-from typing import List, Optional
+from typing import List, Optional, Union
+
+__all__ = ["kmp", "kmp2", "is_palindromic"]
 
 """KMP
 Ref: https://www.bilibili.com/video/BV1d54y1q7ko
@@ -96,3 +97,19 @@ if __name__ == "__main__":
     print(_build_nextval("aabaab"))
     print(kmp("aabaaabaab", "aabaab"))
     print(kmp2("aabaaabaab", "aabaab"))
+
+
+def is_palindromic(s: Union[str, List[int]]) -> bool:
+    lo, hi = 0, len(s) - 1
+    while lo < hi:
+        if s[lo] != s[hi]:
+            return False
+        lo += 1
+        hi -= 1
+    return True
+
+
+if __name__ == "__main__":
+    print(is_palindromic("12321"))
+    print(is_palindromic("123321"))
+    print(is_palindromic("1211"))

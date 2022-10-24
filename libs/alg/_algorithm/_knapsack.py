@@ -2,12 +2,13 @@ from typing import List, Callable, Iterable, Optional
 try:
     from .._utils._climit import INT32_INF
 except ImportError:  # for debug
-    from libs.alg import INT32_INF
+    from libs.alg._utils._climit import INT32_INF
 
 __all__ = [
     "k01", "k01_full_max", "k01_full_min",
     "kC", "kC_full_max", "kC_full_min",
-    "kC2", "kC_full_max2", "kC_full_min2"
+    "kC2", "kC_full_max2", "kC_full_min2",
+    "kC_full_cnt"
 ]
 
 """
@@ -127,3 +128,24 @@ if __name__ == "__main__":
     print(kC_full_max2(W, C, V))
     print(kC_full_min(W, C, V))
     print(kC_full_min2(W, C, V))
+
+
+def kC_full_cnt(W: List[int], C: int) -> int:
+    """
+    Test Ref: https://leetcode.cn/problems/coin-change-ii/
+    """
+    dp = [0] * (C+1)
+    dp[0] = 1
+    n = len(W)
+    for i in range(n):
+        w = W[i]
+        for j in range(C + 1):
+            if j - w >= 0:
+                dp[j] += dp[j - w]
+    return dp[C]
+
+
+if __name__ == "__main__":
+    amount = 5
+    coins = [1, 2, 5]
+    print(kC_full_cnt(coins, amount))

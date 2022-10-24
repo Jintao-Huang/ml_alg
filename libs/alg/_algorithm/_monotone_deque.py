@@ -3,7 +3,7 @@ from collections import deque
 try:
     from .._utils._climit import INT32_INF
 except ImportError:
-    from libs.alg import INT32_INF
+    from libs.alg._utils._climit import INT32_INF
 __all__ = [
     "next_gt", "prev_gt", "next_lt", "prev_lt", "next_ge",
     "next_gt2",

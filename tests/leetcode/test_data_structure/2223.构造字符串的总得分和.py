@@ -12,22 +12,12 @@ class Solution:
             # lo..hi
             if s[0] != s[n-i]:
                 continue
-            # 二分法: 使用长度作为二分的依据
-            # 最小长度为1, 最大长度为i
-            # 找最长的长度, 使得两字符串相等
-            lo = 1
-            hi = i
-            while lo < hi:
-                mid = (lo + hi + 1) // 2
-                if sh.get_hash(0, mid) == sh.get_hash(n- i, n- i + mid):
-                    lo = mid
-                else:
-                    hi = mid - 1
-            res += lo
+            idx = bs2(1, i, lambda j: sh.get_hash(0, j) == sh.get_hash(n - i, n-i+j))
+            res += idx
         return res
-                    
+
+
 if __name__ == "__main__":
     s = "wozglgylxobrmlutkqyfmoihxenvdrpscksauivgpkfcgevsznwwozglgy"
     print(len(s))
     print(Solution().sumScores(s))
-

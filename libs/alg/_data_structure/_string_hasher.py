@@ -1,7 +1,7 @@
 try:
     from .._algorithm._utils import accumulate
 except ImportError:
-    from libs.alg import accumulate
+    from libs.alg._algorithm._utils import accumulate
 
 __all__ = ["StringHasher"]
 
