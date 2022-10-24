@@ -80,7 +80,7 @@ def dijkstra3(graph: List[Dict[int, int]], s: int) -> List[int]:
     n = len(graph)
     res = [-1] * n
     res[s] = 0
-    pq = MutablePQ[int]()
+    pq = MutablePQ[int, int]()
     pq.add(s, 0)
     #
     while len(pq) > 0:
@@ -195,7 +195,7 @@ def prim2(graph: List[Dict[int, int]], inf=int(1e9)) -> int:
     s = 0
     n = len(graph)
     res = 0
-    pq = MutablePQ[int]()
+    pq = MutablePQ[int, int]()
     pq.heap = [(i, inf) for i in range(n)]
     pq.id_to_idx = {i: i for i in range(n)}
     #

@@ -11,10 +11,10 @@ class Solution:
         edges = []
         n = len(points)
         for i, (x, y) in enumerate(points):
-            p1 = Point(x=x, y=y)
+            p1 = Point(x, y)
             for j in range(i + 1, n):
                 x2, y2 = points[j]
-                p2 = Point(x=x2, y=y2)
+                p2 = Point(x2, y2)
                 dist = manhattan_distance(p1, p2)
                 edges.append(WEdge2(i, j, dist))
 
@@ -29,10 +29,10 @@ class Solution2:
         n = len(points)
         graph = [{} for _ in range(n)]
         for i, (x, y) in enumerate(points):
-            p1 = Point(x=x, y=y)
+            p1 = Point(x, y)
             for j in range(i + 1, n):
                 x2, y2 = points[j]
-                p2 = Point(x=x2, y=y2)
+                p2 = Point(x2, y2)
                 dist = manhattan_distance(p1, p2)
                 graph[i][j] = dist
                 graph[j][i] = dist
@@ -47,10 +47,10 @@ class Solution3:
         n = len(points)
         graph = [{} for _ in range(n)]
         for i, (x, y) in enumerate(points):
-            p1 = Point(x=x, y=y)
+            p1 = Point(x, y)
             for j in range(i + 1, n):
                 x2, y2 = points[j]
-                p2 = Point(x=x2, y=y2)
+                p2 = Point(x2, y2)
                 dist = manhattan_distance(p1, p2)
                 graph[i][j] = dist
                 graph[j][i] = dist

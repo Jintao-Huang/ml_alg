@@ -46,7 +46,10 @@ if __name__ == "__main__":
     print(pq.heap)
 
 
-class MutablePQ(Generic[T]):
+K, V = TypeVar("K"), TypeVar("V")
+
+
+class MutablePQ(Generic[K, V]):
     """小根堆实现: v越小, 优先级越高
     -: 通过唯一标识符id, 优先级v. 得到的优先级队列.
         比PQ增加的功能: 可以通过id, 对v的优先级进行调整
@@ -56,8 +59,8 @@ class MutablePQ(Generic[T]):
     """
 
     def __init__(self) -> None:
-        self.heap: List[Tuple[int, T]] = []  # 存储id
-        self.id_to_idx: Dict[int, int] = {}  # id映射到index
+        self.heap: List[Tuple[K, V]] = []  # 存储id
+        self.id_to_idx: Dict[K, int] = {}  # id映射到index
         # 当然也可以通过id, 获取index后, 从heap中获得优先级v.
 
     def _siftdown(self, i: int, lo: int) -> None:
@@ -107,16 +110,16 @@ class MutablePQ(Generic[T]):
         id_to_idx[x[0]] = i
         self._siftdown(i, lo)
 
-    def _heappush(self, id_: int, v: T) -> None:
+    def _heappush(self, id_: K, v: V) -> None:
         n = len(self.heap)
         self.id_to_idx[id_] = n
         self.heap.append((id_, v))
         self._siftdown(n, 0)
 
-    def add(self, id_: int, v: T):
-        self._heappush(id_, v)
+    def add(self, id: K, v: V):
+        self._heappush(id, v)
 
-    def _heappop(self) -> Tuple[int, T]:
+    def _heappop(self) -> Tuple[K, V]:
         heap = self.heap
         #
         res = heap.pop()
@@ -126,13 +129,13 @@ class MutablePQ(Generic[T]):
         del self.id_to_idx[res[0]]
         return res
 
-    def pop(self) -> Tuple[int, T]:
+    def pop(self) -> Tuple[K, V]:
         return self._heappop()
 
-    def peek(self) -> Tuple[int, T]:
+    def peek(self) -> Tuple[K, V]:
         return self.heap[0]
 
-    def modify_priority(self, id: int, v: T) -> None:
+    def modify_priority(self, id: K, v: V) -> None:
         idx = self.id_to_idx[id]
         _, v_o = self.heap[idx]
         self.heap[idx] = id, v
@@ -141,10 +144,10 @@ class MutablePQ(Generic[T]):
         else:
             self._siftdown(idx, 0)
 
-    def __getitem__(self, id: int) -> T:
+    def __getitem__(self, id: K) -> V:
         return self.heap[self.id_to_idx[id]][1]
 
-    def __contains__(self, id: int) -> bool:
+    def __contains__(self, id: K) -> bool:
         return id in self.id_to_idx
 
     def __len__(self) -> int:

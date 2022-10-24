@@ -4,7 +4,12 @@ try:
     from .._utils._climit import INT32_INF
 except ImportError:
     from libs.alg._utils._climit import INT32_INF
-__all__ = ["LIS", "LIS2", "LCS"]
+__all__ = [
+    "LIS", "LIS2",
+    "LCS", "LCS2",
+    "edit_distance",
+    "matrix_chain", "matrix_chain2"
+]
 
 
 def LIS(nums: List[int]) -> int:
@@ -181,6 +186,7 @@ def _rebuild_matmul(nums: List[int], rb: List[List[int]], i: int, j: int, res: L
     _rebuild_matmul(nums, rb, i, k, res)
     _rebuild_matmul(nums, rb, k, j, res)
     res.append(")")
+
 
 def matrix_chain2(nums: List[int]) -> Tuple[int, str]:
     n = len(nums)

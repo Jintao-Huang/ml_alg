@@ -11,10 +11,10 @@ except ImportError:
 __all__ = [
     "Point", "euclidean_distance", "manhattan_distance",
     "accumulate", "prefix_sum",
-    "quick_select", 
+    "quick_select",
 ]
 
-Point = NamedTuple("Point", x=int, y=int)
+Point = NamedTuple("Point", x1=int, x2=int)
 
 
 def euclidean_distance(p1: Point, p2: Point, square: bool = False) -> float:
@@ -31,8 +31,8 @@ def manhattan_distance(p1: Point, p2: Point) -> int:
 
 
 if __name__ == "__main__":
-    p1 = Point(x=1, y=2)
-    p2 = Point(x=4, y=6)
+    p1 = Point(1, 2)
+    p2 = Point(4, 6)
     print(euclidean_distance(p1, p2))
     print(manhattan_distance(p1, p2))
 
