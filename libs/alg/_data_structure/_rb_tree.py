@@ -36,7 +36,7 @@ class RBTreeNode(Generic[T]):
 
 class RBTree(Generic[T]):
     """
-    Ref: 算法导论
+    Ref: 算法导论: 红黑树
     note: 可重复. 类似于c++的multiset
     """
 

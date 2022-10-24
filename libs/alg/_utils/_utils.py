@@ -1,7 +1,7 @@
 
 from typing import Dict, List, Any, Union, TypeVar
 
-__all__ = ["dict_sorted_key", "unique", "flatten_list"]
+__all__ = ["dict_sorted_key", "unique", "unique2", "flatten_list"]
 
 
 def dict_sorted_key(d: Dict[int, int]) -> Dict[int, int]:
@@ -20,7 +20,8 @@ def dict_sorted_key(d: Dict[int, int]) -> Dict[int, int]:
 
 T = TypeVar("T")
 
-def unique(_list: List[T], keep_order: bool = True) -> List[T]:
+
+def unique(nums: List[T], keep_order: bool = True) -> List[T]:
     """not inplace. 复杂度: O(NLogN)
     -: 先获得mapper: idx(第一个)->elem. 然后将list使用set去重, 变为无序无重的list. 
         再根据mapper进行排序.  
@@ -28,12 +29,12 @@ def unique(_list: List[T], keep_order: bool = True) -> List[T]:
       e.g. [2, 1, 3, 1, 2] -> [2, 1, 3]
     """
     if not keep_order:
-        return list(set(_list))
+        return list(set(nums))
     #
     idx: Dict[Any, int] = {}  # elem -> idx
-    for i in reversed(range(len(_list))):
-        idx[_list[i]] = i
-    res = set(_list)
+    for i in reversed(range(len(nums))):
+        idx[nums[i]] = i
+    res = set(nums)
     return sorted(res, key=lambda x: idx[x])
 
 
@@ -41,6 +42,23 @@ def unique(_list: List[T], keep_order: bool = True) -> List[T]:
 #     x = [2, 1, 3, 1, 2]
 #     print(unique(x))
 #     print(unique(x, keep_order=False))
+
+
+def unique2(nums: List[T]) -> List[T]:
+    """not inplace. 复杂度O(n). 有序数组的unique(即相同数字都聚在一起)"""
+    n = len(nums)
+    if n == 0:
+        return []
+    res = [nums[0]]
+    for i in range(1, n):
+        if nums[i] != nums[i-1]:
+            res.append(nums[i])
+    return res
+
+
+# if __name__ == "__main__":
+#     x = [1, 1, 2, 2, 3]
+#     print(unique2(x))
 
 
 def flatten_list(li: List[Union[List, int]], res: List[int]) -> None:

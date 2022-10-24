@@ -1,5 +1,5 @@
 from ._ import *
-from ._binary_search import *
+from ._search import *
 from ._dp import *
 from ._string_math_op import *
 from ._graph import *

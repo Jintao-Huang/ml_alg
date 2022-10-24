@@ -3,10 +3,15 @@
 from typing import NamedTuple, TypeVar, List, Optional, Callable, Iterable
 import math
 
-
+import random
+try:
+    from ._._sort import partition
+except ImportError:
+    from libs.alg._algorithm._._sort import partition
 __all__ = [
     "Point", "euclidean_distance", "manhattan_distance",
-    "accumulate", "prefix_sum"
+    "accumulate", "prefix_sum",
+    "quick_select", 
 ]
 
 Point = NamedTuple("Point", x=int, y=int)
@@ -66,3 +71,26 @@ if __name__ == "__main__":
     nums = [1, 2, 3, 4]
     print(prefix_sum(nums))
     print(prefix_sum(nums, False))
+
+
+def quick_select(nums: List[int], idx: int) -> int:
+    """顺序统计量
+    Test Ref: https://leetcode.cn/problems/kth-largest-element-in-an-array/
+    """
+    lo, hi = 0, len(nums) - 1
+    assert lo <= idx <= hi
+    while True:
+        r = random.randint(lo, hi)
+        nums[r], nums[lo] = nums[lo], nums[r]
+        pivot = partition(nums, lo, hi)
+        if pivot == idx:
+            return nums[idx]
+        elif idx < pivot:
+            hi = pivot - 1
+        else:
+            lo = pivot + 1
+
+
+if __name__ == "__main__":
+    nums = [1, 3, 5, 7, 9, 8, 6, 4, 2]
+    print(quick_select(nums, 5))

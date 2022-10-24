@@ -1,6 +1,9 @@
-from typing import List
+from typing import List, Tuple
 from bisect import bisect_left
-
+try:
+    from .._utils._climit import INT32_INF
+except ImportError:
+    from libs.alg._utils._climit import INT32_INF
 __all__ = ["LIS", "LIS2", "LCS"]
 
 
@@ -67,10 +70,52 @@ def LCS(s1: str, s2: str) -> int:
     return dp[n][m]
 
 
+def _rebuild_LCS(s1: str, rb: List[List[int]]) -> str:
+    res = []
+    i, j = len(rb) - 1, len(rb[0]) - 1
+    while i > 0 and j > 0:
+        if rb[i][j] == 0:
+            res.append(s1[i - 1])
+            i -= 1
+            j -= 1
+        elif rb[i][j] == 1:
+            i -= 1
+        else:
+            j -= 1
+    return "".join(reversed(res))
+
+
+def LCS2(s1: str, s2: str) -> Tuple[int, str]:
+    """加了返回LCS
+    Ref: 算法导论: 动态规划
+    """
+    n, m = len(s1), len(s2)
+    dp = [[0] * (m + 1) for _ in range(n + 1)]
+    # 0表示同时前进. 1表示s1前进. 2表示s2前进.
+    rb = [[0] * (m + 1) for _ in range(n + 1)]  # rebuild
+    for i in range(n + 1):
+        for j in range(m + 1):
+            if i == 0 or j == 0:
+                dp[i][j] = 0
+                continue
+            if s1[i - 1] == s2[j - 1]:
+                dp[i][j] = dp[i-1][j-1] + 1
+                rb[i][j] = 0
+            elif dp[i - 1][j] > dp[i][j - 1]:
+                dp[i][j] = dp[i - 1][j]
+                rb[i][j] = 1
+            else:
+                dp[i][j] = dp[i][j - 1]
+                rb[i][j] = 2
+
+    return dp[n][m], _rebuild_LCS(s1, rb)
+
+
 if __name__ == "__main__":
     text1 = "abcde"
     text2 = "ace"
     print(LCS(text1, text2))
+    print(LCS2(text1, text2))
 
 
 def edit_distance(s1: str, s2: str) -> int:
@@ -102,3 +147,66 @@ if __name__ == "__main__":
     word1 = "horse"
     word2 = "ros"
     print(edit_distance("horse", "ros"))
+
+
+def matrix_chain(nums: List[int]) -> int:
+    """返回矩阵乘的运算数量
+    Ref: 算法导论: 动态规划
+    -: 10 20 30表示: 10*20,20*30的矩阵乘法. 等于10*20*30
+        dp[i][j]表示i..j的最小乘法数量.
+        dp[i][i]表示i..i, =0, dp[i][i+1]=0
+        dp[i][j]可以使用k遍历i..j. =max(dp[i][k]*dp[k][j]+nums[i]*nums[k]*nums[j])
+    Test Ref: https://blog.csdn.net/luoshixian099/article/details/46344175
+        用于测试
+    """
+    n = len(nums)
+    dp = [[0] * n for _ in range(n)]  # 初始化dp[i][i], dp[i][i+1]
+    #
+    for l in range(2, n):
+        for i in range(n - l):
+            j = i + l
+            dp[i][j] = INT32_INF
+            for k in range(i + 1, j):
+                dp[i][j] = min(dp[i][j], dp[i][k]+dp[k][j]+nums[i]*nums[k]*nums[j])
+    return dp[0][n - 1]
+
+
+def _rebuild_matmul(nums: List[int], rb: List[List[int]], i: int, j: int, res: List[str]) -> None:
+    if i == j - 1:
+        res.append(f"A{i}")
+        return
+
+    k = rb[i][j]
+    res.append("(")
+    _rebuild_matmul(nums, rb, i, k, res)
+    _rebuild_matmul(nums, rb, k, j, res)
+    res.append(")")
+
+def matrix_chain2(nums: List[int]) -> Tuple[int, str]:
+    n = len(nums)
+    dp = [[0] * n for _ in range(n)]
+    rb = [[-1] * n for _ in range(n)]  # rebuild
+    #
+    for l in range(2, n):
+        for i in range(n - l):
+            j = i + l
+            dp[i][j] = INT32_INF
+            for k in range(i + 1, j):
+                v = dp[i][k]+dp[k][j]+nums[i]*nums[k]*nums[j]
+                if v < dp[i][j]:
+                    dp[i][j] = v
+                    rb[i][j] = k
+    # rebuild
+    res = []
+    _rebuild_matmul(nums, rb, 0, n-1, res)
+
+    return dp[0][n - 1], "".join(res)
+
+
+if __name__ == "__main__":
+    mc = [10, 20, 30]
+    print(matrix_chain(mc))
+    print(matrix_chain2(mc))
+    mc = [30, 35, 15, 5, 10, 20, 25]
+    print(matrix_chain(mc))
+    print(matrix_chain2(mc))

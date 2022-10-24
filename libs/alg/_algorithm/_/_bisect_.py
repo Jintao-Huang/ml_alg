@@ -1,9 +1,9 @@
 import bisect
 from typing import List, Optional
 try:
-    from .._binary_search import bs, bs2
+    from .._search import bs, bs2
 except ImportError:  # for debug
-    from libs.alg._algorithm._binary_search import bs, bs2
+    from libs.alg._algorithm._search import bs, bs2
 
 __all__ = []
 

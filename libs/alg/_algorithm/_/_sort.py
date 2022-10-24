@@ -3,7 +3,7 @@ import random
 from typing import TypeVar, List, Any
 from heapq import heapify, heappop
 
-__all__ = ["partition", "quick_sort", "merge_sort"]
+__all__ = ["partition", "quick_sort", "merge", "merge_sort"]
 
 
 def partition(nums: List[Any], lo: int, hi: int) -> int:

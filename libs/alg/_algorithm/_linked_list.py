@@ -1,8 +1,8 @@
-from typing import *
+from typing import Optional
 try:
-    from .._leetcode_utils._utils import ListNode
+    from .._data_structure._ds import ListNode
 except ImportError:
-    from libs.alg._leetcode_utils._utils import ListNode
+    from libs.alg._data_structure._ds import ListNode
 
 __all__ = ["find_mid_node", "reverse_list"]
 
