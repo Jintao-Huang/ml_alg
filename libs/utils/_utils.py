@@ -44,12 +44,6 @@ def download_files(base_url: str, fnames: List[str], save_dir: str):
 
 
 if __name__ == "__main__":
-    import sys
-    import os
-    _ROOT_DIR = "/home/jintao/Desktop/coding/python/ml_alg"
-    if not os.path.isdir(_ROOT_DIR):
-        raise IOError(f"_ROOT_DIR: {_ROOT_DIR}")
-    sys.path.append(_ROOT_DIR)
     from libs import *
 
 # if __name__ == "__main__":

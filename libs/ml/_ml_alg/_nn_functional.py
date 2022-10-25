@@ -49,12 +49,6 @@ silu: x*sigmoid(x)
 gelu: x*phi(x). phi(x)是高斯分布的CDF{近似于sigmoid(1.702x)}
 """
 if __name__ == "__main__":
-    import sys
-    import os
-    _ROOT_DIR = "/home/jintao/Desktop/coding/python/ml_alg"
-    if not os.path.isdir(_ROOT_DIR):
-        raise IOError(f"_ROOT_DIR: {_ROOT_DIR}")
-    sys.path.append(_ROOT_DIR)
     from libs import *
 
 

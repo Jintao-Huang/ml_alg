@@ -113,7 +113,7 @@ def _search_m(matrix: List[List[int]], s: Point, e: Point,
     rb: List[List[int]] = [[-1] * m for _ in range(n)]  # rebuild
     sqrt2 = math.sqrt(2)
     #
-    pq = MutablePQ[Point, float]()
+    pq = MutablePQ[Point, float]()  # 也可以用优先级队列
     pq.add(s, f_cost(s, 0))
     while len(pq) > 0:
         v, _ = pq.pop()

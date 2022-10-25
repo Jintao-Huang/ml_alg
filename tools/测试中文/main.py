@@ -6,10 +6,6 @@ from typing import List, Optional
 IGNORE_DIRS = [".vscode", "runs", "__pycache__", ".git", "build", "mini_lightning.egg-info", "dist", "asset", ".pytest_cache"]
 
 if __name__ == "__main__":
-    _ROOT_DIR = "/home/jintao/Desktop/coding/python/ml_alg"
-    if not os.path.isdir(_ROOT_DIR):
-        raise IOError(f"_ROOT_DIR: {_ROOT_DIR}")
-    sys.path.append(_ROOT_DIR)
     from libs import *
 
 

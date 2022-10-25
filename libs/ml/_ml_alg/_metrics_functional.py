@@ -2,10 +2,16 @@
 # Email: huangjintao@mail.ustc.edu.cn
 # Date:
 
-from typing import Union, Optional, Tuple, Literal
+from typing import Optional, Tuple, Literal
 from torch import Tensor
 import torch
-__all__ = []
+__all__ = [
+    "accuracy", "confusion_matrix",
+    "precision_recall_fscore", "precision_score", "recall_score", "fbeta_score", "f1_score",
+    "precision_recall_curve", "average_precision_score", "roc_curve", "roc_auc_score",
+    "r2_score", "pairwise_cosine_similarity", "pairwise_euclidean_distance",
+    "mean_squared_error",
+]
 
 # y_pred在前, 保持与torch的loss一致
 
@@ -30,16 +36,10 @@ f_beta = (1+beta^2)*prec*recall/ ((beta^2)*prec + recall)
   (1+beta^2)/f1 = 1/prec + beta^2/recall
 """
 if __name__ == "__main__":
-    import sys
-    import os
-    _ROOT_DIR = "/home/jintao/Desktop/coding/python/ml_alg"
-    if not os.path.isdir(_ROOT_DIR):
-        raise IOError(f"_ROOT_DIR: {_ROOT_DIR}")
-    sys.path.append(_ROOT_DIR)
     from libs import *
 
 
-def accuracy_score(y_pred: Tensor, y_true: Tensor) -> Tensor:
+def accuracy(y_pred: Tensor, y_true: Tensor) -> Tensor:
     """
     y_pred: Tensor[long]. shape[N]
     y_true: Tensor[long]. shape[N]
@@ -48,25 +48,26 @@ def accuracy_score(y_pred: Tensor, y_true: Tensor) -> Tensor:
     return torch.count_nonzero(y_true == y_pred) / y_pred.shape[0]
 
 
-# if __name__ == "__main__":
-#     from torchmetrics.functional.classification.accuracy import accuracy
-#     preds = torch.randint(0, 10, (1000,))
-#     target = torch.randint(0, 10, (1000,))
-#     y = accuracy_score(preds, target)
-#     y2 = accuracy(preds, target)
-#     print(y, y2)
-#     #
-#     from torchmetrics.classification.accuracy import Accuracy
-#     acc_metric = Accuracy()
-#     from torch.utils.data import TensorDataset, DataLoader
-#     td = TensorDataset(preds, target)
-#     loader = DataLoader(td, batch_size=16, shuffle=True)
-#     for p, t in loader:
-#         # acc_metric(p, t)
-#         acc_metric.update(p, t)
-#     print(acc_metric.compute())
+if __name__ == "__main__":
+    from torchmetrics.functional.classification.accuracy import accuracy as _accuracy
+    preds = torch.randint(0, 10, (1000,))
+    target = torch.randint(0, 10, (1000,))
+    y = accuracy(preds, target)
+    y2 = _accuracy(preds, target)
+    print(y, y2)
+    #
+    from torchmetrics.classification.accuracy import Accuracy
+    acc_metric = Accuracy()
+    from torch.utils.data import TensorDataset, DataLoader
+    td = TensorDataset(preds, target)
+    loader = DataLoader(td, batch_size=16, shuffle=True)
+    for p, t in loader:
+        # acc_metric(p, t)
+        acc_metric.update(p, t)
+    print(acc_metric.compute())
 
-def confusion_matrix(y_pred: Tensor, y_true: Tensor,
+
+def confusion_matrix(y_pred: Tensor, y_true: Tensor, num_classes: int = -1,
                      normalize: Literal["true", "pred", "all", None] = None) -> Tensor:
     """
     y_pred: Tensor[long]. shape[N]
@@ -76,7 +77,7 @@ def confusion_matrix(y_pred: Tensor, y_true: Tensor,
     return: shape[N, N]. Tensor[long/float]
     """
     # 横向: true; 竖向: pred. e.g. c[1,2]:t=1,p=2
-    n_labels = int(y_true.max().item()) + 1
+    n_labels = int(y_true.max().item()) + 1 if num_classes == -1 else num_classes
     # 遍历y_pred, y_true. 每次cm[t][p] += 1
     #   使用向量化技巧: y_pred, y_true -> x, 然后对x进行计数.
     x = y_true * n_labels + y_pred
@@ -173,6 +174,7 @@ def f1_score(y_pred: Tensor, y_true: Tensor, average: Literal["micro", "macro", 
 
 
 if __name__ == "__main__":
+    print()
     from torchmetrics.functional.classification.f_beta import f1_score as _f1_score, fbeta_score as _fbeta_score
     from torchmetrics.functional.classification.precision_recall import precision_recall
     preds = torch.randint(0, 2, (1000,))
@@ -209,12 +211,13 @@ if __name__ == "__main__":
     print(_fbeta_score(preds, target, 1, "macro", num_classes=num_classes))
     print(precision_recall(preds, target, "macro", num_classes=num_classes))
     print(precision_recall_fscore(preds, target, 1, "macro"))
-    print()
+
 
 if __name__ == "__main__":
+    print()
     y_true = torch.tensor([0, 1, 3, 3, 1], device='cuda')
     y_pred = torch.tensor([0, 2, 1, 3, 1], device='cuda')
-    print(accuracy_score(y_pred, y_true))
+    print(accuracy(y_pred, y_true))
     print(confusion_matrix(y_pred, y_true))
     print(precision_recall_fscore(y_pred, y_true))
     print(precision_recall_fscore(y_pred, y_true, average="micro"))
@@ -227,9 +230,8 @@ if __name__ == "__main__":
     print(precision_recall_fscore_support(y_true, y_pred, average="micro", zero_division=0))
     print(precision_recall_fscore_support(y_true, y_pred, average="macro", zero_division=0))
     print()
-
-
 #
+
 
 def _calculate_tps_fps(y_score: Tensor, y_true: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
     """返回tps, fps, threshold. y_score可以未排序. (只适用于2分类任务)
@@ -295,7 +297,7 @@ if __name__ == "__main__":
     print(average_precision(y_score, y_true))
     print(average_precision_score(y_score, y_true))
     print()
-    from torchmetrics.classification.avg_precision import AveragePrecision
+    from torchmetrics.classification.average_precision import AveragePrecision
     ap_metric = AveragePrecision()
     from torch.utils.data import TensorDataset, DataLoader
     td = TensorDataset(y_score, y_true)
@@ -307,25 +309,25 @@ if __name__ == "__main__":
     print()
 
 
-# if __name__ == "__main__":
-#     from sklearn.metrics import precision_recall_curve as _precision_recall_curve, \
-#         average_precision_score as _average_precision_score
-#     y_score = torch.rand(1000)
-#     y_true = torch.randint(0, 2, (1000,)).long()
-#     b = libs_ml.test_time(
-#         lambda: average_precision_score(y_score, y_true), number=10)
-#     b2 = libs_ml.test_time(
-#         lambda: _average_precision_score(y_true, y_score), number=10)
-#     print(torch.allclose(b, torch.tensor(b2, dtype=torch.float)))
-#     #
-#     y_score = torch.tensor([0.1, 0.2, 0.2, 0.5, 0.5, 0.5, 0.7, 0.8, 0.9, 0.97])
-#     y_true = torch.randint(0, 2, (10,))
-#     a = libs_ml.test_time(
-#         lambda: precision_recall_curve(y_score, y_true), number=10)
-#     a2 = libs_ml.test_time(
-#         lambda: _precision_recall_curve(y_true, y_score), number=10)
-#     print(a)
-#     print(a2)
+if __name__ == "__main__":
+    from sklearn.metrics import precision_recall_curve as _precision_recall_curve, \
+        average_precision_score as _average_precision_score
+    y_score = torch.rand(1000)
+    y_true = torch.randint(0, 2, (1000,)).long()
+    b = libs_ml.test_time(
+        lambda: average_precision_score(y_score, y_true), number=10)
+    b2 = libs_ml.test_time(
+        lambda: _average_precision_score(y_true, y_score), number=10)
+    print(torch.allclose(b, torch.tensor(b2, dtype=torch.float)))
+    #
+    y_score = torch.tensor([0.1, 0.2, 0.2, 0.5, 0.5, 0.5, 0.7, 0.8, 0.9, 0.97])
+    y_true = torch.randint(0, 2, (10,))
+    a = libs_ml.test_time(
+        lambda: precision_recall_curve(y_score, y_true), number=10)
+    a2 = libs_ml.test_time(
+        lambda: _precision_recall_curve(y_true, y_score), number=10)
+    print(a)
+    print(a2)
 
 
 if __name__ == "__main__":
@@ -394,38 +396,38 @@ if __name__ == "__main__":
     print(auroc_metric.compute())
 
 
-# if __name__ == "__main__":
-#     from sklearn.metrics import roc_auc_score as _roc_auc_score, roc_curve as _roc_curve
-#     # y_score = torch.rand(1000)
-#     # y_true = torch.randint(0, 2, (1000,)).long()
-#     # a = libs_ml.test_time(
-#     #     lambda: roc_auc_score(y_score, y_true), number=10)
-#     # a2 = libs_ml.test_time(
-#     #     lambda: _roc_auc_score(y_true, y_score), number=10)
-#     # print(torch.allclose(a, torch.tensor(a2, dtype=torch.float)))
+if __name__ == "__main__":
+    from sklearn.metrics import roc_auc_score as _roc_auc_score, roc_curve as _roc_curve
+    y_score = torch.rand(1000)
+    y_true = torch.randint(0, 2, (1000,)).long()
+    a = libs_ml.test_time(
+        lambda: roc_auc_score(y_score, y_true), number=10)
+    a2 = libs_ml.test_time(
+        lambda: _roc_auc_score(y_true, y_score), number=10)
+    print(torch.allclose(a, torch.tensor(a2, dtype=torch.float)))
 
-#     #
-#     y_score = torch.tensor([0.1, 0.2, 0.2, 0.5, 0.5, 0.5, 0.7, 0.8, 0.9, 0.97])
-#     y_true = torch.randint(0, 2, (10,))
+    #
+    y_score = torch.tensor([0.1, 0.2, 0.2, 0.5, 0.5, 0.5, 0.7, 0.8, 0.9, 0.97])
+    y_true = torch.randint(0, 2, (10,))
 
-#     b = libs_ml.test_time(
-#         lambda: roc_curve(y_score, y_true), number=10)
-#     b2 = libs_ml.test_time(
-#         lambda: _roc_curve(y_true, y_score), number=10)
-#     print(b)
-#     print(b2)
-#     #
+    b = libs_ml.test_time(
+        lambda: roc_curve(y_score, y_true), number=10)
+    b2 = libs_ml.test_time(
+        lambda: _roc_curve(y_true, y_score), number=10)
+    print(b)
+    print(b2)
+    #
 
-#     def plot_roc_curve(tpr, fpr, fpath):
-#         fig, ax = plt.subplots(figsize=(10, 8))
-#         libs_ml.config_ax(ax, title="ROC Curve", xlabel="FPR",
-#                           ylabel="TPR", xlim=(0, 1), ylim=(0, 1))
-#         ax.plot(r, p)
-#         plt.savefig(fpath, dpi=200, bbox_inches='tight')
-#     tpr, fpr, _ = roc_curve(y_score, y_true)
-#     plot_roc_curve(tpr, fpr, "runs/images/4.png")
-#     tpr, fpr, _ = _roc_curve(y_true, y_score)
-#     plot_roc_curve(tpr, fpr, "runs/images/5.png")
+    def plot_roc_curve(tpr, fpr, fpath):
+        fig, ax = plt.subplots(figsize=(10, 8))
+        libs_ml.config_ax(ax, title="ROC Curve", xlabel="FPR",
+                          ylabel="TPR", xlim=(0, 1), ylim=(0, 1))
+        ax.plot(tpr, fpr)
+        plt.savefig(fpath, dpi=200, bbox_inches='tight')
+    tpr, fpr, _ = roc_curve(y_score, y_true)
+    plot_roc_curve(tpr, fpr, "asset/images/4.png")
+    fpr, tpr, _ = _roc_curve(y_true, y_score)
+    plot_roc_curve(tpr, fpr, "asset/images/5.png")
 
 
 def r2_score(y_pred: Tensor, y_true: Tensor) -> Tensor:
@@ -459,7 +461,7 @@ if __name__ == "__main__":
     print(r2_score2(y_pred, y_true).item())
 
 
-def cosine_similarity(X: Tensor, Y: Tensor) -> Tensor:
+def pairwise_cosine_similarity(X: Tensor, Y: Tensor) -> Tensor:
     """
     X: shape[N1, F]. Tensor[float]
     Y: shape[N2, F]. Tensor[float]
@@ -473,18 +475,21 @@ def cosine_similarity(X: Tensor, Y: Tensor) -> Tensor:
 
 if __name__ == "__main__":
     from sklearn.metrics.pairwise import cosine_similarity as _cosine_similarity
-    from torchmetrics.functional.pairwise.cosine import pairwise_cosine_similarity
+    from torchmetrics.functional.pairwise.cosine import pairwise_cosine_similarity as _pairwise_cosine_similarity
     x = torch.rand(100, 100)
     y = torch.rand(20, 100)
     z = pairwise_cosine_similarity(x, y)
     z2 = torch.from_numpy(_cosine_similarity(x, y))
-    z3 = cosine_similarity(x, y)
+    z3 = _pairwise_cosine_similarity(x, y)
     print(torch.allclose(z, z2, atol=1e-6))
     print(torch.allclose(z2, z3, atol=1e-6))
 
 
-def euclidean_distances(X: Tensor, Y: Tensor, XX: Optional[Tensor] = None, YY: Optional[Tensor] = None,
-                        squared: bool = False) -> Tensor:
+def pairwise_euclidean_distance(
+    X: Tensor, Y: Tensor,
+    XX: Optional[Tensor] = None, YY: Optional[Tensor] = None,
+    squared: bool = False
+) -> Tensor:
     """
     X: shape[N1, F]. Tensor[float]
     Y: shape[N2, F]. Tensor[float]
@@ -506,51 +511,51 @@ def euclidean_distances(X: Tensor, Y: Tensor, XX: Optional[Tensor] = None, YY: O
 
 
 if __name__ == "__main__":
-    from torchmetrics.functional.pairwise.euclidean import pairwise_euclidean_distance
+    from torchmetrics.functional.pairwise.euclidean import pairwise_euclidean_distance as _pairwise_euclidean_distance
     x = torch.randn(16, 10)
     x2 = torch.randn(32, 10)
     y1 = pairwise_euclidean_distance(x, x2)
-    y2 = euclidean_distances(x, x2)
+    y2 = _pairwise_euclidean_distance(x, x2)
     print(torch.allclose(y1, y2))  # True
 
-# if __name__ == "__main__":
-#     # test einsum 的speed
-#     X = torch.randn(2000, 2000)
-#     Y = X.T.contiguous()
-#     a = libs_ml.test_time(lambda: X@Y)
-#     a = libs_ml.test_time(lambda: X@X.T)
-#     Y = X.T.contiguous()
-#     b = libs_ml.test_time(lambda: torch.einsum("ij,ij->i", X, Y))
-#     c = libs_ml.test_time(lambda: torch.einsum("ij,ji->i", X, X))  # 慢!
-#     print(torch.allclose(b, c, rtol=1e-4, atol=1e-4))
-#     #
-#     print()
-#     libs_ml.test_time(lambda: torch.einsum("ij,ij->ij", X, Y))
-#     libs_ml.test_time(lambda: X ** 2)  # 慢!
-#     libs_ml.test_time(lambda: X * X)
+if __name__ == "__main__":
+    # test einsum 的speed
+    X = torch.randn(2000, 2000)
+    Y = X.T.contiguous()
+    a = libs_ml.test_time(lambda: X@Y)
+    a = libs_ml.test_time(lambda: X@X.T)
+    Y = X.T.contiguous()
+    b = libs_ml.test_time(lambda: torch.einsum("ij,ij->i", X, Y))
+    c = libs_ml.test_time(lambda: torch.einsum("ij,ji->i", X, X))  # 慢!
+    print(torch.allclose(b, c, rtol=1e-4, atol=1e-4))
+    #
+    print()
+    libs_ml.test_time(lambda: torch.einsum("ij,ij->ij", X, Y))
+    libs_ml.test_time(lambda: X ** 2)  # 慢!
+    libs_ml.test_time(lambda: X * X)
 
-# if __name__ == "__main__":
-#     # test inplace. 速度类似. 见max
-#     X = torch.randn(2000, 2000)
-#     libs_ml.test_time(lambda: torch.sqrt(X), number=1)
-#     libs_ml.test_time(lambda: torch.sqrt_(X), number=1)
-
-
-# if __name__ == "__main__":
-#     libs_ml.test_time(lambda: torch.zeros((2000, 2000)))
-#     libs_ml.test_time(lambda: torch.zeros((2000, 2000)))
+if __name__ == "__main__":
+    # test inplace. 速度类似. 见max
+    X = torch.randn(2000, 2000)
+    libs_ml.test_time(lambda: torch.sqrt(X), number=1)
+    libs_ml.test_time(lambda: torch.sqrt_(X), number=1)
 
 
-# if __name__ == "__main__":
-#     x = torch.randn(1000, 2000)
-#     y = torch.randn(4000, 2000)
-#     x_np = x.numpy()
-#     y_np = y.numpy()
-#     from sklearn.metrics import euclidean_distances as _euclidean_distances
-#     a = libs_ml.test_time(lambda: euclidean_distances(x, y), number=20)
-#     b = libs_ml.test_time(lambda: _euclidean_distances(x_np, y_np), number=20)  # 慢!
-#     print(a, b)
-#     print(torch.allclose(a, torch.from_numpy(b), rtol=1e-4, atol=1e-4))
+if __name__ == "__main__":
+    libs_ml.test_time(lambda: torch.zeros((2000, 2000)))
+    libs_ml.test_time(lambda: torch.zeros((2000, 2000)))
+
+
+if __name__ == "__main__":
+    x = torch.randn(1000, 2000)
+    y = torch.randn(4000, 2000)
+    x_np = x.numpy()
+    y_np = y.numpy()
+    from sklearn.metrics import euclidean_distances as _euclidean_distances
+    a = libs_ml.test_time(lambda: pairwise_euclidean_distance(x, y), number=20)
+    b = libs_ml.test_time(lambda: _euclidean_distances(x_np, y_np), number=20)  # 慢!
+    print(a, b)
+    print(torch.allclose(a, torch.from_numpy(b), rtol=1e-4, atol=1e-4))
 
 
 def mean_squared_error(y_pred: Tensor, y_true: Tensor, *, reduction="mean",
@@ -577,37 +582,37 @@ def mean_squared_error(y_pred: Tensor, y_true: Tensor, *, reduction="mean",
     return res if squared else res.sqrt_()
 
 
-# if __name__ == "__main__":
-#     from sklearn.metrics import mean_squared_error as _mean_squared_error
-#     x = torch.randn(1000, 2000)
-#     y = torch.randn(1000, 2000)
-#     x_np = x.numpy()
-#     y_np = y.numpy()
-#     a = libs_ml.test_time(lambda: torch.nn.MSELoss(
-#         reduction="none")(x, y), number=10)
-#     b = libs_ml.test_time(lambda: torch.nn.MSELoss(
-#         reduction="mean")(x, y), number=10)
-#     c = libs_ml.test_time(lambda: _mean_squared_error(  # 慢!
-#         y_np, x_np, multioutput="raw_values"), number=10)
-#     d = libs_ml.test_time(lambda: _mean_squared_error(  # 慢!
-#         y_np, x_np, multioutput="uniform_average"), number=10)
-#     e = libs_ml.test_time(
-#         lambda: mean_squared_error(x, y, reduction="none"), number=10)
-#     f = libs_ml.test_time(
-#         lambda: mean_squared_error(x, y, reduction="mean"), number=10)
-#     print(torch.allclose(a, e, atol=1e-6))
-#     print(torch.allclose(b, f))
+if __name__ == "__main__":
+    from sklearn.metrics import mean_squared_error as _mean_squared_error
+    x = torch.randn(1000, 2000)
+    y = torch.randn(1000, 2000)
+    x_np = x.numpy()
+    y_np = y.numpy()
+    a = libs_ml.test_time(lambda: torch.nn.MSELoss(
+        reduction="none")(x, y), number=10)
+    b = libs_ml.test_time(lambda: torch.nn.MSELoss(
+        reduction="mean")(x, y), number=10)
+    c = libs_ml.test_time(lambda: _mean_squared_error(  # 慢!
+        y_np, x_np, multioutput="raw_values"), number=10)
+    d = libs_ml.test_time(lambda: _mean_squared_error(  # 慢!
+        y_np, x_np, multioutput="uniform_average"), number=10)
+    e = libs_ml.test_time(
+        lambda: mean_squared_error(x, y, reduction="none"), number=10)
+    f = libs_ml.test_time(
+        lambda: mean_squared_error(x, y, reduction="mean"), number=10)
+    print(torch.allclose(a, e, atol=1e-6))
+    print(torch.allclose(b, f))
 
 
-# if __name__ == "__main__":
-#     # a = libs_ml.test_time(lambda:  torch.randn(1000, 2000))
-#     # a = libs_ml.test_time(lambda:  torch.zeros(1000, 2000))  # 慢20倍
-#     # a = libs_ml.test_time(lambda:  torch.empty(1000, 2000))
-#     a = torch.zeros(1000, 2000)
-#     # libs_ml.test_time(lambda:  a.add_(100))
-#     # libs_ml.test_time(lambda:  a + 100)  # 慢2倍
-#     x = libs_ml.test_time(lambda:  torch.empty(1000, 2000))
-#     libs_ml.test_time(lambda:  x.zero_())
-#     libs_ml.test_time(lambda:  x.add_(10.2))
-#     libs_ml.test_time(lambda:  x.mul_(10.2))
-#     libs_ml.test_time(lambda:  x.div_(10.123))
+if __name__ == "__main__":
+    # a = libs_ml.test_time(lambda:  torch.randn(1000, 2000))
+    # a = libs_ml.test_time(lambda:  torch.zeros(1000, 2000))  # 慢20倍
+    # a = libs_ml.test_time(lambda:  torch.empty(1000, 2000))
+    a = torch.zeros(1000, 2000)
+    # libs_ml.test_time(lambda:  a.add_(100))
+    # libs_ml.test_time(lambda:  a + 100)  # 慢2倍
+    x = libs_ml.test_time(lambda:  torch.empty(1000, 2000))
+    libs_ml.test_time(lambda:  x.zero_())
+    libs_ml.test_time(lambda:  x.add_(10.2))
+    libs_ml.test_time(lambda:  x.mul_(10.2))
+    libs_ml.test_time(lambda:  x.div_(10.123))
