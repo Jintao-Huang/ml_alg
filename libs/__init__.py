@@ -106,7 +106,7 @@ from torchmetrics.classification.precision_recall import Precision, Recall
 from torchmetrics.classification.f_beta import F1Score, FBetaScore
 from torchmetrics.classification.auroc import AUROC
 from torchmetrics.classification.average_precision import AveragePrecision
-# torchmetrics.functional 使用libs_ml中的. (更快)
+# 使用libs_ml中的metrics. (比torchmetrics.functional更快)
 #
 import gym
 from gym import Env

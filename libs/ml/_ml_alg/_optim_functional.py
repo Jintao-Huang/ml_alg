@@ -13,8 +13,8 @@ import math
 @torch.no_grad()
 def sgd(
     params: List[Tensor],  # inplace
-    d_p_list: List[Tensor],  # copy
-    momentum_buffer_list: List[Tensor],  # inplace
+    grads: List[Tensor],  # not inplace
+    momentum_buffers: List[Tensor],  # inplace
     *,
     lr: float,
     momentum: float = 0.,
@@ -22,13 +22,13 @@ def sgd(
     weight_decay: float = 0.,
 ) -> None:
     for i, param in enumerate(params):
-        d_p: Tensor = d_p_list[i]
+        d_p: Tensor = grads[i]
         #
         if weight_decay != 0:
             d_p = d_p.add(param, alpha=weight_decay)
         #
         if momentum != 0:
-            buf: Tensor = momentum_buffer_list[i]
+            buf: Tensor = momentum_buffers[i]
             # buf * momentum + d_p * (1 - dampening)
             buf.mul_(momentum).add_(d_p, alpha=1 - dampening)
             #
@@ -38,7 +38,7 @@ def sgd(
 
 @torch.no_grad()
 def adam(params: List[Tensor],  # inplace
-         grads: List[Tensor],  # copy
+         grads: List[Tensor],  # not inplace
          exp_avgs: List[Tensor],  # inplace
          exp_avg_sqs: List[Tensor],  # inplace
          state_steps: List[int],  # inplace
@@ -128,21 +128,21 @@ if __name__ == "__main__":
     loss1 = loss
     params1 = list(m.parameters())
     ##
-    m_buf_list: List[Tensor] = []
+    m_buffers: List[Tensor] = []
     # init
     for p in m2.parameters():
-        m_buf_list.append(torch.zeros_like(p))
+        m_buffers.append(torch.zeros_like(p))
     #
     for i in range(100):
         loss: Tensor = m2(x).mean()
         loss.backward()
         #
         params = []
-        d_p_list = []
+        grads = []
         for p in m2.parameters():
             params.append(p)
-            d_p_list.append(p.grad)
-        sgd(params, d_p_list, m_buf_list, lr=lr, momentum=momentum, weight_decay=weight_decay)
+            grads.append(p.grad)
+        sgd(params, grads, m_buffers, lr=lr, momentum=momentum, weight_decay=weight_decay)
     loss2 = loss
     params2 = list(m2.parameters())
     print(torch.allclose(loss1, loss2, atol=1e-6),

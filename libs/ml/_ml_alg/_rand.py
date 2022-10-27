@@ -4,21 +4,21 @@
 
 import torch
 from typing import Tuple, Union
-import numpy as np
+from torch import Tensor
 __all__ = []
 
 Size = Union[Tuple[int, ...], int]
 
 
-def normal(mean: float, std: float, size: Size):
+def normal(mean: float, std: float, size: Size) -> Tensor:
     return torch.randn(size) * std + mean
 
 
-def uniform(a: float, b: float, size: Size):
+def uniform(a: float, b: float, size: Size) -> Tensor:
     return torch.rand(size) * (b - a) + a
 
 
-def randperm(n: int):
+def randperm(n: int) -> Tensor:
     res = torch.arange(n)
     for i in range(n):
         x = torch.randint(i, n, (), dtype=torch.long)
