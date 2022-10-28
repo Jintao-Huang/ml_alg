@@ -148,19 +148,19 @@ class MinMaxScaler:
 
 class LinearModel:
     def __init__(self) -> None:
-        self.weight: Optional[Tensor] = None  # [Fin, Fout]. 与sklearn不同. sklearn: [Fout, Fin]
+        self.weight: Optional[Tensor] = None  # [Fout, Fin]
         self.bias: Optional[Tensor] = None  # [Fout]
 
     @staticmethod
     def _fit_bias(X_mean: Tensor, y_mean: Tensor, weight: Tensor) -> Tensor:
         """return: bias"""
-        return y_mean - X_mean @ weight
+        return y_mean - X_mean @ weight.T
 
     def predict(self, X: Tensor) -> Tensor:
         assert self.weight is not None
         assert self.bias is not None
         #
-        res = X @ self.weight
+        res = X @ self.weight.T
         res.add_(self.bias)
         return res
 
@@ -174,36 +174,37 @@ class LinearRegression(LinearModel):
         """
         X: shape[N, Fin]. 不支持[N], 请传入[N, 1]
         y: shape[N, Fout]
+        闭式解: (X^{T}X)^{-1}X^{T}y
+            Ref: Hands-On Machine Learning v2, 4.1. Aurelien Geron.
         """
         X, X_mean = data_center(X)
         y, y_mean = data_center(y)
-        self.weight, _, _, _ = torch.linalg.lstsq(X, y)
+        self.weight = torch.linalg.lstsq(X, y)[0].T
         self.bias = self._fit_bias(X_mean, y_mean, self.weight)
         return self
 
 
-# if __name__ == "__main__":
-#     print()
-#     from sklearn.linear_model import LinearRegression as _LinearRegression
-#     X = torch.randn(1000, 100).to(torch.float64)
-#     X2 = torch.randn(1000, 100).to(torch.float64)
-#     y = torch.randn(1000, 200).to(torch.float64)
-#     X_np = X.numpy()
-#     X2_np = X2.numpy()
-#     y_np = y.numpy()
-#     X = X.to(device)
-#     X2 = X2.to(device)
-#     y = y.to(device)
-#     #
-#     lr = LinearRegression()
-#     lr2 = _LinearRegression()
-#     Z = ml.test_time(lambda: lr.fit(X, y).predict(X2)).cpu()
-#     Z2 = ml.test_time(lambda: lr2.fit(X_np, y_np).predict(X2_np))
-#     Z2 = torch.from_numpy(Z2)
-#     print(torch.allclose(Z, Z2))
-#     print(torch.allclose(lr.weight.cpu(), torch.from_numpy(lr2.coef_.T)))
-#     print(torch.allclose(lr.bias.cpu(), torch.from_numpy(lr2.intercept_)))
-#
+if __name__ == "__main__":
+    print()
+    from sklearn.linear_model import LinearRegression as _LinearRegression
+    X = torch.randn(1000, 100).to(torch.float64)
+    X2 = torch.randn(1000, 100).to(torch.float64)
+    y = torch.randn(1000, 200).to(torch.float64)
+    X_np = X.numpy()
+    X2_np = X2.numpy()
+    y_np = y.numpy()
+    X = X.to(device)
+    X2 = X2.to(device)
+    y = y.to(device)
+    #
+    lr = LinearRegression()
+    lr2 = _LinearRegression()
+    Z = ml.test_time(lambda: lr.fit(X, y).predict(X2)).cpu()
+    Z2 = ml.test_time(lambda: lr2.fit(X_np, y_np).predict(X2_np))
+    Z2 = torch.from_numpy(Z2)
+    print(torch.allclose(Z, Z2))
+    print(torch.allclose(lr.weight.cpu(), torch.from_numpy(lr2.coef_)))
+    print(torch.allclose(lr.bias.cpu(), torch.from_numpy(lr2.intercept_)))
 
 
 class Ridge(LinearModel):
@@ -223,16 +224,20 @@ class Ridge(LinearModel):
         U, s, Vh = torch.linalg.svd(X, full_matrices=False)
         # 在sklearn中, 对接近0的数值进行置0处理. 这里不进行处理.
         d = s.div_((s * s).add_(alpha))  # div
-        return torch.linalg.multi_dot([Vh.T.mul_(d), U.T, y])
+        return torch.linalg.multi_dot([Vh.T.mul_(d), U.T, y]).T
 
     @staticmethod
     def _fit_cholesky(X: Tensor, y: Tensor, alpha: float) -> Tensor:
+        """
+        闭式解: (X^{T}X + alphaI)^{-1}X^{T}y
+            Ref: Hands-On Machine Learning v2, 4.5. Aurelien Geron.
+        """
         A = X.T @ X
         b = X.T @ y
         A.ravel()[::A.shape[0]+1].add_(alpha)  # 对角线+alpha
         L = torch.linalg.cholesky(A)
         # (X.T@X)^{-1}@X.T@y
-        return torch.cholesky_solve(b, L)
+        return torch.cholesky_solve(b, L).T
 
     def fit(self, X: Tensor, y: Tensor) -> "Ridge":
         """
@@ -249,28 +254,28 @@ class Ridge(LinearModel):
         return self
 
 
-# if __name__ == "__main__":
-#     print()
-#     from sklearn.linear_model import Ridge as _Ridge
-#     X = torch.randn(1000, 100).to(torch.float64)
-#     X2 = torch.randn(1000, 100).to(torch.float64)
-#     y = torch.randn(1000, 200).to(torch.float64)
-#     X_np = X.numpy()
-#     X2_np = X2.numpy()
-#     y_np = y.numpy()
-#     X = X.to(device)
-#     X2 = X2.to(device)
-#     y = y.to(device)
-#     #
-#     Z = ml.test_time(lambda: Ridge(solver="svd").fit(X, y).predict(X2), 10).cpu()
-#     Z2 = ml.test_time(lambda: _Ridge(solver="svd").fit(X_np, y_np).predict(X2_np), 10)
-#     Z2 = torch.from_numpy(Z2)
-#     print(torch.allclose(Z, Z2))
-#     #
-#     Z = ml.test_time(lambda: Ridge(solver="cholesky").fit(X, y).predict(X2), 10).cpu()
-#     Z2 = ml.test_time(lambda: _Ridge(solver="cholesky").fit(X_np, y_np).predict(X2_np), 10)
-#     Z2 = torch.from_numpy(Z2)
-#     print(torch.allclose(Z, Z2))
+if __name__ == "__main__":
+    print()
+    from sklearn.linear_model import Ridge as _Ridge
+    X = torch.randn(1000, 100).to(torch.float64)
+    X2 = torch.randn(1000, 100).to(torch.float64)
+    y = torch.randn(1000, 200).to(torch.float64)
+    X_np = X.numpy()
+    X2_np = X2.numpy()
+    y_np = y.numpy()
+    X = X.to(device)
+    X2 = X2.to(device)
+    y = y.to(device)
+    #
+    Z = ml.test_time(lambda: Ridge(solver="svd").fit(X, y).predict(X2), 10).cpu()
+    Z2 = ml.test_time(lambda: _Ridge(solver="svd").fit(X_np, y_np).predict(X2_np), 10)
+    Z2 = torch.from_numpy(Z2)
+    print(torch.allclose(Z, Z2))
+    #
+    Z = ml.test_time(lambda: Ridge(solver="cholesky").fit(X, y).predict(X2), 10).cpu()
+    Z2 = ml.test_time(lambda: _Ridge(solver="cholesky").fit(X_np, y_np).predict(X2_np), 10)
+    Z2 = torch.from_numpy(Z2)
+    print(torch.allclose(Z, Z2))
 
 
 class PCA:
@@ -287,9 +292,9 @@ class PCA:
         self.components: Optional[Tensor] = None  # [K, F]
 
     def _fit_full(self, X: Tensor) -> None:
-        U, s, Vt = torch.linalg.svd(X, full_matrices=False)  # [N, F], [F], [F, F]
+        _, s, Vt = torch.linalg.svd(X, full_matrices=False)  # [N, F], [F], [F, F]
         self.singular_values = s[:self.k]
-        self.components = Vt[:self.k]  # XX^T
+        self.components = Vt[:self.k]
 
     def fit(self, X: Tensor) -> "PCA":
         """

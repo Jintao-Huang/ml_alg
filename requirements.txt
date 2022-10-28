@@ -1,7 +1,6 @@
 mini-lightning>=0.1.5
-pandas
-matplotlib
-seaborn
-pillow
-opencv-python
-sklearn
+pandas>=1.5.*
+seaborn>=0.12.*
+pillow>=9.2.*
+opencv-python>=4.6.*
+scikit-learn>=1.1.*

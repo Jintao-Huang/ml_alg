@@ -581,31 +581,31 @@ def conv2d_2(
     return res
 
 
-if __name__ == "__main__":
-    libs_ml.seed_everything(42, gpu_dtm=True)
-    x = torch.randn(16, 128, 112, 112, device="cuda")
-    w = torch.randn(256, 128, 3, 3, device="cuda")
-    b = torch.randn(256, device="cuda")
-    y1 = libs_ml.test_time(lambda: F.conv2d(
-        x, w, b, (1, 1), (1, 1), 2, 1), 10, timer=libs_ml.time_synchronize)
-    y2 = libs_ml.test_time(lambda: conv2d(
-        x, w, b, (1, 1), (1, 1), 2, 1), 10, timer=libs_ml.time_synchronize)
-    y3 = libs_ml.test_time(lambda: conv2d_2(
-        x, w, b, (1, 1), (1, 1), 2, 1), 10, timer=libs_ml.time_synchronize)
-    print(torch.allclose(y1, y2, atol=1e-3))
-    print(torch.allclose(y2, y3, atol=1e-3))
+# if __name__ == "__main__":
+#     libs_ml.seed_everything(42, gpu_dtm=True)
+#     x = torch.randn(16, 128, 112, 112, device="cuda")
+#     w = torch.randn(256, 128, 3, 3, device="cuda")
+#     b = torch.randn(256, device="cuda")
+#     y1 = libs_ml.test_time(lambda: F.conv2d(
+#         x, w, b, (1, 1), (1, 1), 2, 1), 10, timer=libs_ml.time_synchronize)
+#     y2 = libs_ml.test_time(lambda: conv2d(
+#         x, w, b, (1, 1), (1, 1), 2, 1), 10, timer=libs_ml.time_synchronize)
+#     y3 = libs_ml.test_time(lambda: conv2d_2(
+#         x, w, b, (1, 1), (1, 1), 2, 1), 10, timer=libs_ml.time_synchronize)
+#     print(torch.allclose(y1, y2, atol=1e-3))
+#     print(torch.allclose(y2, y3, atol=1e-3))
 
-    x = torch.randn(16, 128, 112, 112, device="cuda")
-    w = torch.randn(256, 1, 3, 3, device="cuda")
-    b = torch.randn(256, device="cuda")
-    y1 = libs_ml.test_time(lambda: F.conv2d(
-        x, w, b, (1, 1), (1, 1), 2, 128), 10, timer=libs_ml.time_synchronize)
-    y2 = libs_ml.test_time(lambda: conv2d(
-        x, w, b, (1, 1), (1, 1), 2, 128), 10, timer=libs_ml.time_synchronize)
-    y3 = libs_ml.test_time(lambda: conv2d_2(
-        x, w, b, (1, 1), (1, 1), 2, 128), 10, timer=libs_ml.time_synchronize)
-    print(torch.allclose(y1, y2, atol=1e-3))
-    print(torch.allclose(y1, y3, atol=1e-3))
+#     x = torch.randn(16, 128, 112, 112, device="cuda")
+#     w = torch.randn(256, 1, 3, 3, device="cuda")
+#     b = torch.randn(256, device="cuda")
+#     y1 = libs_ml.test_time(lambda: F.conv2d(
+#         x, w, b, (1, 1), (1, 1), 2, 128), 10, timer=libs_ml.time_synchronize)
+#     y2 = libs_ml.test_time(lambda: conv2d(
+#         x, w, b, (1, 1), (1, 1), 2, 128), 10, timer=libs_ml.time_synchronize)
+#     y3 = libs_ml.test_time(lambda: conv2d_2(
+#         x, w, b, (1, 1), (1, 1), 2, 128), 10, timer=libs_ml.time_synchronize)
+#     print(torch.allclose(y1, y2, atol=1e-3))
+#     print(torch.allclose(y1, y3, atol=1e-3))
 
 
 def conv1d(
@@ -679,24 +679,24 @@ def conv1d_2(
     return res
 
 
-if __name__ == "__main__":
-    x = torch.randn(32, 128, 32*32)
-    w = torch.randn(256, 128, 8)
-    b = torch.randn(256)
-    y1 = libs_ml.test_time(lambda: F.conv1d(x, w, b, 1, 1))
-    y2 = libs_ml.test_time(lambda: conv1d(x, w, b, 1, 1))
-    y3 = libs_ml.test_time(lambda: conv1d_2(x, w, b, 1, 1))
-    print(torch.allclose(y1, y2, atol=1e-4))
-    print(torch.allclose(y1, y3, atol=1e-4))
-    #
-    x = torch.randn(32, 128, 32*32)
-    w = torch.randn(256, 1, 7)
-    b = torch.randn(256)
-    y1 = libs_ml.test_time(lambda: F.conv1d(x, w, b, 1, 1, 2, 128))
-    y2 = libs_ml.test_time(lambda: conv1d(x, w, b, 1, 1, 2, 128))
-    y3 = libs_ml.test_time(lambda: conv1d_2(x, w, b, 1, 1, 2, 128))
-    print(torch.allclose(y1, y2, atol=1e-4))
-    print(torch.allclose(y1, y3, atol=1e-4))
+# if __name__ == "__main__":
+#     x = torch.randn(32, 128, 32*32)
+#     w = torch.randn(256, 128, 8)
+#     b = torch.randn(256)
+#     y1 = libs_ml.test_time(lambda: F.conv1d(x, w, b, 1, 1))
+#     y2 = libs_ml.test_time(lambda: conv1d(x, w, b, 1, 1))
+#     y3 = libs_ml.test_time(lambda: conv1d_2(x, w, b, 1, 1))
+#     print(torch.allclose(y1, y2, atol=1e-4))
+#     print(torch.allclose(y1, y3, atol=1e-4))
+#     #
+#     x = torch.randn(32, 128, 32*32)
+#     w = torch.randn(256, 1, 7)
+#     b = torch.randn(256)
+#     y1 = libs_ml.test_time(lambda: F.conv1d(x, w, b, 1, 1, 2, 128))
+#     y2 = libs_ml.test_time(lambda: conv1d(x, w, b, 1, 1, 2, 128))
+#     y3 = libs_ml.test_time(lambda: conv1d_2(x, w, b, 1, 1, 2, 128))
+#     print(torch.allclose(y1, y2, atol=1e-4))
+#     print(torch.allclose(y1, y3, atol=1e-4))
 
 
 def linear(x: Tensor, weight: Tensor, bias: Optional[Tensor] = None) -> Tensor:
@@ -706,17 +706,18 @@ def linear(x: Tensor, weight: Tensor, bias: Optional[Tensor] = None) -> Tensor:
     bias: [F2]
     return: [N, F2]
     """
-    res = torch.einsum("ab,cb->ac", x, weight)
+    res = x @ weight.T
     if bias is not None:
         res.add_(bias)
     return res
+
 
 # if __name__ == "__main__":
 #     x = torch.randn(100, 128)
 #     w = torch.randn(256, 128)
 #     b = torch.randn(256)
-#     libs_ml.test_time(lambda:linear(x, w, b), number=10)
-#     libs_ml.test_time(lambda:F.linear(x, w, b), number=10)
+#     libs_ml.test_time(lambda: linear(x, w, b), number=10)
+#     libs_ml.test_time(lambda: F.linear(x, w, b), number=10)
 
 
 def lstm_cell(

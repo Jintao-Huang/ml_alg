@@ -27,7 +27,8 @@
 6. `tests/*`: 测试算法正确性. (其中部分测试写在源文件中)
 
 
-
-## 环境:
-1. mini-lightning>=0.1.5
-
+## Install
+```bash
+# 下载仓库到本地, 进入setup.py所在文件夹. 输入以下命令即可(会自动安装依赖, pytorch请手动安装, 避免cuda版本不匹配)
+pip install .
+```
