@@ -4,6 +4,7 @@
 
 from typing import Optional, Tuple, Literal
 from torch import Tensor
+import torch.nn.functional as F
 import torch
 __all__ = [
     "accuracy", "confusion_matrix",
