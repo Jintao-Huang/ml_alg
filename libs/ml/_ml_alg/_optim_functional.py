@@ -7,7 +7,6 @@ __all__ = []
 from typing import List, Optional
 import torch
 from torch import Tensor
-import math
 
 
 @torch.no_grad()
@@ -34,76 +33,6 @@ def sgd(
             #
             d_p = buf
         param.add_(d_p, alpha=-lr)
-
-
-@torch.no_grad()
-def adam(params: List[Tensor],  # inplace
-         grads: List[Tensor],  # not inplace
-         exp_avgs: List[Tensor],  # inplace
-         exp_avg_sqs: List[Tensor],  # inplace
-         state_steps: List[int],  # inplace
-         *,
-         lr: float = 1e-3,
-         beta1: float = 0.9,
-         beta2: float = 0.999,
-         weight_decay: float = 0.,
-         eps: float = 1e-8) -> None:
-    # Ref: https://arxiv.org/pdf/1412.6980.pdf
-    for i, param in enumerate(params):
-        grad = grads[i]
-        exp_avg = exp_avgs[i]
-        exp_avg_sq = exp_avg_sqs[i]
-        step_t = state_steps[i]
-        #
-        step_t += 1
-        state_steps[i] = step_t
-        #
-        if weight_decay != 0:
-            grad = grad.add(param, alpha=weight_decay)
-
-        #
-        exp_avg.mul_(beta1).add_(grad, alpha=1 - beta1)
-        exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
-        #
-        bias_correction1 = 1 - beta1 ** step_t
-        bias_correction2 = 1 - beta2 ** step_t
-        exp_avg_hat = exp_avg.div(bias_correction1)
-        exp_avg_sq_hat = exp_avg_sq.div(bias_correction2)
-        param.addcdiv_(exp_avg_hat, exp_avg_sq_hat.sqrt_().add_(eps), value=-lr)
-
-
-@torch.no_grad()
-def adamw(params: List[Tensor],  # inplace
-          grads: List[Tensor],  # copy
-          exp_avgs: List[Tensor],  # inplace
-          exp_avg_sqs: List[Tensor],  # inplace
-          state_steps: List[int],  # inplace
-          *,
-          lr: float = 1e-3,
-          beta1: float = 0.9,
-          beta2: float = 0.999,
-          weight_decay: float = 1e-2,
-          eps: float = 1e-8) -> None:
-
-    for i, param in enumerate(params):
-        grad = grads[i]
-        exp_avg = exp_avgs[i]
-        exp_avg_sq = exp_avg_sqs[i]
-        step_t = state_steps[i]
-        #
-        step_t += 1
-        state_steps[i] = step_t
-        #
-        param.mul_(1 - lr * weight_decay)  # 唯一区别
-        #
-        exp_avg.mul_(beta1).add_(grad, alpha=1 - beta1)
-        exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
-        #
-        bias_correction1 = 1 - beta1 ** step_t
-        bias_correction2 = 1 - beta2 ** step_t
-        exp_avg_hat = exp_avg.div(bias_correction1)
-        exp_avg_sq_hat = exp_avg_sq.div(bias_correction2)
-        param.addcdiv_(exp_avg_hat, exp_avg_sq_hat.sqrt_().add_(eps), value=-lr)
 
 
 if __name__ == "__main__":
@@ -147,6 +76,42 @@ if __name__ == "__main__":
     params2 = list(m2.parameters())
     print(torch.allclose(loss1, loss2, atol=1e-6),
           [torch.allclose(p1, p2, atol=1e-6) for p1, p2 in zip(params1, params2)])
+
+
+@torch.no_grad()
+def adam(params: List[Tensor],  # inplace
+         grads: List[Tensor],  # not inplace
+         exp_avgs: List[Tensor],  # inplace
+         exp_avg_sqs: List[Tensor],  # inplace
+         state_steps: List[int],  # inplace
+         *,
+         lr: float = 1e-3,
+         beta1: float = 0.9,
+         beta2: float = 0.999,
+         weight_decay: float = 0.,
+         eps: float = 1e-8) -> None:
+    # Ref: https://arxiv.org/pdf/1412.6980.pdf
+    for i, param in enumerate(params):
+        grad = grads[i]
+        exp_avg = exp_avgs[i]
+        exp_avg_sq = exp_avg_sqs[i]
+        step_t = state_steps[i]
+        #
+        step_t += 1
+        state_steps[i] = step_t
+        #
+        if weight_decay != 0:
+            grad = grad.add(param, alpha=weight_decay)
+
+        #
+        exp_avg.mul_(beta1).add_(grad, alpha=1 - beta1)
+        exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
+        #
+        bias_correction1 = 1 - beta1 ** step_t
+        bias_correction2 = 1 - beta2 ** step_t
+        exp_avg_hat = exp_avg.div(bias_correction1)
+        exp_avg_sq_hat = exp_avg_sq.div(bias_correction2)
+        param.addcdiv_(exp_avg_hat, exp_avg_sq_hat.sqrt_().add_(eps), value=-lr)
 
 
 if __name__ == "__main__":
@@ -193,6 +158,41 @@ if __name__ == "__main__":
     params2 = list(m2.parameters())
     print(torch.allclose(loss1, loss2, atol=1e-6),
           [torch.allclose(p1, p2, atol=1e-6) for p1, p2 in zip(params1, params2)])
+
+
+@torch.no_grad()
+def adamw(params: List[Tensor],  # inplace
+          grads: List[Tensor],  # copy
+          exp_avgs: List[Tensor],  # inplace
+          exp_avg_sqs: List[Tensor],  # inplace
+          state_steps: List[int],  # inplace
+          *,
+          lr: float = 1e-3,
+          beta1: float = 0.9,
+          beta2: float = 0.999,
+          weight_decay: float = 1e-2,
+          eps: float = 1e-8) -> None:
+
+    for i, param in enumerate(params):
+        grad = grads[i]
+        exp_avg = exp_avgs[i]
+        exp_avg_sq = exp_avg_sqs[i]
+        step_t = state_steps[i]
+        #
+        step_t += 1
+        state_steps[i] = step_t
+        #
+        param.mul_(1 - lr * weight_decay)  # 唯一区别
+        #
+        exp_avg.mul_(beta1).add_(grad, alpha=1 - beta1)
+        exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
+        #
+        bias_correction1 = 1 - beta1 ** step_t
+        bias_correction2 = 1 - beta2 ** step_t
+        exp_avg_hat = exp_avg.div(bias_correction1)
+        exp_avg_sq_hat = exp_avg_sq.div(bias_correction2)
+        param.addcdiv_(exp_avg_hat, exp_avg_sq_hat.sqrt_().add_(eps), value=-lr)
+
 
 if __name__ == "__main__":
     # test adamw
@@ -295,3 +295,4 @@ if __name__ == "__main__":
     params2 = list(m2.parameters())
     print(torch.allclose(loss1, loss2, atol=1e-6),
           [torch.allclose(p1, p2, atol=1e-6) for p1, p2 in zip(params1, params2)])
+#

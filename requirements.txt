@@ -4,3 +4,4 @@ seaborn>=0.12.*
 pillow>=9.2.*
 opencv-python>=4.6.*
 scikit-learn>=1.1.*
+threadpoolctl>=3.1.*
