@@ -689,7 +689,7 @@ def conv1d(
     stride: int = 1, padding: int = 0,
     dilation: int = 1, groups: int = 1
 ) -> Tensor:
-    """more faster
+    """faster
     x: [N, Cin, Lin]
     weight: [Cout, Cin//G, KL]. 
     bias: [Cout]

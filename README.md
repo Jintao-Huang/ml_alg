@@ -9,11 +9,11 @@
 ## 文件功能介绍
 1. mini_lightning部分, 现已移置: [https://github.com/ustcml/mini-lightning](https://github.com/ustcml/mini-lightning)
 2. `libs/ml/_ml_alg/*`: 机器学习中的算法实现
-   1. `_metrics.py`: ml中的metrics的torch实现. (more faster than `torchmetrics.functional`, `sklearn`, 使用torch实现, 支持cuda加速)
-      1. 含accuracy, precision, recall, f1, fbeta, AP, AUC, r2, 余弦相似度, 欧式距离, kl divergence等.
+   1. `_metrics.py`: ml中的metrics的torch实现. (faster than `torchmetrics.functional`, `sklearn`, 使用torch实现, 支持cuda加速)
+      1. 含accuracy, precision, recall, f1, fbeta, AP, AUC, r2_score, 余弦相似度, 欧式距离, kl散度等.
    2. `_nn_functional.py`: 实现torch.nn.functional包中的算法. (没啥实用性, 用于学习)
       1. 含激活函数, 损失, batch_norm, layer_norm, dropout, linear, conv2d, conv_transpose2d, conv1d, avg_pool2d, max_pool2d, lstm, gru, multi-head attention等.
-   3. `_ml_alg.py`: 传统ml算法的torch实现 (more faster than `sklearn`, 支持cuda加速). (开发中...)
+   3. `_ml_alg.py`: 传统ml算法的torch实现 (faster than `sklearn`, 支持cuda加速). (开发中...)
       1. 含归一化方法, LinearRegression, Ridge, LogisticRegression, PCA, KMeans, NearestNeighbors等.
    4. `_optim_functional.py`: 优化器的实现. (没啥实用性, 用于学习)
       1. 含sgd, adam, adamw.
