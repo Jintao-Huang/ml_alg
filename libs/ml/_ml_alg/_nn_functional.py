@@ -91,7 +91,7 @@ def one_hot(x: Tensor, n_classes: int = -1) -> Tensor:
     return: Tensor[long]. [N, n_classes]
     """
     if n_classes == -1:
-        n_classes = x.max() + 1
+        n_classes = int(x.max().item()) + 1
     res = torch.zeros((x.shape[0], n_classes),
                       dtype=torch.long, device=x.device)
     res[torch.arange(x.shape[0]), x] = 1
@@ -105,6 +105,7 @@ def one_hot(x: Tensor, n_classes: int = -1) -> Tensor:
 #     y3 = libs_ml.test_time(lambda: F.one_hot(x), number=10)
 #     # print(torch.allclose(y, y2))
 #     print(torch.allclose(y2, y3))
+
 
 def nll_loss(pred: Tensor, target: Tensor) -> Tensor:
     """
@@ -502,9 +503,13 @@ def dropout(
 
 
 def conv2d(
-    x: Tensor, weight: Tensor, bias: Optional[Tensor] = None,
-    stride: Tuple[int, int] = (1, 1), padding: Tuple[int, int] = (0, 0),
-    dilation: int = 1, groups: int = 1
+    x: Tensor,
+    weight: Tensor,
+    bias: Optional[Tensor] = None,
+    stride: Tuple[int, int] = (1, 1),
+    padding: Tuple[int, int] = (0, 0),
+    dilation: Tuple[int, int] = (1, 1),
+    groups: int = 1
 ) -> Tensor:
     """faster than conv2d_2, but more memory. (recommend)
     x: [N, Cin, Hin, Win]
@@ -515,9 +520,10 @@ def conv2d(
     return: [N, Cout, Hout, Wout]
     """
     Hin, Win = x.shape[2:]
-    D, G = dilation, groups
+    DH, DW = dilation
+    G = groups
     KH, KW = weight.shape[2:]
-    KH_D, KW_D = (KH - 1) * D + 1, (KW - 1) * D + 1
+    KH_D, KW_D = (KH - 1) * DH + 1, (KW - 1) * DW + 1
     PH, PW = padding
     SH, SW = stride
     N, Cin = x.shape[:2]
@@ -526,12 +532,13 @@ def conv2d(
     Hout, Wout = (Hin + 2 * PH - KH_D) // SH + 1, (Win + 2 * PW - KW_D) // SW + 1
     assert weight.shape[1] * G == Cin
     assert Cout % G == 0
-    # [N, Cin, Hin, Win] -> [N, G, Cin//G, KH*KW, Hout*Wout]
-    x = F.unfold(x, (KH, KW), D, (PH, PW), (SH, SW))
-    #
+    # [N, Cin, Hin, Win] -> [N, Cin*KH*KW, Hout*Wout] -> [N, G, Cin//G, KH*KW, Hout*Wout]
+    x = F.unfold(x, (KH, KW), (DH, DW), (PH, PW), (SH, SW))
     x = x.view(N, G, Cin//G, KH*KW, Hout*Wout)
+    #
     weight = weight.contiguous().view(G, Cout // G, Cin//G, KH*KW)
-    # [N, G, Cout//G, Hout*Wout] -> [N, Cout, Hout, Wout]
+    # [N, G, Cin//G, KH*KW, Hout*Wout], [G, Cout//G, Cin//G, KH*KW] ->
+    #   [N, G, Cout//G, Hout*Wout] -> [N, Cout, Hout, Wout]
     res = torch.einsum("abcde,bfcd->abfe", x, weight).contiguous().view(N, Cout, Hout, Wout)
     #
     if bias is not None:
@@ -540,9 +547,13 @@ def conv2d(
 
 
 def conv2d_2(
-    x: Tensor, weight: Tensor, bias: Optional[Tensor] = None,
-    stride: Tuple[int, int] = (1, 1), padding: Tuple[int, int] = (0, 0),
-    dilation: int = 1, groups: int = 1
+    x: Tensor,
+    weight: Tensor,
+    bias: Optional[Tensor] = None,
+    stride: Tuple[int, int] = (1, 1),
+    padding: Tuple[int, int] = (0, 0),
+    dilation: Tuple[int, int] = (1, 1),
+    groups: int = 1
 ) -> Tensor:
     """
     x: [N, Cin, Hin, Win]
@@ -555,9 +566,10 @@ def conv2d_2(
     if padding != (0, 0):
         x = F.pad(x, [padding[1], padding[1], padding[0], padding[0]])  # lrtb
     Hin, Win = x.shape[2:]
-    D, G = dilation, groups
+    DH, DW = dilation
+    G = groups
     KH, KW = weight.shape[2:]
-    KH_D, KW_D = (KH - 1) * D + 1, (KW - 1) * D + 1
+    KH_D, KW_D = (KH - 1) * DH + 1, (KW - 1) * DW + 1
     SH, SW = stride
     N, Cin = x.shape[:2]
     Cout = weight.shape[0]
@@ -571,8 +583,8 @@ def conv2d_2(
     for i in range(Hout):
         for j in range(Wout):
             h_start, w_start = i * SH, j * SW
-            h_pos, w_pos = slice(h_start, (h_start + KH_D), D), \
-                slice(w_start, (w_start + KW_D), D)
+            h_pos, w_pos = slice(h_start, (h_start + KH_D), DH), \
+                slice(w_start, (w_start + KW_D), DW)
             # [N, G, Cin//G, KH, KW], [G, Cout//G, Cin//G, KH, KW] -> [N, G, Cout//G] -> [N, Cout]
             res.append(torch.einsum("abcde,bfcde->abf", x[:, :, :, h_pos, w_pos], weight))
     res = torch.stack(res, dim=-1).view(N, Cout, Hout, Wout)
@@ -587,11 +599,11 @@ def conv2d_2(
 #     w = torch.randn(256, 128, 3, 3, device="cuda")
 #     b = torch.randn(256, device="cuda")
 #     y1 = libs_ml.test_time(lambda: F.conv2d(
-#         x, w, b, (1, 1), (1, 1), 2, 1), 10, timer=libs_ml.time_synchronize)
+#         x, w, b, (1, 1), (1, 1), (2, 2), 1), 10, timer=libs_ml.time_synchronize)
 #     y2 = libs_ml.test_time(lambda: conv2d(
-#         x, w, b, (1, 1), (1, 1), 2, 1), 10, timer=libs_ml.time_synchronize)
+#         x, w, b, (1, 1), (1, 1), (2, 2), 1), 10, timer=libs_ml.time_synchronize)
 #     y3 = libs_ml.test_time(lambda: conv2d_2(
-#         x, w, b, (1, 1), (1, 1), 2, 1), 10, timer=libs_ml.time_synchronize)
+#         x, w, b, (1, 1), (1, 1), (2, 2), 1), 10, timer=libs_ml.time_synchronize)
 #     print(torch.allclose(y1, y2, atol=1e-3))
 #     print(torch.allclose(y2, y3, atol=1e-3))
 
@@ -599,13 +611,77 @@ def conv2d_2(
 #     w = torch.randn(256, 1, 3, 3, device="cuda")
 #     b = torch.randn(256, device="cuda")
 #     y1 = libs_ml.test_time(lambda: F.conv2d(
-#         x, w, b, (1, 1), (1, 1), 2, 128), 10, timer=libs_ml.time_synchronize)
+#         x, w, b, (1, 1), (1, 1), (2, 2), 128), 10, timer=libs_ml.time_synchronize)
 #     y2 = libs_ml.test_time(lambda: conv2d(
-#         x, w, b, (1, 1), (1, 1), 2, 128), 10, timer=libs_ml.time_synchronize)
+#         x, w, b, (1, 1), (1, 1), (2, 2), 128), 10, timer=libs_ml.time_synchronize)
 #     y3 = libs_ml.test_time(lambda: conv2d_2(
-#         x, w, b, (1, 1), (1, 1), 2, 128), 10, timer=libs_ml.time_synchronize)
+#         x, w, b, (1, 1), (1, 1), (2, 2), 128), 10, timer=libs_ml.time_synchronize)
 #     print(torch.allclose(y1, y2, atol=1e-3))
 #     print(torch.allclose(y1, y3, atol=1e-3))
+
+
+def conv_transpose2d(
+    x: Tensor,
+    weight: Tensor,
+    bias: Optional[Tensor] = None,
+    stride: Tuple[int, int] = (1, 1),
+    padding: Tuple[int, int] = (0, 0),
+    output_padding: Tuple[int, int] = (0, 0),
+    groups: int = 1,
+    dilation: Tuple[int, int] = (1, 1)
+) -> Tensor:
+    """
+    x: [N, Cin, Hin, Win]
+    weight: [Cin, Cout//G, KH, KW]. 
+    bias: [Cout]
+    stride: SH, SW
+    padding: PH, PW
+    output_padding: OPH, OPW
+    return: [N, Cout, Hout, Wout]
+    """
+    Hin, Win = x.shape[2:]
+    DH, DW = dilation
+    G = groups
+    KH, KW = weight.shape[2:]
+    KH_D, KW_D = (KH - 1) * DH + 1, (KW - 1) * DW + 1
+    PH, PW = padding
+    OPH, OPW = output_padding
+    SH, SW = stride
+    N, Cin = x.shape[:2]
+    Cout = weight.shape[1] * G
+    # Out = (In - 1) * S - 2*P + (K-1)*D -1 + OP
+    Hout, Wout = (Hin - 1) * SH - 2 * PH + KH_D + OPH, (Win - 1) * SW - 2 * PW + KW_D + OPW
+    assert Cin % G == 0
+    # [N, Cin, Hin, ]
+    # [N, Cin, Hin, Win] -> [N, G, Cin//G, Hin*Win]
+    x = x.view(N, G, Cin//G, Hin*Win)
+    #
+    weight = weight.contiguous().view(G, Cin // G, Cout//G, KH*KW)
+    # [N, G, Cin//G, Hin*Win], [G, Cin//G, Cout//G, KH*KW] ->
+    #   [N, G, Cout//G, KH*KW, Hin*Win] -> [N, Cout*KH*KW, Hin*Win]
+    res = torch.einsum("abcd,bcfe->abfed", x, weight).contiguous().view(N, Cout*KH*KW, Hin*Win)
+    # [N, Cout*KH*KW, Hin*Win] -> [N, Cout, Hout, Wout]
+    res = F.fold(res, (Hout, Wout), (KH, KW), (DH, DW), (PH, PW), (SH, SW))
+    #
+    if bias is not None:
+        res.add_(bias[None, :,  None, None])
+    return res
+
+
+# if __name__ == "__main__":
+#     x = torch.randn(128, 32, 112, 112)
+#     w = torch.randn(32, 16, 3, 3)
+#     b = torch.randn(16)
+#     y1 = libs_ml.test_time(lambda: F.conv_transpose2d(x, w, b))
+#     y2 = libs_ml.test_time(lambda: conv_transpose2d(x, w, b))
+#     print(torch.allclose(y1, y2))
+#     #
+#     x = torch.randn(128, 32, 112, 112)
+#     w = torch.randn(32, 4, 3, 3)
+#     b = torch.randn(16)
+#     y1 = libs_ml.test_time(lambda: F.conv_transpose2d(x, w, b, (2, 2), (1, 1), (1, 1), 4, (2, 2)))
+#     y2 = libs_ml.test_time(lambda: conv_transpose2d(x, w, b, (2, 2), (1, 1), (1, 1), 4, (2, 2)))
+#     print(torch.allclose(y1, y2))
 
 
 def conv1d(
@@ -665,15 +741,16 @@ def conv1d_2(
     assert weight.shape[1] * G == Cin
     # Out = (In + 2*P − (K-1)*D+1)) // S + 1. (P, D已经在In, K中算进去了)
     Lout = (Lin - KL_D) // SL + 1
-    res = torch.empty((N, Cout, Lout))
+    res = []
     x = x.contiguous().view(N, G, Cin // G, Lin)
     weight = weight.contiguous().view(G, Cout // G, Cin//G, KL)
     for i in range(Lout):
         l_start = i * SL
         l_pos = slice(l_start, (l_start + KL_D), D)
         # [N, G, Cin//G, KL], [G, Cout//G, Cin//G, KL] -> [N, G, Cout//G]
-        res[:, :, i].copy_(torch.einsum(
+        res.append(torch.einsum(
             "abcd,becd->abe", x[:, :, :, l_pos], weight).contiguous().view(N, Cout))
+    res = torch.stack(res, dim=-1).view(N, Cout, Lout)
     if bias is not None:
         res.add_(bias[None, :,  None])
     return res
@@ -697,6 +774,82 @@ def conv1d_2(
 #     y3 = libs_ml.test_time(lambda: conv1d_2(x, w, b, 1, 1, 2, 128))
 #     print(torch.allclose(y1, y2, atol=1e-4))
 #     print(torch.allclose(y1, y3, atol=1e-4))
+
+
+def avg_pool2d(
+    x: Tensor,
+    kernel_size: Tuple[int, int],
+    stride: Optional[Tuple[int, int]] = None,
+    padding: Tuple[int, int] = (0, 0),
+) -> Tensor:
+    """
+    x: [N, C, Hin, Win]
+    kernel_size: KH, KW
+    stride: SH, SW. None则和kernel_size一致
+    padding: PH, PW
+    return: [N, C, Hout, Wout]
+    """
+    Hin, Win = x.shape[2:]
+    KH, KW = kernel_size
+    PH, PW = padding
+    if stride is None:
+        stride = kernel_size
+    SH, SW = stride
+    N, C = x.shape[:2]
+    # Out = (In + 2*P − ((K-1)*D+1)) // S + 1
+    Hout, Wout = (Hin + 2 * PH - KH) // SH + 1, (Win + 2 * PW - KW) // SW + 1
+    # [N, C, Hin, Win] -> [N, C*KH*KW, Hout*Wout] -> [N*C, KH*KW, Hout*Wout]
+    x = F.unfold(x, (KH, KW), 1, (PH, PW), (SH, SW))
+    x = x.view(N, C, KH*KW, Hout, Wout)
+    res = x.mean(dim=2)
+    return res
+
+
+def max_pool2d(
+    x: Tensor,
+    kernel_size: Tuple[int, int],
+    stride: Optional[Tuple[int, int]] = None,
+    padding: Tuple[int, int] = (0, 0),
+    dilation: Tuple[int, int] = (1, 1)
+) -> Tensor:
+    """
+    x: [N, C, Hin, Win]
+    kernel_size: KH, KW
+    stride: SH, SW. None则和kernel_size一致
+    padding: PH, PW
+    return: [N, C, Hout, Wout]
+    """
+
+    Hin, Win = x.shape[2:]
+    DH, DW = dilation
+    KH, KW = kernel_size
+    KH_D, KW_D = (KH - 1) * DH + 1, (KW - 1) * DW + 1
+    PH, PW = padding
+    if stride is None:
+        stride = kernel_size
+    SH, SW = stride
+    N, C = x.shape[:2]
+    # Out = (In + 2*P − ((K-1)*D+1)) // S + 1
+    Hout, Wout = (Hin + 2 * PH - KH_D) // SH + 1, (Win + 2 * PW - KW_D) // SW + 1
+    # [N, C, Hin, Win] -> [N, C*KH*KW, Hout*Wout] -> [N*C, KH*KW, Hout*Wout]
+    if padding != (0, 0):
+        x = F.pad(x, [padding[1], padding[1], padding[0], padding[0]], value=float("-inf"))  # lrtb
+    x = F.unfold(x, (KH, KW), (DH, DW), (0, 0), (SH, SW))
+    x = x.view(N, C, KH*KW, Hout, Wout)
+    res = x.max(dim=2)[0]
+    return res
+
+
+# if __name__ == "__main__":
+#     x = torch.randn(128, 32, 224, 224)
+#     y = libs_ml.test_time(lambda: F.avg_pool2d(x, (2, 2), (3, 3), (1, 1)), 3)
+#     y2 = libs_ml.test_time(lambda: avg_pool2d(x, (2, 2), (3, 3), (1, 1)), 3)
+#     print(torch.allclose(y, y2))
+#     #
+#     x = torch.randn(128, 32, 224, 224)
+#     y = libs_ml.test_time(lambda: F.max_pool2d(x, (2, 2), (3, 3), (1, 1), (2, 2)), 3)
+#     y2 = libs_ml.test_time(lambda: max_pool2d(x, (2, 2), (3, 3), (1, 1), (2, 2)), 3)
+#     print(torch.allclose(y, y2))
 
 
 def linear(x: Tensor, weight: Tensor, bias: Optional[Tensor] = None) -> Tensor:

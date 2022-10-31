@@ -1,4 +1,4 @@
-from ._utils import *
+from ._functional import *
 from ._metrics import *
 from ._ml_alg import *
 from ._nn_functional import *

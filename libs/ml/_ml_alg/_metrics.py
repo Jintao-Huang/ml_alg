@@ -5,15 +5,16 @@
 from typing import Optional, Tuple, Literal
 from torch import Tensor
 import torch.nn.functional as F
+from torch import dtype as Dtype
 import torch
 __all__ = [
     "accuracy", "confusion_matrix",
-    "precision_recall_fscore", "precision_score", "recall_score", "fbeta_score", "f1_score",
-    "precision_recall_curve", "average_precision_score", "roc_curve", "roc_auc_score",
+    "precision_recall_fbeta", "precision", "recall", "fbeta_score", "f1_score",
+    "precision_recall_curve", "average_precision", "roc_curve", "auroc",
     "r2_score",
     "pairwise_cosine_similarity", "pairwise_euclidean_distance",
     "batched_cosine_similarity", "batched_euclidean_distance",
-    "mean_squared_error",
+    "kl_divergence"
 ]
 
 # y_pred在前, 保持与torch的loss一致
@@ -48,15 +49,16 @@ def accuracy(y_pred: Tensor, y_true: Tensor) -> Tensor:
     y_true: Tensor[long]. shape[N]
     return: shape[]
     """
-    return torch.count_nonzero(y_true == y_pred) / y_pred.shape[0]
+    N = y_pred.shape[0]
+    return torch.count_nonzero(y_true == y_pred) / N
 
 
 # if __name__ == "__main__":
 #     from torchmetrics.functional.classification.accuracy import accuracy as _accuracy
 #     preds = torch.randint(0, 10, (1000,))
 #     target = torch.randint(0, 10, (1000,))
-#     y = accuracy(preds, target)
-#     y2 = _accuracy(preds, target)
+#     y = libs_ml.test_time(lambda:accuracy(preds, target), 10)
+#     y2 =  libs_ml.test_time(lambda:_accuracy(preds, target), 10)
 #     print(y, y2)
 #     #
 #     from torchmetrics.classification.accuracy import Accuracy
@@ -83,19 +85,17 @@ def confusion_matrix(y_pred: Tensor, y_true: Tensor, num_classes: int = -1,
     n_labels = int(y_true.max().item()) + 1 if num_classes == -1 else num_classes
     # 遍历y_pred, y_true. 每次cm[t][p] += 1
     #   使用向量化技巧: y_pred, y_true -> x, 然后对x进行计数.
-    x = y_true * n_labels + y_pred
-    cm = x.bincount(minlength=n_labels * n_labels)
-    cm = cm.reshape(n_labels, n_labels)
+    idx = (y_true * n_labels).add_(y_pred)
+    cm = idx.bincount(minlength=n_labels * n_labels).reshape(n_labels, n_labels)
     # 归一化
     if normalize is None:
         return cm
-    cm = cm.to(torch.float32)
     if normalize == "true":
-        cm /= cm.sum(dim=1, keepdim=True)
+        cm = cm / cm.sum(dim=1, keepdim=True)
     elif normalize == "pred":
-        cm /= cm.sum(dim=0, keepdim=True)
+        cm = cm / cm.sum(dim=0, keepdim=True)
     elif normalize == "all":
-        cm /= cm.sum()
+        cm = cm / cm.sum()
     else:
         raise ValueError(f"normalize: {normalize}")
     cm.nan_to_num_(nan=0)  # 除0, 则用0表示
@@ -103,12 +103,14 @@ def confusion_matrix(y_pred: Tensor, y_true: Tensor, num_classes: int = -1,
 
 
 # if __name__ == "__main__":
+#     print()
 #     from torchmetrics.functional.classification.confusion_matrix import confusion_matrix as _confusion_matrix
 #     preds = torch.randint(0, 10, (100,))
 #     target = torch.randint(0, 10, (100,))
-#     y = confusion_matrix(preds, target, normalize="true")
-#     y2 = _confusion_matrix(preds, target, num_classes=int(target.max().item()) + 1, normalize="true")
-#     print(y, y2)
+#     y = libs_ml.test_time(lambda: confusion_matrix(preds, target, normalize="true"), 10)
+#     y2 = libs_ml.test_time(lambda: _confusion_matrix(
+#         preds, target, num_classes=int(target.max().item()) + 1, normalize="true"), 10)
+#     print(torch.allclose(y, y2))
 
 
 def _precision(tp: Tensor, pi: Tensor) -> Tensor:
@@ -121,55 +123,59 @@ def _recall(tp: Tensor, ti: Tensor) -> Tensor:
     return recall.nan_to_num_(nan=0.)
 
 
-def _fscore(prec: Tensor, recall: Tensor, beta: float = 1.) -> Tensor:
-    beta2 = beta**2
-    fscore = (1+beta2)*prec*recall / (beta2*prec + recall)
-    return fscore.nan_to_num_(nan=0.)
+def _fbeta(prec: Tensor, recall: Tensor, beta: float = 1.) -> Tensor:
+    beta2 = beta*beta
+    fbeta = (prec * recall).mul_(1+beta2).div_((prec * beta2).add_(recall))
+    return fbeta.nan_to_num_(nan=0.)
 
 
-def precision_recall_fscore(y_pred: Tensor, y_true: Tensor,
-                            beta: float = 1., average: Literal["micro", "macro", None] = None) -> Tuple[Tensor, Tensor, Tensor]:
+def precision_recall_fbeta(
+    y_pred: Tensor, y_true: Tensor,
+    beta: float = 1.,
+    average: Literal["micro", "macro", None] = None,
+    num_classes: int = -1
+) -> Tuple[Tensor, Tensor, Tensor]:
     """
-    y_pred: Tensor[long]
-    y_true: Tensor[long]
+    y_pred: Tensor[long], [N]
+    y_true: Tensor[long], [N]
     beta: [0, +inf), beta越大, recall的权重越大. (beta=0, 则不考虑recall)
     average: {'micro', 'macro', None}. 'binary'可以通过None实现(取index=1即可).
-    return: prec, recall, fscore. shape[], shape[], shape[]
+    return: prec, recall, fbeta. shape[], shape[], shape[]
     """
-    # micro: 先平均(总的tp, 总的fp), 然后计算metrics(prec, recall, fscore)
+    # micro: 先平均(总的tp, 总的fp), 然后计算metrics(prec, recall, fbeta)
     # macro: 先计算各个的metrics, 再求平均
     if average == "micro":
-        # 类似于accuracy: (prec=recall=fscore=accuracy)
+        # 类似于accuracy: (prec=recall=fbeta=accuracy)
         tp = torch.count_nonzero(y_true == y_pred)  # sum{t=p=i}
         t = p = y_pred.shape[0]  # sum{t=i}, sum{p=i}
         prec, recall = _precision(tp, p), _recall(tp, t)
-        fscore = _fscore(prec, recall, beta)
-        return prec, recall, fscore
-    cm = confusion_matrix(y_pred, y_true, normalize=None)
+        fbeta = _fbeta(prec, recall, beta)
+        return prec, recall, fbeta
+    cm = confusion_matrix(y_pred, y_true, num_classes, normalize=None)
     tp = cm.diag()  # t=p=i
     ti = cm.sum(dim=1)  # t=i
     pi = cm.sum(dim=0)  # p=i
     prec, recall = _precision(tp, pi), _recall(tp, ti)
-    fscore = _fscore(prec, recall, beta)
+    fbeta = _fbeta(prec, recall, beta)
     if average == None:
-        return prec, recall, fscore
+        return prec, recall, fbeta
     elif average == "macro":
-        return prec.mean(), recall.mean(), fscore.mean()
+        return prec.mean(), recall.mean(), fbeta.mean()
     else:
         raise ValueError(f"average: {average}")
 
 
-def precision_score(y_pred: Tensor, y_true: Tensor, average: Literal["micro", "macro", None] = None) -> Tensor:
-    return precision_recall_fscore(y_pred, y_true, 1., average)[0]
+def precision(y_pred: Tensor, y_true: Tensor, average: Literal["micro", "macro", None] = None) -> Tensor:
+    return precision_recall_fbeta(y_pred, y_true, 1., average)[0]
 
 
-def recall_score(y_pred: Tensor, y_true: Tensor, average: Literal["micro", "macro", None] = None) -> Tensor:
-    return precision_recall_fscore(y_pred, y_true, 1., average)[1]
+def recall(y_pred: Tensor, y_true: Tensor, average: Literal["micro", "macro", None] = None) -> Tensor:
+    return precision_recall_fbeta(y_pred, y_true, 1., average)[1]
 
 
 def fbeta_score(y_pred: Tensor, y_true: Tensor,
                 beta: float = 1., average: Literal["micro", "macro", None] = None) -> Tensor:
-    return precision_recall_fscore(y_pred, y_true, beta, average)[2]
+    return precision_recall_fbeta(y_pred, y_true, beta, average)[2]
 
 
 def f1_score(y_pred: Tensor, y_true: Tensor, average: Literal["micro", "macro", None] = None) -> Tensor:
@@ -184,10 +190,10 @@ def f1_score(y_pred: Tensor, y_true: Tensor, average: Literal["micro", "macro", 
 #     target = torch.randint(0, 1, (1000,))
 #     target[0] = 1
 #     num_classes = int(target.max().item()) + 1
-#     print(_f1_score(preds, target, 10000, "macro", num_classes=num_classes))
-#     print(_fbeta_score(preds, target, 1, "macro", num_classes=num_classes))
-#     print(precision_recall(preds, target, "macro", num_classes=num_classes))
-#     print(precision_recall_fscore(preds, target, 1, "macro"))
+#     print(libs_ml.test_time(lambda: _f1_score(preds, target, 1, "macro", num_classes=num_classes)))
+#     print(libs_ml.test_time(lambda: _fbeta_score(preds, target, 1, "macro", num_classes=num_classes)))
+#     print(libs_ml.test_time(lambda: precision_recall(preds, target, "macro", num_classes=num_classes)))
+#     print(libs_ml.test_time(lambda: precision_recall_fbeta(preds, target, 1, "macro", num_classes=num_classes)))
 #     #
 #     from torchmetrics.classification.f_beta import F1Score
 #     from torchmetrics.classification.precision_recall import Precision, Recall
@@ -213,7 +219,7 @@ def f1_score(y_pred: Tensor, y_true: Tensor, average: Literal["micro", "macro", 
 #     print(_f1_score(preds, target, 10000, "macro", num_classes=num_classes))
 #     print(_fbeta_score(preds, target, 1, "macro", num_classes=num_classes))
 #     print(precision_recall(preds, target, "macro", num_classes=num_classes))
-#     print(precision_recall_fscore(preds, target, 1, "macro"))
+#     print(precision_recall_fbeta(preds, target, 1, "macro"))
 
 
 # if __name__ == "__main__":
@@ -222,9 +228,9 @@ def f1_score(y_pred: Tensor, y_true: Tensor, average: Literal["micro", "macro", 
 #     y_pred = torch.tensor([0, 2, 1, 3, 1], device='cuda')
 #     print(accuracy(y_pred, y_true))
 #     print(confusion_matrix(y_pred, y_true))
-#     print(precision_recall_fscore(y_pred, y_true))
-#     print(precision_recall_fscore(y_pred, y_true, average="micro"))
-#     print(precision_recall_fscore(y_pred, y_true, average="macro"))
+#     print(precision_recall_fbeta(y_pred, y_true))
+#     print(precision_recall_fbeta(y_pred, y_true, average="micro"))
+#     print(precision_recall_fbeta(y_pred, y_true, average="macro"))
 #     from sklearn.metrics import precision_recall_fscore_support, confusion_matrix as _confusion_matrix
 #     y_true = y_true.cpu().numpy()
 #     y_pred = y_pred.cpu().numpy()
@@ -233,7 +239,6 @@ def f1_score(y_pred: Tensor, y_true: Tensor, average: Literal["micro", "macro", 
 #     print(precision_recall_fscore_support(y_true, y_pred, average="micro", zero_division=0))
 #     print(precision_recall_fscore_support(y_true, y_pred, average="macro", zero_division=0))
 #     print()
-#
 
 
 def _calculate_tps_fps(y_score: Tensor, y_true: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
@@ -270,17 +275,15 @@ def precision_recall_curve(y_score: Tensor, y_true: Tensor) -> Tuple[Tensor, Ten
     # tps + fps = pi
     # ti = tps[-1]
     ###
-
-    #
     tps, fps, threshold = _calculate_tps_fps(y_score, y_true)
     t1 = tps[-1]
-    p1 = tps + fps  # threshold_idx + 1
+    p1 = fps.add_(tps)  # threshold_idx + 1
     precision = _precision(tps, p1)
     recall = _recall(tps, t1)
     return precision, recall, threshold
 
 
-def average_precision_score(y_score: Tensor, y_true: Tensor) -> Tensor:
+def average_precision(y_score: Tensor, y_true: Tensor) -> Tensor:
     """此实现只适用于2分类任务. AP的使用只能使用二分类. 可以使用mAP用于多分类. 
     y_score: Tensor[float]. shape[N]. scores. {可以未降序排序}
     y_true: Tensor[Number]. shape[N]
@@ -290,15 +293,15 @@ def average_precision_score(y_score: Tensor, y_true: Tensor) -> Tensor:
     # 计算面积. 计算: [x1,x2;y1,y2]的面积: 其中x1<x2.
     _0 = torch.tensor([0.], dtype=recall.dtype, device=recall.device)
     dx = torch.diff(recall, prepend=_0)
-    return dx.mul_(precision).sum()
+    return torch.einsum("i,i->", dx, precision)
 
 
 # if __name__ == "__main__":
-#     from torchmetrics.functional.classification.average_precision import average_precision
+#     from torchmetrics.functional.classification.average_precision import average_precision as _average_precision
 #     y_score = torch.rand(1000)
 #     y_true = torch.randint(0, 2, (1000,)).long()
-#     print(average_precision(y_score, y_true))
-#     print(average_precision_score(y_score, y_true))
+#     print(libs_ml.test_time(lambda: _average_precision(y_score, y_true), 10))
+#     print(libs_ml.test_time(lambda: average_precision(y_score, y_true), 10))
 #     print()
 #     from torchmetrics.classification.average_precision import AveragePrecision
 #     ap_metric = AveragePrecision()
@@ -368,7 +371,7 @@ def roc_curve(y_score: Tensor, y_true: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
     return tpr, fpr, threshold
 
 
-def roc_auc_score(y_score: Tensor, y_true: Tensor) -> Tensor:
+def auroc(y_score: Tensor, y_true: Tensor) -> Tensor:
     """此实现只适用于2分类任务. X轴为fpr, Y轴为tpr
     y_score: Tensor[float]. shape[N]. {可以未排序}
     y_true: Tensor[Number]. shape[N]. 
@@ -378,15 +381,15 @@ def roc_auc_score(y_score: Tensor, y_true: Tensor) -> Tensor:
     # 计算面积. 计算: [x1,x2;y1,y2]的面积: 其中x1<x2.
     _0 = torch.tensor([0.], dtype=tpr.dtype, device=tpr.device)
     dx = torch.diff(fpr, prepend=_0)
-    return dx.mul_(tpr).sum()
+    return torch.einsum("i,i->", dx, tpr)
 
 
 # if __name__ == "__main__":
-#     from torchmetrics.functional.classification.auroc import auroc
+#     from torchmetrics.functional.classification.auroc import auroc as _auroc
 #     y_score = torch.rand(1000)
 #     y_true = torch.randint(0, 2, (1000,)).long()
-#     print(auroc(y_score, y_true))
-#     print(roc_auc_score(y_score, y_true))
+#     print(libs_ml.test_time(lambda:auroc(y_score, y_true)))
+#     print(libs_ml.test_time(lambda:_auroc(y_score, y_true)))
 #     print()
 #     from torchmetrics.classification.auroc import AUROC
 #     auroc_metric = AUROC()
@@ -443,25 +446,24 @@ def r2_score(y_pred: Tensor, y_true: Tensor) -> Tensor:
     # v的方差越大, 可以缓解预测u的误差大.
     # 可以把F理解为batch.
     u = F.mse_loss(y_pred, y_true, reduction="none").mean(dim=0)
-    v = torch.var(y_true, dim=0, unbiased=False)
-    return (1 - u / v).mean()
+    v = torch.var(y_true, dim=0, unbiased=False)  # [F]
+    return (u.div_(v).neg_().add_(1)).mean()  # 1 - u/v
 
 
 # if __name__ == "__main__":
-#     from sklearn.metrics import r2_score as _r2_score
-#     from torchmetrics.functional.regression.r2 import r2_score as r2_score2
+#     from torchmetrics.functional.regression.r2 import r2_score as _r2_score
 #     print()
-#     y_pred = torch.randn(100)
-#     y_true = torch.randn(100)
-#     print(_r2_score(y_true, y_pred))
-#     print(r2_score(y_pred, y_true).item())
-#     print(r2_score2(y_pred, y_true).item())
+#     y_pred = torch.randn(10000)
+#     y_true = torch.randn(10000)
+#     print(libs_ml.test_time(lambda: r2_score(y_pred, y_true)))
+#     print(libs_ml.test_time(lambda: _r2_score(y_pred, y_true)))
 #     #
-#     y_pred = torch.randn(100, 10)
-#     y_true = torch.randn(100, 10)
-#     print(_r2_score(y_true, y_pred))
-#     print(r2_score(y_pred, y_true).item())
-#     print(r2_score2(y_pred, y_true).item())
+#     y_pred = torch.randn(10000, 1000)
+#     y_true = torch.randn(10000, 1000)
+#     print(libs_ml.test_time(lambda: r2_score(y_pred, y_true)))
+#     print(libs_ml.test_time(lambda: _r2_score(y_pred, y_true)))
+
+
 def batched_cosine_similarity(X: Tensor, Y: Tensor) -> Tensor:
     """
     X: [N, F]. float
@@ -481,7 +483,9 @@ def pairwise_cosine_similarity(X: Tensor, Y: Tensor) -> Tensor:
     """
     # <X, Y> / (|X| |Y|)
     res = X @ Y.T
-    res.div_(torch.norm(X, dim=1)[:, None]).div_(torch.norm(Y, dim=1)[None])
+    X_norm = torch.norm(X, dim=1)  # [N1]
+    Y_norm = torch.norm(Y, dim=1)  # [N2]
+    res.div_(X_norm[:, None]).div_(Y_norm)
     return res
 
 
@@ -545,7 +549,7 @@ def pairwise_euclidean_distance(
         YY = torch.einsum("ij,ij->i", Y, Y)
     # 减少分配空间导致的效率下降
     res = X @ Y.T
-    res.mul_(-2).add_(XX[:, None]).add_(YY[None, :])
+    res.mul_(-2).add_(XX[:, None]).add_(YY)
     res.clamp_min_(0.)  # 避免sqrt{负数}, 浮点误差
     return res if squared else res.sqrt_()
 
@@ -609,52 +613,6 @@ def pairwise_euclidean_distance(
 #     print(torch.allclose(a, torch.from_numpy(b), rtol=1e-4, atol=1e-4))
 
 
-def mean_squared_error(y_pred: Tensor, y_true: Tensor, *, reduction="mean",
-                       squared: bool = True) -> Tensor:
-    """
-    y_pred: [N, F]. Tensor[float]
-    y_true: [N, F]. Tensor[float]
-    reduction: {"mean", "sum", "none"}
-    return: [N, F] or []
-    """
-    # torch.mean((y_pred - y_true) ** 2, dim=0)
-    res = y_true - y_pred
-    if reduction == "none":
-        res.mul_(res)
-        return res if squared else res.sqrt_()
-    #
-    res = torch.einsum("ij,ij->", res, res)
-    if reduction == "mean":
-        res.div_(y_pred.numel())
-    elif reduction == "sum":
-        pass
-    else:
-        raise ValueError(f"reduction: {reduction}")
-    return res if squared else res.sqrt_()
-
-
-# if __name__ == "__main__":
-#     from sklearn.metrics import mean_squared_error as _mean_squared_error
-#     x = torch.randn(1000, 2000)
-#     y = torch.randn(1000, 2000)
-#     x_np = x.numpy()
-#     y_np = y.numpy()
-#     a = libs_ml.test_time(lambda: torch.nn.MSELoss(
-#         reduction="none")(x, y), number=10)
-#     b = libs_ml.test_time(lambda: torch.nn.MSELoss(
-#         reduction="mean")(x, y), number=10)
-#     c = libs_ml.test_time(lambda: _mean_squared_error(  # 慢!
-#         y_np, x_np, multioutput="raw_values"), number=10)
-#     d = libs_ml.test_time(lambda: _mean_squared_error(  # 慢!
-#         y_np, x_np, multioutput="uniform_average"), number=10)
-#     e = libs_ml.test_time(
-#         lambda: mean_squared_error(x, y, reduction="none"), number=10)
-#     f = libs_ml.test_time(
-#         lambda: mean_squared_error(x, y, reduction="mean"), number=10)
-#     print(torch.allclose(a, e, atol=1e-6))
-#     print(torch.allclose(b, f))
-
-
 # if __name__ == "__main__":
 #     # a = libs_ml.test_time(lambda:  torch.randn(1000, 2000))
 #     # a = libs_ml.test_time(lambda:  torch.zeros(1000, 2000))  # 慢20倍
@@ -667,3 +625,30 @@ def mean_squared_error(y_pred: Tensor, y_true: Tensor, *, reduction="mean",
 #     libs_ml.test_time(lambda:  x.add_(10.2))
 #     libs_ml.test_time(lambda:  x.mul_(10.2))
 #     libs_ml.test_time(lambda:  x.div_(10.123))
+
+
+"""
+1. 信息量 Info: [F]->[F]: -log(X)
+2. 熵 Entropy: [F]->[F]: (X*Info(X)).sum()
+3. 交叉熵 Cross_Entropy: [F],[F]->[F]: (T*Info(P)).sum()
+4. 相对熵/KL散度: [F],[F]->[F]: (T*(Info(P)-INFO(T))).sum()=Cross_Entropy(T,P)-Entropy(T)
+"""
+
+
+def kl_divergence(p: Tensor, q: Tensor) -> Tensor:
+    """KL(P||Q)=(P * log(P/Q)).sum(). P:数据分布(e.g. y_true). Q:P的先验后近似分布(e.g. 均匀分布)
+    p: [N, F]
+    q: [N, F]
+    """
+    N = p.shape[0]
+    return ((p/q).log_().mul_(p)).sum().div_(N)
+
+
+# if __name__ == "__main__":
+#     from torchmetrics.functional import kl_divergence as _kl_divergence
+#     X = torch.rand(1000, 100)
+#     Y = torch.rand(1000, 100)
+#     X = torch.softmax(X, dim=1)
+#     Y = torch.softmax(Y, dim=1)
+#     print(libs_ml.test_time(lambda: _kl_divergence(X, Y)))
+#     print(libs_ml.test_time(lambda: kl_divergence(X, Y)))
