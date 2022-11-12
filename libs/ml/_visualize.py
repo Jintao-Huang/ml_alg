@@ -204,8 +204,8 @@ def make_grid(images: Union[Tensor, ndarray], ax: Axes,
     # 若未指定vim, vmax, 则vmin=images.min(), vmax=images.max()
     # 随后将[vmin, vmax] norm-> [0, 1]
     # images是C=3的, 所以cmap不发挥作用
-    ax.imshow(images, cmap=None, origin="upper", vmin=0, vmax=1)
     ax.axis("off")
+    ax.imshow(images, cmap=None, origin="upper", vmin=0, vmax=1)
 
 
 def normalize(image: Tensor) -> Tensor:

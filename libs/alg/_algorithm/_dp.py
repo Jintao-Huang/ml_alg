@@ -1,3 +1,7 @@
+# Author: Jintao Huang
+# Email: huangjintao@mail.ustc.edu.cn
+# Date:
+
 from typing import List, Tuple
 from bisect import bisect_left
 try:

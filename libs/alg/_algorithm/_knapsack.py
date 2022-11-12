@@ -1,3 +1,7 @@
+# Author: Jintao Huang
+# Email: huangjintao@mail.ustc.edu.cn
+# Date:
+
 from typing import List, Callable, Iterable, Optional
 try:
     from .._utils._climit import INT32_INF

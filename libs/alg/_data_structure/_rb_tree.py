@@ -1,3 +1,7 @@
+# Author: Jintao Huang
+# Email: huangjintao@mail.ustc.edu.cn
+# Date:
+
 from typing import Generic, TypeVar, List, Optional
 from enum import Enum
 

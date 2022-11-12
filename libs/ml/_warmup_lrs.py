@@ -1,3 +1,7 @@
+# Author: Jintao Huang
+# Email: huangjintao@mail.ustc.edu.cn
+# Date:
+
 from typing import List, Tuple
 from mini_lightning import cosine_annealing_lr, warmup_decorator
 from torch.optim.lr_scheduler import _LRScheduler as LRScheduler, CosineAnnealingLR

@@ -1,4 +1,6 @@
-
+# Author: Jintao Huang
+# Email: huangjintao@mail.ustc.edu.cn
+# Date:
 
 from typing import NamedTuple, TypeVar, List, Optional, Callable, Iterable
 import math

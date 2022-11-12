@@ -1,3 +1,7 @@
+# Author: Jintao Huang
+# Email: huangjintao@mail.ustc.edu.cn
+# Date:
+
 from typing import Optional, Union, List, Deque, TypeVar, Generic, Any
 import json
 

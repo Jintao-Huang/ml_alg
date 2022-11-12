@@ -1,4 +1,6 @@
-
+# Author: Jintao Huang
+# Email: huangjintao@mail.ustc.edu.cn
+# Date:
 
 from typing import Optional, List, TypeVar, Generic, Iterator
 

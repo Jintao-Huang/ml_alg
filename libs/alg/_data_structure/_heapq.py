@@ -1,3 +1,7 @@
+# Author: Jintao Huang
+# Email: huangjintao@mail.ustc.edu.cn
+# Date:
+
 import heapq
 from heapq import nlargest, nsmallest, merge
 from heapq import heapify, heappush, heappop, heappushpop, heapreplace

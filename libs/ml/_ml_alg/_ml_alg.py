@@ -1,3 +1,7 @@
+# Author: Jintao Huang
+# Email: huangjintao@mail.ustc.edu.cn
+# Date:
+
 import torch
 import torch.linalg as tl
 from torch import Tensor
@@ -364,7 +368,7 @@ class _LogisticRegression(LinearRegression):
         C: float = 1.,
         tol: float = 0.0001,
         max_iter: int = 100,
-        solver: Literal["lbfgs"] = 'lbfgs'
+        solver: Literal["lbfgs"] = 'lbfgs'  # 
     ) -> None:
         self.penalty = penalty
         self.C = C
@@ -623,6 +627,6 @@ class NearestNeighbors:
 #     print(torch.allclose(torch.from_numpy(z[1]), z2[1]))
 #     X = X.cuda()
 #     Q = Q.cuda()
-#     z2 = ml.test_time(lambda: NearestNeighbors(alg="naive").fit(X).kneighbors(Q, 100), warm_up=1)
+#     z2 = ml.test_time(lambda: NearestNeighbors(alg="naive").fit(X).kneighbors(Q, 100), warm_up=1, timer=ml.time_synchronize)
 #     print(torch.allclose(torch.from_numpy(z[0]), z2[0].cpu()))
 #     print(torch.allclose(torch.from_numpy(z[1]), z2[1].cpu()))

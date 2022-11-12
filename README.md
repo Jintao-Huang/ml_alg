@@ -17,9 +17,10 @@
       1. 含归一化方法, LinearRegression, Ridge, LogisticRegression, PCA, KMeans, NearestNeighbors等.
    4. `_optim_functional.py`: 优化器的实现. (没啥实用性, 用于学习)
       1. 含sgd, adam, adamw.
-   5. `_linalg.py`: 线性代数算法. (没啥实用性, 用于学习)
+   5. `tvt_functional.py`: torchvision.transforms.functional的实现. (没啥实用性, 用于学习)
+   6. `_linalg.py`: 线性代数算法. (没啥实用性, 用于学习)
       1. 含pinv, solve, lstsq, cholesky_solve, lu_solve等
-   6. `_functional.py`: 一些torch的函数实现. (没啥实用性, 用于学习)
+   7. `_functional.py`: 一些torch的函数实现. (没啥实用性, 用于学习)
       1. 含logsumexp, softmax, var, cov, corrcoef, bincount等
 3. `libs/alg/*`: 传统算法库
    1. 数据结构: 树状数组, 堆, 优先级队列, 可变的优先级队列, 红黑树, 有序数组, 链表, 线段树, Lazy线段树, 字符串哈希, 字典树, 并查集, Huffman树等.

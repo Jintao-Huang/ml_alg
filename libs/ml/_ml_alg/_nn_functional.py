@@ -630,7 +630,7 @@ def conv_transpose2d(
     groups: int = 1,
     dilation: Tuple[int, int] = (1, 1)
 ) -> Tensor:
-    """
+    """faster than conv_transpose2d_2
     x: [N, Cin, Hin, Win]
     weight: [Cin, Cout//G, KH, KW]. 
     bias: [Cout]
@@ -652,7 +652,6 @@ def conv_transpose2d(
     # Out = (In - 1) * S - 2*P + (K-1)*D -1 + OP
     Hout, Wout = (Hin - 1) * SH - 2 * PH + KH_D + OPH, (Win - 1) * SW - 2 * PW + KW_D + OPW
     assert Cin % G == 0
-    # [N, Cin, Hin, ]
     # [N, Cin, Hin, Win] -> [N, G, Cin//G, Hin*Win]
     x = x.view(N, G, Cin//G, Hin*Win)
     #
@@ -682,6 +681,76 @@ def conv_transpose2d(
 #     y1 = libs_ml.test_time(lambda: F.conv_transpose2d(x, w, b, (2, 2), (1, 1), (1, 1), 4, (2, 2)))
 #     y2 = libs_ml.test_time(lambda: conv_transpose2d(x, w, b, (2, 2), (1, 1), (1, 1), 4, (2, 2)))
 #     print(torch.allclose(y1, y2))
+
+
+def conv_transpose2d_2(
+    x: Tensor,
+    weight: Tensor,
+    bias: Optional[Tensor] = None,
+    stride: Tuple[int, int] = (1, 1),
+    padding: Tuple[int, int] = (0, 0),
+    output_padding: Tuple[int, int] = (0, 0),
+    groups: int = 1,
+    dilation: Tuple[int, int] = (1, 1)
+) -> Tensor:
+    """
+    x: [N, Cin, Hin, Win]
+    weight: [Cin, Cout//G, KH, KW]. 
+    bias: [Cout]
+    stride: SH, SW
+    padding: PH, PW
+    output_padding: OPH, OPW
+    return: [N, Cout, Hout, Wout]
+    """
+    Hin, Win = x.shape[2:]
+    DH, DW = dilation
+    G = groups
+    KH, KW = weight.shape[2:]
+    KH_D, KW_D = (KH - 1) * DH + 1, (KW - 1) * DW + 1
+    PH, PW = padding
+    OPH, OPW = output_padding
+    SH, SW = stride
+    N, Cin = x.shape[:2]
+    Cout = weight.shape[1] * G
+    # Out = (In - 1) * S - 2*P + (K-1)*D -1 + OP
+    Hout, Wout = (Hin - 1) * SH - 2 * PH + KH_D + OPH, (Win - 1) * SW - 2 * PW + KW_D + OPW
+    assert Cin % G == 0
+    x = x.view(N, G, Cin//G, Hin, Win)
+    weight = weight.contiguous().view(G, Cin // G, Cout//G, KH, KW)
+    #
+    res = torch.zeros((N, Cout, Hout + 2 * PH, Wout + 2 * PW))
+    for i in range(Hin):
+        for j in range(Win):
+            h_start, w_start = i * SH, j * SW
+            h_pos, w_pos = slice(h_start, (h_start + KH_D), DH), \
+                slice(w_start, (w_start + KW_D), DW)
+            # [N, G, Cin//G, KH, KW], [G, Cin//G, Cout//G]
+            #   -> [N, G, Cout//G, KH, KW] -> [N, Cout, KH, KW]
+            res[:, :, h_pos, w_pos].add_(
+                torch.einsum("abc,bcfde->abfde", x[:, :, :, i, j], weight).contiguous().view(N, Cout, KH, KW))
+    if bias is not None:
+        res.add_(bias[None, :,  None, None])
+    if PH > 0:
+        res = res[:, :, PH:-PH]
+    if PW > 0:
+        res = res[:, :, :, PW:-PW]
+    return res
+
+
+# if __name__ == "__main__":
+#     x = torch.randn(128, 32, 112, 112)
+#     w = torch.randn(32, 16, 3, 3)
+#     b = torch.randn(16)
+#     y1 = libs_ml.test_time(lambda: F.conv_transpose2d(x, w, b))
+#     y2 = libs_ml.test_time(lambda: conv_transpose2d_2(x, w, b))
+#     print(torch.allclose(y1, y2, atol=1e-5))
+    
+#     x = torch.randn(128, 32, 112, 112)
+#     w = torch.randn(32, 4, 3, 3)
+#     b = torch.randn(16)
+#     y1 = libs_ml.test_time(lambda: F.conv_transpose2d(x, w, b, (3, 3), (1, 1), (2, 2), 4, (2, 2)))
+#     y2 = libs_ml.test_time(lambda: conv_transpose2d_2(x, w, b, (3, 3), (1, 1), (2, 2), 4, (2, 2)))
+#     print(torch.allclose(y1, y2, atol=1e-5))
 
 
 def conv1d(

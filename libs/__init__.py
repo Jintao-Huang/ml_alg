@@ -78,9 +78,9 @@ from torch.utils.tensorboard.writer import SummaryWriter
 from torch.nn.modules.module import _IncompatibleKeys as IncompatibleKeys
 import torch.distributed as dist
 #
-import torchvision.transforms.functional_tensor as tvF_t
-import torchvision.transforms.functional_pil as tvF_pil
-import torchvision.transforms.functional as tvF
+import torchvision.transforms.functional_tensor as tvtF_t
+import torchvision.transforms.functional_pil as tvtF_pil
+import torchvision.transforms.functional as tvtF
 from torchvision.transforms.functional import InterpolationMode, pil_modes_mapping
 import torchvision as tv
 import torchvision.transforms as tvt

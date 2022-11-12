@@ -436,7 +436,7 @@ def auroc(y_score: Tensor, y_true: Tensor) -> Tensor:
 #     plot_roc_curve(tpr, fpr, "asset/images/5.png")
 
 
-def r2_score(y_pred: Tensor, y_true: Tensor) -> Tensor:
+def r2_score(y_pred: Tensor, y_true: Tensor, reduction: Literal["mean", "none"] = "mean") -> Tensor:
     """
     y_pred: shape[N] or [N, F]. Tensor[float].
     y_true: shape[N] or [N, F]. Tensor[float]. 
@@ -447,7 +447,12 @@ def r2_score(y_pred: Tensor, y_true: Tensor) -> Tensor:
     # 可以把F理解为batch.
     u = F.mse_loss(y_pred, y_true, reduction="none").mean(dim=0)
     v = torch.var(y_true, dim=0, unbiased=False)  # [F]
-    return (u.div_(v).neg_().add_(1)).mean()  # 1 - u/v
+    res = u.div_(v).neg_().add_(1)
+    if reduction == "mean":
+        res = res.mean()
+    elif reduction != "none":
+        raise ValueError(f"reduction: {reduction}")
+    return res  # 1 - u/v
 
 
 # if __name__ == "__main__":

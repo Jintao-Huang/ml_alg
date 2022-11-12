@@ -1,3 +1,7 @@
+# Author: Jintao Huang
+# Email: huangjintao@mail.ustc.edu.cn
+# Date:
+
 from typing import Callable, List, Set, Tuple, Optional
 from enum import Enum
 import math

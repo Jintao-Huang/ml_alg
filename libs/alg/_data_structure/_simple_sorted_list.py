@@ -1,3 +1,7 @@
+# Author: Jintao Huang
+# Email: huangjintao@mail.ustc.edu.cn
+# Date:
+
 from typing import Optional, List, TypeVar, Any, Generic
 from bisect import bisect_right, bisect_left
 __all__ = ["SimpleSortedList"]

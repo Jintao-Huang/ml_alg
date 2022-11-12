@@ -1,3 +1,7 @@
+# Author: Jintao Huang
+# Email: huangjintao@mail.ustc.edu.cn
+# Date:
+
 try:
     from .._data_structure import PriorityQueue, MutablePQ, UFSet
 except ImportError:  # for debug

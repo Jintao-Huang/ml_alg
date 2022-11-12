@@ -38,7 +38,7 @@ def detect_chinese(dir_: str, ignore_dirs: Optional[List[str]] = None):
                 try:
                     for i, line in enumerate(f):
                         if contain_chinese(line):
-                            print(path, i + 1)
+                            print(f"{path}:{i + 1}")
                 except UnicodeDecodeError:
                     print(f"path, {path}")
 
@@ -52,4 +52,4 @@ def detect_chinese(dir_: str, ignore_dirs: Optional[List[str]] = None):
 
 
 if __name__ == "__main__":
-    detect_chinese("/home/jintao/Desktop/coding/python/ustcml/mini-lightning/", IGNORE_DIRS)
+    detect_chinese("/home/jintao/Desktop/coding/python/ustcml/mini-lightning", IGNORE_DIRS)

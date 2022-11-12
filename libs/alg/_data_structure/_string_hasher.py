@@ -1,3 +1,7 @@
+# Author: Jintao Huang
+# Email: huangjintao@mail.ustc.edu.cn
+# Date:
+
 try:
     from .._algorithm._utils import accumulate
 except ImportError:

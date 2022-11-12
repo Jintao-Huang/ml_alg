@@ -1,3 +1,6 @@
+# Author: Jintao Huang
+# Email: huangjintao@mail.ustc.edu.cn
+# Date:
 
 from typing import Generic, List, TypeVar, Optional, Dict, Any, Tuple
 from ._heapq import *

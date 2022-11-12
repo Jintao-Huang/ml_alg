@@ -1,3 +1,7 @@
+# Author: Jintao Huang
+# Email: huangjintao@mail.ustc.edu.cn
+# Date:
+
 from math import gcd, lcm, factorial, comb, perm
 from math import isnan, isinf, inf, nan, e, pi
 import math
