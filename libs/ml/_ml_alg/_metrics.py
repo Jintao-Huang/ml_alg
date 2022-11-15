@@ -43,14 +43,19 @@ if __name__ == "__main__":
     from libs import *
 
 
-def accuracy(y_pred: Tensor, y_true: Tensor) -> Tensor:
+def accuracy(y_pred: Tensor, y_true: Tensor, top_k: int = 1) -> Tensor:
     """
-    y_pred: Tensor[long]. shape[N]
+    y_pred: Tensor[long]. shape[N] or Tensor[float]. shape[N, C]
     y_true: Tensor[long]. shape[N]
     return: shape[]
     """
     N = y_pred.shape[0]
-    return torch.count_nonzero(y_true == y_pred) / N
+    if top_k > 1:
+        y_pred = y_pred.topk(top_k, dim=-1)[1]
+        y_true = y_true[:, None]
+    elif y_pred.ndim == 2:  # top_k=1
+        y_pred = y_pred.argmax(dim=1)
+    return (y_true == y_pred).count_nonzero() / N
 
 
 # if __name__ == "__main__":
@@ -70,6 +75,16 @@ def accuracy(y_pred: Tensor, y_true: Tensor) -> Tensor:
 #         # acc_metric(p, t)
 #         acc_metric.update(p, t)
 #     print(acc_metric.compute())
+
+
+# if __name__ == "__main__":
+#     from torchmetrics.functional.classification.accuracy import accuracy as _accuracy
+#     target = torch.tensor([0, 2, 2, 1, 1])
+#     preds = torch.tensor([[0.9, 0.01, 0.09], [0.5, 0.2, 0.3], [0.4, 0.25, 0.15], [0.3, 0.4, 0.3], [0.1, 0.8, 0.1]])
+#     print(libs_ml.test_time(lambda: _accuracy(preds, target)))
+#     print(libs_ml.test_time(lambda: _accuracy(preds, target, top_k=2)))
+#     print(libs_ml.test_time(lambda: accuracy(preds, target)))
+#     print(libs_ml.test_time(lambda: accuracy(preds, target, top_k=2)))
 
 
 def confusion_matrix(y_pred: Tensor, y_true: Tensor, num_classes: int = -1,
@@ -470,7 +485,7 @@ def r2_score(y_pred: Tensor, y_true: Tensor, reduction: Literal["mean", "none"] 
 
 
 def batched_cosine_similarity(X: Tensor, Y: Tensor) -> Tensor:
-    """
+    """或直接使用F.cosine_similarity
     X: [N, F]. float
     Y: [N, F]. float
     return: [N]. float
@@ -506,6 +521,11 @@ def pairwise_cosine_similarity(X: Tensor, Y: Tensor) -> Tensor:
 #     print(torch.allclose(z2, z3, atol=1e-6))
 #     z4 = libs_ml.test_time(lambda: batched_cosine_similarity(x, y), 5)
 #     print(torch.allclose(z.ravel()[::1000+1], z4, atol=1e-6))
+#     #
+#     z5 = libs_ml.test_time(lambda: F.cosine_similarity(x, y), 5)
+#     print(torch.allclose(z5, z4, atol=1e-6))
+#     z6 = libs_ml.test_time(lambda: F.cosine_similarity(x[:, None], y[None, :], dim=2), 1)
+#     print(torch.allclose(z, z6, atol=1e-6))
 
 
 def batched_euclidean_distance(
@@ -515,7 +535,7 @@ def batched_euclidean_distance(
     YY: Optional[Tensor] = None,
     squared: bool = False
 ) -> Tensor:
-    """
+    """或直接使用F.pairwise_distance
     X: [N, F]. float
     Y: [N, F]. float
     XX: ij,ij->i. [N]
@@ -560,23 +580,17 @@ def pairwise_euclidean_distance(
 
 
 # if __name__ == "__main__":
-#     x1 = torch.randn(10000, 1000)
-#     x2 = torch.randn(10000, 1000)
-#     y1 = libs_ml.test_time(lambda: batched_euclidean_distance(x1, x2), 5)
-
-#     def func(x1, x2):
-#         z = x1 - x2
-#         return (z * z).sum(dim=1).sqrt_()
-#     y2 = libs_ml.test_time(lambda: func(x1, x2), 5)
-#     print(torch.allclose(y1, y2))  # True
-
-# if __name__ == "__main__":
 #     from torchmetrics.functional.pairwise.euclidean import pairwise_euclidean_distance as _pairwise_euclidean_distance
 #     x = torch.randn(10000, 1000)
 #     x2 = torch.randn(10000, 1000)
-#     y1 = libs_ml.test_time(lambda:pairwise_euclidean_distance(x, x2), 5)
-#     y2 = libs_ml.test_time(lambda:_pairwise_euclidean_distance(x, x2), 5)
+#     y1 = libs_ml.test_time(lambda: pairwise_euclidean_distance(x, x2), 5)
+#     y2 = libs_ml.test_time(lambda: _pairwise_euclidean_distance(x, x2), 5)
+#     y3 = libs_ml.test_time(lambda: F.pairwise_distance(x, x2), 5)
 #     print(torch.allclose(y1, y2))  # True
+#     print(torch.allclose(y2.ravel()[::10000+1], y3, atol=1e-6))  # True
+#     y4 = libs_ml.test_time(lambda: batched_euclidean_distance(x, x2), 5)
+#     print(torch.allclose(y4, y3, atol=1e-6))  # True
+
 
 # if __name__ == "__main__":
 #     # test einsum 的speed
@@ -630,7 +644,6 @@ def pairwise_euclidean_distance(
 #     libs_ml.test_time(lambda:  x.add_(10.2))
 #     libs_ml.test_time(lambda:  x.mul_(10.2))
 #     libs_ml.test_time(lambda:  x.div_(10.123))
-
 
 """
 1. 信息量 Info: [F]->[F]: -log(X)

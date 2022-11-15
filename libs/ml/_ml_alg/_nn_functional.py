@@ -699,7 +699,7 @@ def conv_transpose2d_2(
     bias: [Cout]
     stride: SH, SW
     padding: PH, PW
-    output_padding: OPH, OPW
+    output_padding: OPH, OPW. OPH只填充bottom, OPW只填充right(单边).
     return: [N, Cout, Hout, Wout]
     """
     Hin, Win = x.shape[2:]
@@ -744,12 +744,12 @@ def conv_transpose2d_2(
 #     y1 = libs_ml.test_time(lambda: F.conv_transpose2d(x, w, b))
 #     y2 = libs_ml.test_time(lambda: conv_transpose2d_2(x, w, b))
 #     print(torch.allclose(y1, y2, atol=1e-5))
-    
+
 #     x = torch.randn(128, 32, 112, 112)
-#     w = torch.randn(32, 4, 3, 3)
-#     b = torch.randn(16)
-#     y1 = libs_ml.test_time(lambda: F.conv_transpose2d(x, w, b, (3, 3), (1, 1), (2, 2), 4, (2, 2)))
-#     y2 = libs_ml.test_time(lambda: conv_transpose2d_2(x, w, b, (3, 3), (1, 1), (2, 2), 4, (2, 2)))
+#     w = torch.randn(32, 4, 7, 7)
+#     b = torch.zeros(16)
+#     y1 = libs_ml.test_time(lambda: F.conv_transpose2d(x, w, b, (5, 5), (1, 1), (3, 4), 4, (1, 1)))
+#     y2 = libs_ml.test_time(lambda: conv_transpose2d_2(x, w, b, (5, 5), (1, 1), (3, 4), 4, (1, 1)))
 #     print(torch.allclose(y1, y2, atol=1e-5))
 
 

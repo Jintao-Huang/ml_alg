@@ -18,6 +18,7 @@
    4. `_optim_functional.py`: 优化器的实现. (没啥实用性, 用于学习)
       1. 含sgd, adam, adamw.
    5. `tvt_functional.py`: torchvision.transforms.functional的实现. (没啥实用性, 用于学习)
+      1. 含to_tensor, normalize, pad, hflip, vflip, rgb_to_grayscale, crop, center_crop, resize, resized_crop, adjust_brightness, adjust_contrast, adjust_saturation
    6. `_linalg.py`: 线性代数算法. (没啥实用性, 用于学习)
       1. 含pinv, solve, lstsq, cholesky_solve, lu_solve等
    7. `_functional.py`: 一些torch的函数实现. (没啥实用性, 用于学习)

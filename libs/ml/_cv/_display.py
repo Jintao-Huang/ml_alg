@@ -134,12 +134,13 @@ def resize_max(image: ndarray, max_size: Tuple[Optional[int], Optional[int]],
     # 将图像缩小到max_size以下
     # 若无限制, 则可以设置为None.
     #
+    INF = 1e15
     h, w = image.shape[:2]
     max_w, max_h = max_size
     if max_w is None:
-        max_w = int(1e8)
+        max_w = INF
     if max_h is None:
-        max_h = int(1e8)
+        max_h = INF
     dx, dy = max_w / w, max_h / h  # aw <= max_w
     dxy = min(dx, dy)
     dsize = int(dxy * w), int(dxy * h)
