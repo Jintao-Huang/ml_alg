@@ -432,3 +432,15 @@ def adjust_saturation(x: Tensor, contrast_factor: float) -> Tensor:
 #     y = ml.test_time(lambda: tvtF.adjust_saturation(x, 2))
 #     y2 = ml.test_time(lambda: adjust_saturation(x, 2))
 #     print(torch.allclose(y, y2))
+
+
+def adjust_hue():
+    pass
+
+
+def rotate():
+    pass
+
+
+def affine():
+    pass

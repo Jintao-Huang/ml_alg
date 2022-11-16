@@ -14,7 +14,8 @@ __all__ = [
     "r2_score",
     "pairwise_cosine_similarity", "pairwise_euclidean_distance",
     "batched_cosine_similarity", "batched_euclidean_distance",
-    "kl_divergence"
+    "kl_divergence",
+    "pearson_corrcoef", "spearman_corrcoef"
 ]
 
 # y_pred在前, 保持与torch的loss一致
@@ -670,3 +671,97 @@ def kl_divergence(p: Tensor, q: Tensor) -> Tensor:
 #     Y = torch.softmax(Y, dim=1)
 #     print(libs_ml.test_time(lambda: _kl_divergence(X, Y)))
 #     print(libs_ml.test_time(lambda: kl_divergence(X, Y)))
+
+
+def pearson_corrcoef(y_pred: Tensor, y_true: Tensor) -> Tensor:
+    """见_functional.py:corrcoef
+    y_pred: [N] or [N,F]
+    y_true: [N] or [N,F]
+    return: [] or [F]    
+    """
+    N = y_pred.shape[0]
+    p_mean = y_pred.mean(dim=0)
+    t_mean = y_true.mean(dim=0)
+    #
+    p_std = y_pred.std(dim=0)  # N-1
+    t_std = y_true.std(dim=0)
+    res = (y_pred - p_mean).mul_(y_true - t_mean).sum(dim=0).div_(N - 1)
+    res.div_(p_std).div_(t_std)
+    return res
+
+
+# if __name__ == "__main__":
+#     from torchmetrics.functional import pearson_corrcoef as _pearson_corrcoef
+#     target = torch.randn(10000)
+#     preds = torch.randn(10000)
+#     y = libs_ml.test_time(lambda: _pearson_corrcoef(preds, target))
+#     y2 = libs_ml.test_time(lambda: pearson_corrcoef(preds, target))
+#     y3 = libs_ml.test_time(lambda: torch.corrcoef(torch.stack([preds, target])))
+#     print(torch.allclose(y, y2))
+#     print(torch.allclose(y, y3[0, 1]))
+#     target = torch.randn(10000, 1000)
+#     preds = torch.randn(10000, 1000)
+#     y = libs_ml.test_time(lambda: _pearson_corrcoef(preds, target))
+#     y2 = libs_ml.test_time(lambda: pearson_corrcoef(preds, target))
+#     print(torch.allclose(y, y2))
+
+
+def _calc_rank(x: Tensor) -> Tensor:
+    """
+    x: [N]
+    return: [N]
+    """
+    N = x.shape[0]
+    sorted_x, idx = x.sort()
+    rank = torch.empty_like(x)
+    rank[idx] = torch.arange(1, N + 1, dtype=x.dtype, device=x.device)
+    #
+    repeat_value: Tensor = sorted_x[:-1][sorted_x.diff() == 0]
+    repeat_value = repeat_value.unique_consecutive()
+    for r in repeat_value:
+        cond = x == r
+        rank[cond] = rank[cond].mean()
+    return rank
+
+
+# if __name__ == "__main__":
+#     from torchmetrics.functional.regression.spearman import _rank_data as rank_data
+#     x = torch.randint(0, 100, (10000,)).float()
+#     y = libs_ml.test_time(lambda: rank_data(x), 10)
+#     y2 = libs_ml.test_time(lambda: _calc_rank(x), 10)
+#     print(torch.allclose(y, y2))
+
+
+def spearman_corrcoef(y_pred: Tensor, y_true: Tensor) -> Tensor:
+    """Ref: https://zh.m.wikipedia.org/zh-hans/%E6%96%AF%E7%9A%AE%E5%B0%94%E6%9B%BC%E7%AD%89%E7%BA%A7%E7%9B%B8%E5%85%B3%E7%B3%BB%E6%95%B0
+    y_pred: [N] or [N,F]
+    y_true: [N] or [N,F]
+    return: [] or [F]
+    # 对rank计算pearson_corrcoef(rank=1(from 1):最小值, 相同的数的rank使用它们的均值)
+    # 性质: 
+    1. 斯皮尔曼等级相关系数为1表明两个被比较的变量是单调相关的, 即使它们之间的相关关系可能并非线性的. 相较而言，其皮尔逊相关关系并不完美. 
+    2. 当数据大致呈椭圆分布且没有明显的离群点时, 皮尔逊相关系数的值和斯皮尔曼相关系数的值接近.
+    3. 对样本中的显著离群点, 斯皮尔曼相关系数比皮尔逊相关系数不敏感.
+    4. 正的斯皮尔曼相关系数反映两个变量X和Y之间单调递增的趋势; 负的斯皮尔曼相关系数反映两个变量X和Y之间单调递减的趋势
+    """
+    if y_pred.ndim == 1:
+        y_pred = _calc_rank(y_pred)
+        y_true = _calc_rank(y_true)
+    else:
+        y_pred = torch.stack([_calc_rank(yp) for yp in y_pred.unbind(dim=1)], dim=1)
+        y_true = torch.stack([_calc_rank(yt) for yt in y_true.unbind(dim=1)], dim=1)
+    return pearson_corrcoef(y_pred, y_true)
+
+
+# if __name__ == "__main__":
+#     from torchmetrics.functional import spearman_corrcoef as _spearman_corrcoef
+#     target = torch.randn(10000)
+#     preds = torch.randn(10000)
+#     y = libs_ml.test_time(lambda: _spearman_corrcoef(preds, target))
+#     y2 = libs_ml.test_time(lambda: spearman_corrcoef(preds, target))
+#     print(torch.allclose(y, y2))
+#     target = torch.randn(10000, 1000)
+#     preds = torch.randn(10000, 1000)
+#     y = libs_ml.test_time(lambda: _spearman_corrcoef(preds, target))
+#     y2 = libs_ml.test_time(lambda: spearman_corrcoef(preds, target))
+#     print(torch.allclose(y, y2))

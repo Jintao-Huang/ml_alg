@@ -126,3 +126,21 @@ def bincount(X: Tensor, n_bins: int = -1, dtype: Dtype = torch.long) -> Tensor:
 #     y = ml.test_time(lambda: bincount(X, 1000), 10)
 #     y2 = ml.test_time(lambda: torch.bincount(X, minlength=1000), 10)
 #     print(torch.allclose(y, y2))
+
+
+def unique_consecutive(x: Tensor) -> Tensor:
+    """比torch实现慢很多
+    x: [N]
+    return: [M]
+    """
+    v = x[-1] + 1
+    diff = x.diff(append=v[None])
+    return x[diff != 0]
+
+
+# if __name__ == "__main__":
+#     x = torch.randint(0, 100, (1000,))
+#     x = x.sort()[0]
+#     y = ml.test_time(lambda: torch.unique_consecutive(x))
+#     y2 = ml.test_time(lambda: unique_consecutive(x))
+#     print(torch.allclose(y, y2))

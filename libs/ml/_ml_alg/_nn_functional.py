@@ -1219,3 +1219,27 @@ def multi_head_attention_forward(
 #         key_padding_mask, True, attn_mask), number=10, warm_up=1)
 #     print(torch.allclose(y1[0], y2[0], atol=1e-6))
 #     print(torch.allclose(y1[1], y2[1], atol=1e-6))
+
+
+def _nearest_interpolate():
+    pass
+
+
+def _bilinear_interpolate():
+    pass
+
+
+def interpolation():
+    pass
+
+
+def pad():
+    pass
+
+
+def adaptive_avg_pool2d():
+    pass
+
+
+def adaptive_max_pool2d():
+    pass
