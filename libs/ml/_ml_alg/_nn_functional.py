@@ -2,6 +2,7 @@
 # Email: huangjintao@mail.ustc.edu.cn
 # Date:
 
+import math
 import torch.nn.functional as F
 from torch import Tensor
 from typing import List, Tuple, Optional
@@ -41,7 +42,7 @@ note: 这里写的是forward. 在backward时可能会报错(因为inplace关系)
 
 """
 relu: x=>0保持, x<0变为=0
-leaky_relu: x>=0保持, x<0进行线性压缩(*negative_slope). 
+leaky_relu: x>=0保持, x<0进行线性压缩(*negative_slope=0.01(默认)). 
 sigmoid: 1/(1+e^x)
 tanh: (e^x-e^{-x})/(e^x+e^{-x})
 softmax: e^x/{归一化}
@@ -207,15 +208,15 @@ def mse_loss(pred: Tensor, target: Tensor) -> Tensor:
     return: []
     """
     # torch.mean((y_pred - y_true) ** 2, dim=0)
-    res = target.sub(pred)
-    res = torch.einsum("ij,ij->", res, res)
+    diff = target.sub(pred)
+    res = torch.einsum("ij,ij->", diff, diff)
     return res.div_(pred.numel())
 
 # if __name__ == "__main__":
-#     x = torch.randn((1000, 100))
-#     x2 = torch.randn((1000, 100))
-#     y = libs_ml.test_time(lambda: mse_loss(x, x2), number=100)
-#     y2 = libs_ml.test_time(lambda: F.mse_loss(x, x2), number=100)
+#     x = torch.randn((10000, 1000))
+#     x2 = torch.randn((10000, 1000))
+#     y = libs_ml.test_time(lambda: mse_loss(x, x2), number=10)
+#     y2 = libs_ml.test_time(lambda: F.mse_loss(x, x2), number=10)
 #     print(torch.allclose(y, y2))
 
 
@@ -436,7 +437,7 @@ def layer_norm(
     normalized_shape: 前面补1. 
         一般情况下, normalized_shape为 [F], 表示每一个位置, 一个mean/var. 
         normalized_shape需要和weight, bias的shape一致. 
-    weight: [F]
+    weight: [F]; 则mean/std: [N, L]
     bias: [F]
     return: [N, L, F]
     """
@@ -577,9 +578,9 @@ def conv2d_2(
     assert Cout % G == 0
     # Out = (In + 2*P − ((K-1)*D+1)) // S + 1. (P, D已经在In, K中算进去了)
     Hout, Wout = (Hin - KH_D) // SH + 1, (Win - KW_D) // SW + 1
-    res = []
     x = x.contiguous().view(N, G, Cin//G, Hin, Win)
     weight = weight.contiguous().view(G, Cout // G, Cin//G, KH, KW)
+    res = []
     for i in range(Hout):
         for j in range(Wout):
             h_start, w_start = i * SH, j * SW
@@ -810,9 +811,9 @@ def conv1d_2(
     assert weight.shape[1] * G == Cin
     # Out = (In + 2*P − (K-1)*D+1)) // S + 1. (P, D已经在In, K中算进去了)
     Lout = (Lin - KL_D) // SL + 1
-    res = []
     x = x.contiguous().view(N, G, Cin // G, Lin)
     weight = weight.contiguous().view(G, Cout // G, Cin//G, KL)
+    res = []
     for i in range(Lout):
         l_start = i * SL
         l_pos = slice(l_start, (l_start + KL_D), D)
@@ -874,6 +875,40 @@ def avg_pool2d(
     return res
 
 
+def avg_pool2d_2(
+    x: Tensor,
+    kernel_size: Tuple[int, int],
+    stride: Optional[Tuple[int, int]] = None,
+    padding: Tuple[int, int] = (0, 0),
+) -> Tensor:
+    """
+    x: [N, C, Hin, Win]
+    kernel_size: KH, KW
+    stride: SH, SW. None则和kernel_size一致
+    padding: PH, PW
+    return: [N, C, Hout, Wout]
+    """
+    if padding != (0, 0):
+        x = F.pad(x, [padding[1], padding[1], padding[0], padding[0]])  # lrtb
+    Hin, Win = x.shape[2:]
+    KH, KW = kernel_size
+    if stride is None:
+        stride = kernel_size
+    SH, SW = stride
+    N, C = x.shape[:2]
+    # Out = (In + 2*P − ((K-1)*D+1)) // S + 1
+    Hout, Wout = (Hin - KH) // SH + 1, (Win - KW) // SW + 1
+    res = []
+    for i in range(Hout):
+        for j in range(Wout):
+            h_start, w_start = i * SH, j * SW
+            h_pos, w_pos = slice(h_start, (h_start + KH)), \
+                slice(w_start, (w_start + KW))
+            res.append(torch.mean(x[:, :, h_pos, w_pos], dim=(2, 3)))
+    res = torch.stack(res, dim=-1).view(N, C, Hout, Wout)
+    return res
+
+
 def max_pool2d(
     x: Tensor,
     kernel_size: Tuple[int, int],
@@ -888,7 +923,6 @@ def max_pool2d(
     padding: PH, PW
     return: [N, C, Hout, Wout]
     """
-
     Hin, Win = x.shape[2:]
     DH, DW = dilation
     KH, KW = kernel_size
@@ -909,16 +943,60 @@ def max_pool2d(
     return res
 
 
+def max_pool2d_2(
+    x: Tensor,
+    kernel_size: Tuple[int, int],
+    stride: Optional[Tuple[int, int]] = None,
+    padding: Tuple[int, int] = (0, 0),
+    dilation: Tuple[int, int] = (1, 1)
+) -> Tensor:
+    """
+    x: [N, C, Hin, Win]
+    kernel_size: KH, KW
+    stride: SH, SW. None则和kernel_size一致
+    padding: PH, PW
+    return: [N, C, Hout, Wout]
+    """
+    if padding != (0, 0):
+        x = F.pad(x, [padding[1], padding[1], padding[0], padding[0]], value=float("-inf"))  # lrtb
+    Hin, Win = x.shape[2:]
+    KH, KW = kernel_size
+    if stride is None:
+        stride = kernel_size
+    SH, SW = stride
+    DH, DW = dilation
+    KH_D, KW_D = (KH - 1) * DH + 1, (KW - 1) * DW + 1
+    N, C = x.shape[:2]
+    # Out = (In + 2*P − ((K-1)*D+1)) // S + 1
+    Hout, Wout = (Hin - KH_D) // SH + 1, (Win - KW_D) // SW + 1
+    res = []
+    for i in range(Hout):
+        for j in range(Wout):
+            h_start, w_start = i * SH, j * SW
+            h_pos, w_pos = slice(h_start, (h_start + KH_D), DH), \
+                slice(w_start, (w_start + KW_D), DW)
+            res.append(torch.max(x[:, :, h_pos, w_pos].flatten(2, 3), dim=2)[0])
+    res = torch.stack(res, dim=-1).view(N, C, Hout, Wout)
+    return res
+
+
 # if __name__ == "__main__":
 #     x = torch.randn(128, 32, 224, 224)
 #     y = libs_ml.test_time(lambda: F.avg_pool2d(x, (2, 2), (3, 3), (1, 1)), 3)
 #     y2 = libs_ml.test_time(lambda: avg_pool2d(x, (2, 2), (3, 3), (1, 1)), 3)
+#     y3 = libs_ml.test_time(lambda: avg_pool2d_2(x, (2, 2), (3, 3), (1, 1)), 3)
 #     print(torch.allclose(y, y2))
+#     print(torch.allclose(y, y3, atol=1e-6))
 #     #
 #     x = torch.randn(128, 32, 224, 224)
 #     y = libs_ml.test_time(lambda: F.max_pool2d(x, (2, 2), (3, 3), (1, 1), (2, 2)), 3)
 #     y2 = libs_ml.test_time(lambda: max_pool2d(x, (2, 2), (3, 3), (1, 1), (2, 2)), 3)
+#     y3 = libs_ml.test_time(lambda: max_pool2d_2(x, (2, 2), (3, 3), (1, 1), (2, 2)), 3)
 #     print(torch.allclose(y, y2))
+#     print(torch.allclose(y, y3, atol=1e-6))
+#     #
+#     x = torch.randn(128, 32, 10, 10)
+#     print(F.max_pool2d(x, (3, 3)).shape)  # torch.Size([128, 32, 3, 3])
 
 
 def linear(x: Tensor, weight: Tensor, bias: Optional[Tensor] = None) -> Tensor:
@@ -942,10 +1020,52 @@ def linear(x: Tensor, weight: Tensor, bias: Optional[Tensor] = None) -> Tensor:
 #     libs_ml.test_time(lambda: F.linear(x, w, b), number=10)
 
 
+def rnn_relu_cell(
+    x: Tensor, hx: Tensor,
+    w_ih: Tensor, w_hh: Tensor,
+    b_ih: Optional[Tensor] = None, b_hh: Optional[Tensor] = None
+) -> Tensor:
+    """
+    x: [N, Cin]
+    hx: [N, Ch]
+    w_ih: [Ch, Cin]
+    w_hh: [Ch, Ch]
+    b_ih: [Ch]
+    b_hh: [Ch]
+    return: [N, Ch]
+    """
+    return F.linear(x, w_ih, b_ih).add_(F.linear(hx, w_hh, b_hh)).relu_()
+
+
+def rnn_tanh_cell(
+    x: Tensor, hx: Tensor,
+    w_ih: Tensor, w_hh: Tensor,
+    b_ih: Optional[Tensor] = None, b_hh: Optional[Tensor] = None
+) -> Tensor:
+    return F.linear(x, w_ih, b_ih).add_(F.linear(hx, w_hh, b_hh)).tanh_()
+
+
+# if __name__ == "__main__":
+#     x = torch.randn(16, 32)
+#     hx = torch.randn(16, 64)
+#     w_ih = torch.randn(64, 32)
+#     w_hh = torch.randn(64, 64)
+#     b_ih = torch.randn(64)
+#     b_hh = torch.randn(64)
+#     #
+#     y = libs_ml.test_time(lambda: rnn_relu_cell(x, hx, w_ih, w_hh, b_ih, b_hh))
+#     y2 = libs_ml.test_time(lambda:torch.rnn_relu_cell(x, hx, w_ih, w_hh, b_ih, b_hh))
+#     print(torch.allclose(y, y2))
+#     y = libs_ml.test_time(lambda: rnn_tanh_cell(x, hx, w_ih, w_hh, b_ih, b_hh))
+#     y2 = libs_ml.test_time(lambda:torch.rnn_tanh_cell(x, hx, w_ih, w_hh, b_ih, b_hh))
+#     print(torch.allclose(y, y2))
+
+
 def lstm_cell(
         x: Tensor, hx: Tuple[Tensor, Tensor],
         w_ih: Tensor, w_hh: Tensor,
-        b_ih: Optional[Tensor] = None, b_hh: Optional[Tensor] = None) -> Tuple[Tensor, Tensor]:
+        b_ih: Optional[Tensor] = None, b_hh: Optional[Tensor] = None
+) -> Tuple[Tensor, Tensor]:
     """
     x: [N, Cin]
     hx: Tuple[h, c], h: [N, Ch], c: [N, Ch]
@@ -1013,7 +1133,8 @@ def lstm_cell(
 def gru_cell(
         x: Tensor, hx: Tensor,
         w_ih: Tensor, w_hh: Tensor,
-        b_ih: Optional[Tensor] = None, b_hh: Optional[Tensor] = None) -> Tensor:
+        b_ih: Optional[Tensor] = None, b_hh: Optional[Tensor] = None
+) -> Tensor:
     """
     x: [N, Cin]
     hx: [N, Ch]
@@ -1221,25 +1342,158 @@ def multi_head_attention_forward(
 #     print(torch.allclose(y1[1], y2[1], atol=1e-6))
 
 
-def _nearest_interpolate():
-    pass
+def _nearest_interpolate(x: Tensor, size: Tuple[int, int]) -> Tensor:
+    """
+    x: [N, C, Hin, Win]
+    size: Tuple[Hout, Wout]
+    return: [N, C, Hout, Wout]
+    """
+    Hin, Win = x.shape[2:]
+    Hout, Wout = size
+    #
+    grid_h = torch.linspace(0, Hin, Hout + 1)[:-1].long()  # [Hout]
+    grid_w = torch.linspace(0, Win, Wout + 1)[:-1].long()  # [Wout]
+    grid_h, grid_w = torch.meshgrid(grid_h, grid_w, indexing="ij")  # [Hout, Wout]
+    return x[:, :, grid_h, grid_w]
 
 
-def _bilinear_interpolate():
-    pass
+# if __name__ == "__main__":
+#     x = torch.randn(16, 3, 124, 125)
+#     y = libs_ml.test_time(lambda: _nearest_interpolate(x, (101, 102)))
+#     y2 = libs_ml.test_time(lambda: F.interpolate(x, (101, 102)))
+#     print(torch.allclose(y, y2), y.shape)
 
 
-def interpolation():
-    pass
+def _bilinear_interpolate(x: Tensor, size: Tuple[int, int], align_corners: bool = False) -> Tensor:
+    """
+    x: [N, C, Hin, Win]
+    size: Tuple[Hout, Wout]
+    return: [N, C, Hout, Wout]
+    """
+    Hin, Win = x.shape[2:]
+    Hout, Wout = size
+    #
+    if not align_corners:
+        grid_h = torch.linspace(0, Hin, Hout + 1).sub_(0.5)
+        grid_w = torch.linspace(0, Win, Wout + 1).sub_(0.5)
+        step_h, step_w = grid_h[1] - grid_h[0], grid_w[1] - grid_w[0]
+        grid_h = grid_h.add_(step_h / 2)[:-1]
+        grid_w = grid_w.add_(step_w / 2)[:-1]
+        #
+        grid_h = grid_h.clamp_(0, Hin - 1)
+        grid_w = grid_w.clamp_(0, Win - 1)
+    else:
+        grid_h = torch.linspace(0, Hin - 1, Hout)
+        grid_w = torch.linspace(0, Win - 1, Wout)
+    #
+    grid_h, grid_w = torch.meshgrid(grid_h, grid_w, indexing="ij")
+    grid_top, grid_left = grid_h.long(), grid_w.long()
+    grid_bottom, grid_right = grid_h.ceil().long(), grid_w.ceil().long()
+    #
+    offset_h0, offset_w0 = grid_h - grid_top, grid_w - grid_left
+    offset_h1, offset_w1 = 1 - offset_h0, 1 - offset_w0
+
+    res = offset_h1.mul(offset_w1).mul(x[:, :, grid_top, grid_left]) + \
+        offset_h1.mul(offset_w0).mul(x[:, :, grid_top, grid_right]) + \
+        offset_h0.mul(offset_w1).mul(x[:, :, grid_bottom, grid_left]) + \
+        offset_h0.mul(offset_w0).mul(x[:, :, grid_bottom, grid_right])
+    return res
 
 
-def pad():
-    pass
+# if __name__ == "__main__":
+#     x = torch.randn(16, 3, 124, 125)
+#     y = libs_ml.test_time(lambda: _bilinear_interpolate(x, (101, 102), align_corners=True))
+#     y2 = libs_ml.test_time(lambda: F.interpolate(x, (101, 102), mode="bilinear", align_corners=True))
+#     print(torch.allclose(y, y2, atol=1e-4))
+#     #
+#     x = torch.randn(16, 3, 124, 125)
+#     y = libs_ml.test_time(lambda: _bilinear_interpolate(x, (101, 102), align_corners=False))
+#     y2 = libs_ml.test_time(lambda: F.interpolate(x, (101, 102), mode="bilinear", align_corners=False))
+#     print(torch.allclose(y, y2, atol=1e-4))
 
 
-def adaptive_avg_pool2d():
-    pass
+def interpolate(
+    x: Tensor,
+    size: Tuple[int, int],
+    mode: Literal["nearest", "bilinear", "area"] = "nearest",
+    align_corners: Optional[bool] = None
+) -> Tensor:
+    """
+    x: [N, C, Hin, Win]
+    size: Tuple[Hout, Wout]
+    return: [N, C, Hout, Wout]
+    """
+    if mode == "nearest":
+        return _nearest_interpolate(x, size)
+    elif mode == "bilinear":
+        align_corners = False if align_corners is None else align_corners
+        return _bilinear_interpolate(x, size, align_corners)
+    elif mode == "area":
+        return F.adaptive_avg_pool2d(x, size)
+    else:
+        raise ValueError(f"mode: {mode}")
 
 
-def adaptive_max_pool2d():
-    pass
+# if __name__ == "__main__":
+#     x = torch.randn(16, 3, 124, 125)
+#     # y = libs_ml.test_time(lambda: _nearest_interpolate(x, (101, 102), ))
+#     y = libs_ml.test_time(lambda: interpolate(x, (101, 102), mode="area"))
+#     y2 = libs_ml.test_time(lambda: F.interpolate(x, (101, 102), mode="area"))
+#     print(torch.allclose(y, y2))
+
+
+def adaptive_avg_pool2d(x: Tensor, output_size: Tuple[int, int]) -> Tensor:
+    """
+    x: [N, C, Hin, Win]
+    output_size: Tuple[Hout, Wout]
+    return: [N, C, Hout, Wout]
+    """
+    N, C, Hin, Win = x.shape
+    Hout, Wout = output_size
+    #
+    split_h = torch.linspace(0, Hin, Hout + 1)
+    split_w = torch.linspace(0, Win, Wout + 1)
+    res = []
+    for i in range(Hout):
+        for j in range(Wout):
+            h_start, w_start = int(split_h[i]), int(split_w[j])
+            h_end, w_end = math.ceil(split_h[i + 1]), math.ceil(split_w[j + 1])
+            h_pos, w_pos = slice(h_start, h_end), slice(w_start, w_end)
+            res.append(torch.mean(x[:, :, h_pos, w_pos], dim=(2, 3)))
+    res = torch.stack(res, dim=-1).view(N, C, Hout, Wout)
+    return res
+
+
+# if __name__ == "__main__":
+#     x = torch.randn(16, 3, 124, 125)
+#     y = libs_ml.test_time(lambda: adaptive_avg_pool2d(x, (101, 102)))
+#     y2 = libs_ml.test_time(lambda: F.adaptive_avg_pool2d(x, (101, 102)))
+#     print(torch.allclose(y, y2, atol=1e-6))
+
+
+def adaptive_max_pool2d(x: Tensor, output_size: Tuple[int, int]) -> Tensor:
+    """
+    x: [N, C, Hin, Win]
+    output_size: Tuple[Hout, Wout]
+    return: [N, C, Hout, Wout]
+    """
+    N, C, Hin, Win = x.shape
+    Hout, Wout = output_size
+    #
+    split_h = torch.linspace(0, Hin, Hout + 1)
+    split_w = torch.linspace(0, Win, Wout + 1)
+    res = []
+    for i in range(Hout):
+        for j in range(Wout):
+            h_start, w_start = int(split_h[i]), int(split_w[j])
+            h_end, w_end = math.ceil(split_h[i + 1]), math.ceil(split_w[j + 1])
+            h_pos, w_pos = slice(h_start, h_end), slice(w_start, w_end)
+            res.append(torch.max(x[:, :, h_pos, w_pos].flatten(2, 3), dim=2)[0])
+    res = torch.stack(res, dim=-1).view(N, C, Hout, Wout)
+    return res
+
+# if __name__ == "__main__":
+#     x = torch.randn(16, 3, 124, 125)
+#     y = libs_ml.test_time(lambda: adaptive_max_pool2d(x, (101, 102)))
+#     y2 = libs_ml.test_time(lambda: F.adaptive_max_pool2d(x, (101, 102)))
+#     print(torch.allclose(y, y2))

@@ -1,4 +1,4 @@
-mini-lightning>=0.1.5
+mini-lightning>=0.1.6
 pandas>=1.5.*
 seaborn>=0.12.*
 pillow>=9.2.*

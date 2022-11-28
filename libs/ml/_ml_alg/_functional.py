@@ -3,7 +3,7 @@
 # Date:
 
 import torch
-from typing import Tuple, Union
+from typing import Tuple, Union, Literal
 from torch import Tensor
 from torch import dtype as Dtype
 
@@ -144,3 +144,46 @@ def unique_consecutive(x: Tensor) -> Tensor:
 #     y = ml.test_time(lambda: torch.unique_consecutive(x))
 #     y2 = ml.test_time(lambda: unique_consecutive(x))
 #     print(torch.allclose(y, y2))
+
+
+def div(x: Tensor, y: Tensor, rounding_mode: Literal[None, "trunc", "floor"] = None) -> Tensor:
+    res = x.div(y)
+    if rounding_mode == "trunc":
+        res.trunc_()
+    elif rounding_mode == "floor":
+        res.floor_()
+    return res
+
+# if __name__ == "__main__":
+#     x = torch.randn(1000)
+#     y = torch.randn(1000, dtype=torch.float64)
+#     y1 = ml.test_time(lambda: div(x, y))
+#     y2 = ml.test_time(lambda: torch.div(x, y))
+#     print(torch.allclose(y1, y2), y2.dtype)
+#     #
+#     y1 = ml.test_time(lambda: div(x, y, rounding_mode="trunc"))
+#     y2 = ml.test_time(lambda: torch.div(x, y, rounding_mode="trunc"))
+#     print(torch.allclose(y1, y2), y2.dtype)
+#     #
+#     y1 = ml.test_time(lambda: div(x, y, rounding_mode="floor"))
+#     y2 = ml.test_time(lambda: torch.div(x, y, rounding_mode="floor"))
+#     print(torch.allclose(y1, y2), y2.dtype)
+
+
+def fmod(x: Tensor, y: Tensor) -> Tensor:
+    return x.sub(x.div(y, rounding_mode="trunc").mul_(y))
+
+
+def remainder(x: Tensor, y: Tensor) -> Tensor:
+    return x.sub(x.div(y, rounding_mode="floor").mul_(y))
+
+# if __name__ == "__main__":
+#     x = torch.randn(1000)
+#     y = torch.randn(1000, dtype=torch.float64)
+#     y1 = ml.test_time(lambda: torch.fmod(x, y))
+#     y2 = ml.test_time(lambda: fmod(x, y))
+#     print(torch.allclose(y1, y2), y1.dtype, y2.dtype)
+#     #
+#     y1 = ml.test_time(lambda: torch.remainder(x, y))
+#     y2 = ml.test_time(lambda: remainder(x, y))
+#     print(torch.allclose(y1, y2), y1.dtype, y2.dtype)

@@ -15,7 +15,7 @@ __all__ = [
     "pairwise_cosine_similarity", "pairwise_euclidean_distance",
     "batched_cosine_similarity", "batched_euclidean_distance",
     "kl_divergence",
-    "pearson_corrcoef", "spearman_corrcoef"
+    "pearson_corrcoef", "spearman_corrcoef", "calc_rank"
 ]
 
 # y_pred在前, 保持与torch的loss一致
@@ -52,10 +52,13 @@ def accuracy(y_pred: Tensor, y_true: Tensor, top_k: int = 1) -> Tensor:
     """
     N = y_pred.shape[0]
     if top_k > 1:
+        assert y_pred.ndim > 1
         y_pred = y_pred.topk(top_k, dim=-1)[1]
         y_true = y_true[:, None]
     elif y_pred.ndim == 2:  # top_k=1
         y_pred = y_pred.argmax(dim=1)
+    elif y_pred.dtype in {torch.float32, torch.float64}:  # ndim == 1, top_k=1
+        y_pred = y_pred >= 0.5
     return (y_true == y_pred).count_nonzero() / N
 
 
@@ -86,6 +89,11 @@ def accuracy(y_pred: Tensor, y_true: Tensor, top_k: int = 1) -> Tensor:
 #     print(libs_ml.test_time(lambda: _accuracy(preds, target, top_k=2)))
 #     print(libs_ml.test_time(lambda: accuracy(preds, target)))
 #     print(libs_ml.test_time(lambda: accuracy(preds, target, top_k=2)))
+
+#     target = torch.tensor([0, 0, 1, 1, 1])
+#     preds = torch.tensor([0.1, 0.1, 0.5, 0.9, 0.9])
+#     print(libs_ml.test_time(lambda: _accuracy(preds, target)))
+#     print(libs_ml.test_time(lambda: accuracy(preds, target)))
 
 
 def confusion_matrix(y_pred: Tensor, y_true: Tensor, num_classes: int = -1,
@@ -593,6 +601,22 @@ def pairwise_euclidean_distance(
 #     print(torch.allclose(y4, y3, atol=1e-6))  # True
 
 
+def _mse(y_pred: Tensor, y_true: Tensor) -> Tensor:
+    """展示mse与batched_euclidean_distance的关系. 速度会稍慢
+    pred: [N, F]. float
+    target: [N, F]. float
+    """
+    F = y_pred.shape[0]
+    return batched_euclidean_distance(y_pred, y_true, squared=True).div_(F)  # sum -> mean
+
+# if __name__ == "__main__":
+#     x = torch.randn((10000, 1000))
+#     x2 = torch.randn((10000, 1000))
+#     y = libs_ml.test_time(lambda: _mse(x, x2), number=10)
+#     y2 = libs_ml.test_time(lambda: F.mse_loss(x, x2), number=10)
+#     print(torch.allclose(y, y2))
+
+
 # if __name__ == "__main__":
 #     # test einsum 的speed
 #     X = torch.randn(2000, 2000)
@@ -706,7 +730,7 @@ def pearson_corrcoef(y_pred: Tensor, y_true: Tensor) -> Tensor:
 #     print(torch.allclose(y, y2))
 
 
-def _calc_rank(x: Tensor) -> Tensor:
+def calc_rank(x: Tensor) -> Tensor:
     """
     x: [N]
     return: [N]
@@ -728,7 +752,7 @@ def _calc_rank(x: Tensor) -> Tensor:
 #     from torchmetrics.functional.regression.spearman import _rank_data as rank_data
 #     x = torch.randint(0, 100, (10000,)).float()
 #     y = libs_ml.test_time(lambda: rank_data(x), 10)
-#     y2 = libs_ml.test_time(lambda: _calc_rank(x), 10)
+#     y2 = libs_ml.test_time(lambda: calc_rank(x), 10)
 #     print(torch.allclose(y, y2))
 
 
@@ -745,11 +769,11 @@ def spearman_corrcoef(y_pred: Tensor, y_true: Tensor) -> Tensor:
     4. 正的斯皮尔曼相关系数反映两个变量X和Y之间单调递增的趋势; 负的斯皮尔曼相关系数反映两个变量X和Y之间单调递减的趋势
     """
     if y_pred.ndim == 1:
-        y_pred = _calc_rank(y_pred)
-        y_true = _calc_rank(y_true)
+        y_pred = calc_rank(y_pred)
+        y_true = calc_rank(y_true)
     else:
-        y_pred = torch.stack([_calc_rank(yp) for yp in y_pred.unbind(dim=1)], dim=1)
-        y_true = torch.stack([_calc_rank(yt) for yt in y_true.unbind(dim=1)], dim=1)
+        y_pred = torch.stack([calc_rank(yp) for yp in y_pred.unbind(dim=1)], dim=1)
+        y_true = torch.stack([calc_rank(yt) for yt in y_true.unbind(dim=1)], dim=1)
     return pearson_corrcoef(y_pred, y_true)
 
 

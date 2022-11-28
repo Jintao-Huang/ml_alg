@@ -2,6 +2,7 @@
 # Email: huangjintao@mail.ustc.edu.cn
 # Date:
 
+from torchvision.transforms.functional_tensor import _rgb2hsv, _hsv2rgb
 from typing import Union, List, Literal, Tuple, Optional
 from torch import Tensor
 import torch
@@ -365,6 +366,7 @@ def _blend(img: Tensor, img2: Tensor, ratio: float) -> Tensor:
     img2: [...]
     return: [...]. 0-bound
     """
+    assert img.dtype in {torch.float32, torch.float64}
     assert img.dtype == img2.dtype
     bound = 1
     #
@@ -373,7 +375,7 @@ def _blend(img: Tensor, img2: Tensor, ratio: float) -> Tensor:
 
 def adjust_brightness(x: Tensor, brightness_factor: float) -> Tensor:
     """
-    x: [..., 1 or 3, H, W]
+    x: [..., 1 or 3, H, W]. float
     """
     C = x.shape[-3]
     assert C in {1, 3}
@@ -391,7 +393,7 @@ def adjust_brightness(x: Tensor, brightness_factor: float) -> Tensor:
 
 def adjust_contrast(x: Tensor,  contrast_factor: float) -> Tensor:
     """
-    x: [..., 1 or 3, H, W]
+    x: [..., 1 or 3, H, W]. float
     """
     C = x.shape[-3]
     assert C in {1, 3}
@@ -409,11 +411,14 @@ def adjust_contrast(x: Tensor,  contrast_factor: float) -> Tensor:
 #     y = ml.test_time(lambda: tvtF.adjust_contrast(x, 2))
 #     y2 = ml.test_time(lambda: adjust_contrast(x, 2))
 #     print(torch.allclose(y, y2))
+#     x = torch.randint(0, 256, (16, 3, 100, 100), dtype=torch.uint8)
+#     y = ml.test_time(lambda: tvtF.adjust_contrast(x, 2))
+#     # 我们的adjust_contrast只支持了float
 
 
 def adjust_saturation(x: Tensor, contrast_factor: float) -> Tensor:
     """
-    x: [..., 1 or 3, H, W]
+    x: [..., 1 or 3, H, W]. float
     """
     C = x.shape[-3]
     assert C in {1, 3}
@@ -433,9 +438,36 @@ def adjust_saturation(x: Tensor, contrast_factor: float) -> Tensor:
 #     y2 = ml.test_time(lambda: adjust_saturation(x, 2))
 #     print(torch.allclose(y, y2))
 
+# def _rgb2hsv(x: Tensor) -> Tensor:
+#     pass
 
-def adjust_hue():
-    pass
+
+# def _hsv_2rgb(x: Tensor) -> Tensor:
+#     pass
+
+
+def adjust_hue(x: Tensor, hue_factor: float) -> Tensor:
+    """
+    x: [..., 1 or 3, H, W]. float. >=0
+    """
+    C = x.shape[-3]
+    assert C in {1, 3}
+    assert -0.5 <= hue_factor <= 0.5
+    #
+    if C == 1:
+        return x
+    #
+    x = _rgb2hsv(x)
+    x[:, 0] = x[:, 0].add_(hue_factor).remainder_(1)
+    res = _hsv2rgb(x)
+    return res
+
+
+# if __name__ == "__main__":
+#     x = torch.rand(16, 3, 100, 100)
+#     y = ml.test_time(lambda: tvtF.adjust_hue(x, -0.3), 5)
+#     y2 = ml.test_time(lambda: adjust_hue(x, -0.3), 5)
+#     print(torch.allclose(y, y2))
 
 
 def rotate():
