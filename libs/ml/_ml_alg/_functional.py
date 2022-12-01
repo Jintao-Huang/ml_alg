@@ -74,8 +74,8 @@ if __name__ == "__main__":
 
 def cov(X: Tensor, correction: int = 1) -> Tensor:
     """
-    X: [N, F]
-    return [N, N]
+    X: [F, N]
+    return [F, F]
     """
     F = X.shape[1]
     mean = X.mean(dim=1, keepdim=True)  # [N]
@@ -92,8 +92,8 @@ def cov(X: Tensor, correction: int = 1) -> Tensor:
 
 def corrcoef(X: Tensor) -> Tensor:
     """
-    X: [N, F]
-    return: [N, N]
+    X: [F, N]
+    return: [F, F]
     """
     res = torch.cov(X)  # correction 随意
     std = res.diag().sqrt_()

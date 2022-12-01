@@ -114,8 +114,8 @@ class MinMaxScaler:
         X: shape[N, F]
         # 
         res = X*scale+min
-        0=X.min*scale+bias
-        1=X.max*scale+bias
+        r[0]=X.min*scale+bias
+        r[1]=X.max*scale+bias
         """
         self.X_min, _ = X.min(dim=0)
         self.X_max, _ = X.max(dim=0)
@@ -155,6 +155,46 @@ class MinMaxScaler:
 #         Z2 = torch.from_numpy(Z2)
 #         print(torch.allclose(Z, Z2))
 
+
+class _MinMaxScaler2(StandardScaler):
+    """另一种实现. 与StandardScaler的transform对应"""
+
+    def __init__(self, feature_range: Tuple[int, int] = (0, 1)) -> None:
+        """
+        clip: 在transform时, 保证数值在feature_range内. 
+        """
+        super().__init__(True)
+        self.feature_range = feature_range
+
+    def fit(self, X: Tensor) -> "_MinMaxScaler2":
+        """
+        X: shape[N, F]
+        # 
+        res = (X-mean)/std. {这里的mean/std不是真的mean/std.}
+        r[0]=(X.min-mean)/std
+        r[1]=(X.max-mean)/std
+        """
+        X_min, _ = X.min(dim=0)
+        X_max, _ = X.max(dim=0)
+        self.std = (X_max - X_min) / (self.feature_range[1] - self.feature_range[0])
+        self.mean = X_min - self.feature_range[0] * self.std
+        return self
+
+
+# if __name__ == "__main__":
+#     from sklearn.preprocessing import MinMaxScaler as _MinMaxScaler
+#     X = torch.randn(1000, 100).to(torch.float64)
+#     X_np = X.numpy()
+#     X = X.to(device)
+#     Z = ml.test_time(lambda: _MinMaxScaler().fit(X_np).transform(X_np))
+#     Z2 = ml.test_time(lambda: _MinMaxScaler2().fit(X).transform(X)).cpu()
+#     Z = torch.from_numpy(Z)
+#     print(torch.allclose(Z, Z2))
+#     #
+#     Z = ml.test_time(lambda: _MinMaxScaler(feature_range=(-1, 1)).fit(X_np).transform(X_np))
+#     Z2 = ml.test_time(lambda: _MinMaxScaler2(feature_range=(-1, 1)).fit(X).transform(X)).cpu()
+#     Z = torch.from_numpy(Z)
+#     print(torch.allclose(Z, Z2))
 
 class LinearRegression:
     """
@@ -368,7 +408,7 @@ class _LogisticRegression(LinearRegression):
         C: float = 1.,
         tol: float = 0.0001,
         max_iter: int = 100,
-        solver: Literal["lbfgs"] = 'lbfgs'  # 
+        solver: Literal["lbfgs"] = 'lbfgs'  #
     ) -> None:
         self.penalty = penalty
         self.C = C
@@ -419,7 +459,7 @@ class _LogisticRegression(LinearRegression):
 #     Z = lgr.predict(X2)
 #     Z2 = lgr2.predict(X2)
 #     print(torch.allclose(torch.from_numpy(Z), Z2))
-#     
+#
 
 
 class _KMeans:
@@ -561,28 +601,28 @@ class _KMeans:
         return pairwise_euclidean_distance(X, self.centers)
 
 
-if __name__ == "__main__":
-    KMeans = _KMeans
-    from sklearn.cluster import KMeans as _KMeans
-    X = torch.randn(10000, 100).to(torch.float64)
-    km = _KMeans(init="random")
-    km2 = KMeans(init="random", n_init=10)
-    ml.test_time(lambda: km.fit(X))
-    km2.centers = torch.from_numpy(km.cluster_centers_)
-    km2.labels = torch.from_numpy(km.labels_)
-    km2.inertia = km.inertia_
-    X2 = torch.randn(10000, 100).to(torch.float64)
-    Z = ml.test_time(lambda: km.predict(X2), 5)
-    Z2 = ml.test_time(lambda: km2.predict(X2), 5)
-    print(torch.allclose(torch.from_numpy(Z).long(), Z2))
-    Z = ml.test_time(lambda: km.transform(X2), 5)
-    Z2 = ml.test_time(lambda: km2.transform(X2), 5)
-    print(torch.allclose(torch.from_numpy(Z), Z2))
-    #
-    km2 = KMeans(init="random")
-    ml.test_time(lambda: km2.fit(X))
-    print(km2.inertia, km.inertia_)
-    print(km2.n_iter, km.n_iter_)
+# if __name__ == "__main__":
+#     KMeans = _KMeans
+#     from sklearn.cluster import KMeans as _KMeans
+#     X = torch.randn(10000, 100).to(torch.float64)
+#     km = _KMeans(init="random")
+#     km2 = KMeans(init="random", n_init=10)
+#     ml.test_time(lambda: km.fit(X))
+#     km2.centers = torch.from_numpy(km.cluster_centers_)
+#     km2.labels = torch.from_numpy(km.labels_)
+#     km2.inertia = km.inertia_
+#     X2 = torch.randn(10000, 100).to(torch.float64)
+#     Z = ml.test_time(lambda: km.predict(X2), 5)
+#     Z2 = ml.test_time(lambda: km2.predict(X2), 5)
+#     print(torch.allclose(torch.from_numpy(Z).long(), Z2))
+#     Z = ml.test_time(lambda: km.transform(X2), 5)
+#     Z2 = ml.test_time(lambda: km2.transform(X2), 5)
+#     print(torch.allclose(torch.from_numpy(Z), Z2))
+#     #
+#     km2 = KMeans(init="random")
+#     ml.test_time(lambda: km2.fit(X))
+#     print(km2.inertia, km.inertia_)
+#     print(km2.n_iter, km.n_iter_)
 
 
 class NearestNeighbors:
