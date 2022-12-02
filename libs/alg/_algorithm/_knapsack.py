@@ -61,7 +61,7 @@ def k01(W: List[int], C: int, V: Optional[List[int]] = None) -> int:
 
 def k01_full_max(W: List[int], C: int, V: Optional[List[int]] = None, init_value=-INT32_INF) -> int:
     """使得在W满足==C的条件下, 使得V最大
-    Test Ref: https://leetcode.cn/problems/partition-equal-subset-sum/solution/
+    Test Ref: https://leetcode.cn/problems/partition-equal-subset-sum/
     """
     return _1(W, C, V, lambda n: reversed(range(n)), max, True, init_value)
 

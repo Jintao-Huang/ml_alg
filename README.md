@@ -8,7 +8,7 @@
 
 ## 文件功能介绍
 1. mini_lightning部分, 现已移置: [https://github.com/ustcml/mini-lightning](https://github.com/ustcml/mini-lightning)
-   1. 含Examples: cv, nlp, dqn, gan, contrastive_learning, gnn; ddp等.
+   1. 含Examples: cv, nlp, dqn, gan, contrastive_learning, gnn, ae, vae; ddp等.
 2. `libs/ml/_ml_alg/*`: 机器学习中的算法实现
    1. `_metrics.py`: ml中的metrics的torch实现. (faster than `torchmetrics.functional`, `sklearn`, 使用torch实现, 支持cuda加速)
       1. 含accuracy, confusion_matrix, precision, recall, f1_score, fbeta_score, PR_curve, AP, roc_curve, AUC, r2_score, cosine_similarity, euclidean_distance, kl_divergence, pearson_corrcoef, spearman_corrcoef.

@@ -18,6 +18,23 @@ def uniform(a: float, b: float, size: Size) -> Tensor:
     return torch.rand(size) * (b - a) + a
 
 
+# if __name__ == "__main__":
+#     from libs import *
+#     x = normal(10, 4, 1000)
+#     print(x.mean(), x.std())
+#     # 
+#     libs_ml.seed_everything(42)
+#     x = normal(10, 4, 1)
+#     libs_ml.seed_everything(42)
+#     x2 = torch.normal(10, 4, (1,))
+#     libs_ml.seed_everything(42)
+#     x3 = torch.distributions.Normal(10, 4).sample()
+#     print(x, x2, x3)
+#     # 
+#     x = uniform(4, 10, 1000)
+#     print(x.min(), x.max())
+
+
 def randperm(n: int) -> Tensor:
     res = torch.arange(n)
     for i in range(n):
@@ -27,11 +44,6 @@ def randperm(n: int) -> Tensor:
 
 
 # if __name__ == "__main__":
-#     x = normal(10, 4, 1000)
-#     print(x.mean(), x.std())
-#     x = uniform(4, 10, 1000)
-#     print(x.min(), x.max())
-#     #
 #     torch.manual_seed(42)
 #     print(torch.randperm(10))
 #     torch.manual_seed(42)
