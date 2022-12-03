@@ -5,7 +5,7 @@
 import math
 import torch.nn.functional as F
 from torch import Tensor
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Literal
 
 __all__ = []
 

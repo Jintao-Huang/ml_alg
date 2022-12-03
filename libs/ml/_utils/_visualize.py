@@ -20,7 +20,7 @@ from torch.utils.data import DataLoader, TensorDataset
 from torchvision.utils import make_grid as _make_grid
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
 
-__all__ = ["bincount", "plot_classification_map", "visualize_samples", "config_ax",
+__all__ = ["bincount", "plot_classification_map", "visualize_samples",
            "plot_lines", "plot_subplots", "make_grid", "normalize", "make_grid2"]
 
 
@@ -288,30 +288,3 @@ def make_grid2(images: Union[Tensor, ndarray], fig: Figure = None,
 #     #
 #     make_grid2(torch.stack(data), cmap='gray')
 #     plt.show()
-
-
-def config_ax(ax: Axes, title: str = None, xlabel: str = None, ylabel: str = None,
-              xlim: Tuple[float, float] = None,
-              ylim: Tuple[float, float] = None,
-              xticks: List[float] = None, xticks_labels: List[str] = None,
-              yticks: List[float] = None, yticks_labels: List[str] = None,
-              xticks_rotate90=False) -> None:
-    if title is not None:
-        ax.set_title(title, fontsize=20)
-    if xlabel is not None:
-        ax.set_xlabel(xlabel, labelpad=8, fontsize=16)
-    if ylabel is not None:
-        ax.set_ylabel(ylabel, labelpad=8, fontsize=16)
-    if xlim is not None:
-        ax.set_xlim(xlim)
-    if ylim is not None:
-        ax.set_ylim(ylim)
-    if xticks is not None:
-        ax.set_xticks(xticks, xticks_labels)
-    if yticks is not None:
-        ax.set_yticks(yticks, yticks_labels)
-
-    ax.tick_params(axis="both", which="major", labelsize=14)
-    #
-    if xticks_rotate90:
-        ax.tick_params(axis='x', which='major', rotation=90)
