@@ -44,21 +44,38 @@ if __name__ == "__main__":
     from libs import *
 
 
-def accuracy(y_pred: Tensor, y_true: Tensor, top_k: int = 1) -> Tensor:
+def accuracy(
+    y_pred: Tensor,
+    y_true: Tensor,
+    task: Literal["binary", "multiclass"],
+    num_classes: Optional[int] = None,  # or -1
+    top_k: int = 1
+) -> Tensor:
     """
     y_pred: Tensor[long]. shape[N] or Tensor[float]. shape[N, C]
     y_true: Tensor[long]. shape[N]
+    num_classes: only "multiclass"
+    top_k: only "multiclass"
     return: shape[]
     """
     N = y_pred.shape[0]
-    if top_k > 1:
-        assert y_pred.ndim > 1
-        y_pred = y_pred.topk(top_k, dim=-1)[1]
-        y_true = y_true[:, None]
-    elif y_pred.ndim == 2:  # top_k=1
-        y_pred = y_pred.argmax(dim=1)
-    elif y_pred.dtype in {torch.float32, torch.float64}:  # ndim == 1, top_k=1
-        y_pred = y_pred >= 0.5
+    if task == "binary":
+        assert y_pred.ndim == 1 and top_k == 1
+        assert y_pred.dtype not in {torch.float32, torch.float64}  # 传入的使用处理好 threshold.
+    elif task == "multiclass":
+        assert num_classes is not None
+        if num_classes == -1:
+            num_classes = int(y_true.max().item()) + 1
+        #
+        if y_pred.ndim == 2:
+            assert num_classes == y_pred.shape[1]
+            if top_k > 1:
+                y_pred = y_pred.topk(top_k, dim=-1)[1]
+                y_true = y_true[:, None]
+            else:
+                y_pred = y_pred.argmax(dim=1)
+    else:
+        raise ValueError(f"task: {task}")
     return (y_true == y_pred).count_nonzero() / N
 
 
@@ -66,38 +83,38 @@ def accuracy(y_pred: Tensor, y_true: Tensor, top_k: int = 1) -> Tensor:
 #     from torchmetrics.functional.classification.accuracy import accuracy as _accuracy
 #     preds = torch.randint(0, 10, (1000,))
 #     target = torch.randint(0, 10, (1000,))
-#     y = libs_ml.test_time(lambda:accuracy(preds, target), 10)
-#     y2 =  libs_ml.test_time(lambda:_accuracy(preds, target), 10)
+#     y = libs_ml.test_time(lambda: accuracy(preds, target, "multiclass", num_classes=10), 10)
+#     y2 = libs_ml.test_time(lambda: _accuracy(preds, target, "multiclass", num_classes=10), 10)
 #     print(y, y2)
 #     #
 #     from torchmetrics.classification.accuracy import Accuracy
-#     acc_metric = Accuracy()
-#     from torch.utils.data import TensorDataset, DataLoader
-#     td = TensorDataset(preds, target)
-#     loader = DataLoader(td, batch_size=16, shuffle=True)
-#     for p, t in loader:
-#         # acc_metric(p, t)
-#         acc_metric.update(p, t)
-#     print(acc_metric.compute())
+#     acc_metric = Accuracy("multiclass", num_classes=10)
+#     acc = libs_ml.test_metric(acc_metric, preds, target)
+#     print(acc)
 
 
 # if __name__ == "__main__":
 #     from torchmetrics.functional.classification.accuracy import accuracy as _accuracy
 #     target = torch.tensor([0, 2, 2, 1, 1])
 #     preds = torch.tensor([[0.9, 0.01, 0.09], [0.5, 0.2, 0.3], [0.4, 0.25, 0.15], [0.3, 0.4, 0.3], [0.1, 0.8, 0.1]])
-#     print(libs_ml.test_time(lambda: _accuracy(preds, target)))
-#     print(libs_ml.test_time(lambda: _accuracy(preds, target, top_k=2)))
-#     print(libs_ml.test_time(lambda: accuracy(preds, target)))
-#     print(libs_ml.test_time(lambda: accuracy(preds, target, top_k=2)))
+#     print(libs_ml.test_time(lambda: _accuracy(preds, target, "multiclass", num_classes=3)))
+#     print(libs_ml.test_time(lambda: _accuracy(preds, target, "multiclass", num_classes=3, top_k=2)))
+#     print(libs_ml.test_time(lambda: accuracy(preds, target, "multiclass", num_classes=3)))
+#     print(libs_ml.test_time(lambda: accuracy(preds, target, "multiclass", num_classes=3, top_k=2)))
 
 #     target = torch.tensor([0, 0, 1, 1, 1])
 #     preds = torch.tensor([0.1, 0.1, 0.5, 0.9, 0.9])
-#     print(libs_ml.test_time(lambda: _accuracy(preds, target)))
-#     print(libs_ml.test_time(lambda: accuracy(preds, target)))
+#     print(libs_ml.test_time(lambda: _accuracy(preds, target, "binary")))
+#     print(libs_ml.test_time(lambda: accuracy(preds, target, "binary")))
 
 
-def confusion_matrix(y_pred: Tensor, y_true: Tensor, num_classes: int = -1,
-                     normalize: Literal["true", "pred", "all", None] = None) -> Tensor:
+def confusion_matrix(
+    y_pred: Tensor,
+    y_true: Tensor,
+    task: Literal["binary", "multiclass"],
+    num_classes: Optional[int] = None,  # -1: "auto"
+    normalize: Literal["true", "pred", "all", None] = None
+) -> Tensor:
     """
     y_pred: Tensor[long]. shape[N]
     y_true: Tensor[long]. shape[N]
@@ -106,11 +123,18 @@ def confusion_matrix(y_pred: Tensor, y_true: Tensor, num_classes: int = -1,
     return: shape[N, N]. Tensor[long/float]
     """
     # 横向: true; 竖向: pred. e.g. c[1,2]:t=1,p=2
-    n_labels = int(y_true.max().item()) + 1 if num_classes == -1 else num_classes
+    if task == "binary":
+        num_classes = 2
+    elif task == "multiclass":
+        assert num_classes is not None
+        if num_classes == -1:
+            num_classes = int(y_true.max().item()) + 1
+    else:
+        raise ValueError(f"task: {task}")
     # 遍历y_pred, y_true. 每次cm[t][p] += 1
     #   使用向量化技巧: y_pred, y_true -> x, 然后对x进行计数.
-    idx = (y_true * n_labels).add_(y_pred)
-    cm = idx.bincount(minlength=n_labels * n_labels).reshape(n_labels, n_labels)
+    idx = (y_true * num_classes).add_(y_pred)
+    cm = idx.bincount(minlength=num_classes * num_classes).reshape(num_classes, num_classes)
     # 归一化
     if normalize is None:
         return cm
@@ -131,9 +155,15 @@ def confusion_matrix(y_pred: Tensor, y_true: Tensor, num_classes: int = -1,
 #     from torchmetrics.functional.classification.confusion_matrix import confusion_matrix as _confusion_matrix
 #     preds = torch.randint(0, 10, (100,))
 #     target = torch.randint(0, 10, (100,))
-#     y = libs_ml.test_time(lambda: confusion_matrix(preds, target, normalize="true"), 10)
+#     y = libs_ml.test_time(lambda: confusion_matrix(preds, target, "multiclass", num_classes=-1, normalize="true"), 10)
 #     y2 = libs_ml.test_time(lambda: _confusion_matrix(
-#         preds, target, num_classes=int(target.max().item()) + 1, normalize="true"), 10)
+#         preds, target, "multiclass", num_classes=int(target.max().item()) + 1, normalize="true"), 10)
+#     print(torch.allclose(y, y2))
+#     #
+#     preds = torch.randint(0, 2, (100,))
+#     target = torch.randint(0, 2, (100,))
+#     y = libs_ml.test_time(lambda: confusion_matrix(preds, target, "binary", normalize="true"), 10)
+#     y2 = libs_ml.test_time(lambda: _confusion_matrix(preds, target, "binary", normalize="true"), 10)
 #     print(torch.allclose(y, y2))
 
 
@@ -155,9 +185,11 @@ def _fbeta(prec: Tensor, recall: Tensor, beta: float = 1.) -> Tensor:
 
 def precision_recall_fbeta(
     y_pred: Tensor, y_true: Tensor,
+    task: Literal["binary", "multiclass"],
     beta: float = 1.,
+    #
+    num_classes: Optional[int] = None,  # -1: "auto"
     average: Literal["micro", "macro", None] = None,
-    num_classes: int = -1
 ) -> Tuple[Tensor, Tensor, Tensor]:
     """
     y_pred: Tensor[long], [N]
@@ -166,6 +198,14 @@ def precision_recall_fbeta(
     average: {'micro', 'macro', None}. 'binary'可以通过None实现(取index=1即可).
     return: prec, recall, fbeta. shape[], shape[], shape[]
     """
+    if task == "binary":
+        num_classes = 2
+    elif task == "multiclass":
+        assert num_classes is not None
+        if num_classes == -1:
+            num_classes = int(y_true.max().item()) + 1
+    else:
+        raise ValueError(f"task: {task}")
     # micro: 先平均(总的tp, 总的fp), 然后计算metrics(prec, recall, fbeta)
     # macro: 先计算各个的metrics, 再求平均
     if average == "micro":
@@ -175,12 +215,16 @@ def precision_recall_fbeta(
         prec, recall = _precision(tp, p), _recall(tp, t)
         fbeta = _fbeta(prec, recall, beta)
         return prec, recall, fbeta
-    cm = confusion_matrix(y_pred, y_true, num_classes, normalize=None)
+    cm = confusion_matrix(y_pred, y_true, task, num_classes, normalize=None)
     tp = cm.diag()  # t=p=i
     ti = cm.sum(dim=1)  # t=i
     pi = cm.sum(dim=0)  # p=i
     prec, recall = _precision(tp, pi), _recall(tp, ti)
     fbeta = _fbeta(prec, recall, beta)
+
+    if task == "binary":
+        return prec[1], recall[1], fbeta[1]
+    #
     if average == None:
         return prec, recall, fbeta
     elif average == "macro":
@@ -189,80 +233,92 @@ def precision_recall_fbeta(
         raise ValueError(f"average: {average}")
 
 
-def precision(y_pred: Tensor, y_true: Tensor, average: Literal["micro", "macro", None] = None) -> Tensor:
-    return precision_recall_fbeta(y_pred, y_true, 1., average)[0]
+def precision(
+    y_pred: Tensor,
+    y_true: Tensor,
+    task: Literal["binary", "multiclass"],
+    num_classes: Optional[int] = None,
+    average: Literal["micro", "macro", None] = None
+) -> Tensor:
+    return precision_recall_fbeta(y_pred, y_true, task, 1., num_classes, average)[0]
 
 
-def recall(y_pred: Tensor, y_true: Tensor, average: Literal["micro", "macro", None] = None) -> Tensor:
-    return precision_recall_fbeta(y_pred, y_true, 1., average)[1]
+def recall(
+    y_pred: Tensor,
+    y_true: Tensor,
+    task: Literal["binary", "multiclass"],
+    num_classes: Optional[int] = None,
+    average: Literal["micro", "macro", None] = None
+) -> Tensor:
+    return precision_recall_fbeta(y_pred, y_true, task, 1., num_classes, average)[1]
 
 
-def fbeta_score(y_pred: Tensor, y_true: Tensor,
-                beta: float = 1., average: Literal["micro", "macro", None] = None) -> Tensor:
-    return precision_recall_fbeta(y_pred, y_true, beta, average)[2]
+def fbeta_score(
+    y_pred: Tensor,
+    y_true: Tensor,
+    task: Literal["binary", "multiclass"],
+    num_classes: Optional[int] = None,
+    average: Literal["micro", "macro", None] = None
+) -> Tensor:
+    return precision_recall_fbeta(y_pred, y_true, task, 1., num_classes, average)[2]
 
 
-def f1_score(y_pred: Tensor, y_true: Tensor, average: Literal["micro", "macro", None] = None) -> Tensor:
-    return fbeta_score(y_pred, y_true, 1., average)
+def f1_score(
+    y_pred: Tensor,
+    y_true: Tensor,
+    task: Literal["binary", "multiclass"],
+    num_classes: Optional[int] = None,
+    average: Literal["micro", "macro", None] = None
+) -> Tensor:
+    return fbeta_score(y_pred, y_true, task, num_classes, average)
 
 
 # if __name__ == "__main__":
 #     print()
 #     from torchmetrics.functional.classification.f_beta import f1_score as _f1_score, fbeta_score as _fbeta_score
-#     from torchmetrics.functional.classification.precision_recall import precision_recall
+#     from torchmetrics.functional.classification.precision_recall import precision as __precision, recall as __recall
 #     preds = torch.randint(0, 2, (1000,))
 #     target = torch.randint(0, 1, (1000,))
-#     target[0] = 1
-#     num_classes = int(target.max().item()) + 1
-#     print(libs_ml.test_time(lambda: _f1_score(preds, target, 1, "macro", num_classes=num_classes)))
-#     print(libs_ml.test_time(lambda: _fbeta_score(preds, target, 1, "macro", num_classes=num_classes)))
-#     print(libs_ml.test_time(lambda: precision_recall(preds, target, "macro", num_classes=num_classes)))
-#     print(libs_ml.test_time(lambda: precision_recall_fbeta(preds, target, 1, "macro", num_classes=num_classes)))
+#     target[:10] = 1
+#     print(libs_ml.test_time(lambda: _f1_score(preds, target, "binary")))
+#     print(libs_ml.test_time(lambda: _fbeta_score(preds, target, "binary", 1.)))
+#     print(libs_ml.test_time(lambda: __precision(preds, target, "binary")))
+#     print(libs_ml.test_time(lambda: __recall(preds, target, "binary")))
+#     print(libs_ml.test_time(lambda: precision_recall_fbeta(preds, target, "binary", 1)))
 #     #
 #     from torchmetrics.classification.f_beta import F1Score
 #     from torchmetrics.classification.precision_recall import Precision, Recall
 #     metrics = [
-#         Precision(num_classes=num_classes, average="macro"),
-#         Recall(num_classes=num_classes, average="macro"),
-#         F1Score(num_classes=num_classes, average="macro")
+#         Precision("binary"),
+#         Recall("binary"),
+#         F1Score("binary")
 #     ]
-#     from torch.utils.data import TensorDataset, DataLoader
-#     td = TensorDataset(preds, target)
-#     loader = DataLoader(td, batch_size=2, shuffle=True)
-#     for p, t in loader:
-#         # acc_metrics(p, t)
-#         for m in metrics:
-#             m.update(p, t)
-#     print([m.compute()for m in metrics])
-#     print()
+#     from libs import *
+#     p = libs_ml.test_metric(metrics[0], preds, target)
+#     r = libs_ml.test_metric(metrics[1], preds, target)
+#     f1 = libs_ml.test_metric(metrics[2], preds, target)
+#     print(p, r, f1)
 
 #     #
 #     preds = torch.tensor([0, 1, 3, 3, 1], device='cuda')
 #     target = torch.tensor([0, 2, 1, 3, 1], device='cuda')
 #     num_classes = int(target.max().item()) + 1
-#     print(_f1_score(preds, target, 10000, "macro", num_classes=num_classes))
-#     print(_fbeta_score(preds, target, 1, "macro", num_classes=num_classes))
-#     print(precision_recall(preds, target, "macro", num_classes=num_classes))
-#     print(precision_recall_fbeta(preds, target, 1, "macro"))
+#     print(_f1_score(preds, target, "multiclass", num_classes=num_classes, average="macro"))
+#     print(_fbeta_score(preds, target, "multiclass", 1., num_classes=num_classes, average="macro"))
+#     print(__precision(preds, target, "multiclass", num_classes=num_classes, average="macro"))
+#     print(__recall(preds, target, "multiclass", num_classes=num_classes, average="macro"))
+#     print(precision_recall_fbeta(preds, target, "multiclass", 1., num_classes, average="macro"))
 
 
 # if __name__ == "__main__":
+#     # test average
 #     print()
 #     y_true = torch.tensor([0, 1, 3, 3, 1], device='cuda')
 #     y_pred = torch.tensor([0, 2, 1, 3, 1], device='cuda')
-#     print(accuracy(y_pred, y_true))
-#     print(confusion_matrix(y_pred, y_true))
-#     print(precision_recall_fbeta(y_pred, y_true))
-#     print(precision_recall_fbeta(y_pred, y_true, average="micro"))
-#     print(precision_recall_fbeta(y_pred, y_true, average="macro"))
-#     from sklearn.metrics import precision_recall_fscore_support, confusion_matrix as _confusion_matrix
-#     y_true = y_true.cpu().numpy()
-#     y_pred = y_pred.cpu().numpy()
-#     print(_confusion_matrix(y_true, y_pred))
-#     print(precision_recall_fscore_support(y_true, y_pred, zero_division=0))
-#     print(precision_recall_fscore_support(y_true, y_pred, average="micro", zero_division=0))
-#     print(precision_recall_fscore_support(y_true, y_pred, average="macro", zero_division=0))
-#     print()
+#     print(accuracy(y_pred, y_true, "multiclass", -1))
+#     print(precision_recall_fbeta(y_pred, y_true, "multiclass", num_classes=-1))
+#     print(precision_recall_fbeta(y_pred, y_true, "multiclass", num_classes=-1, average="micro"))
+#     print(precision_recall_fbeta(y_pred, y_true, "multiclass", num_classes=-1, average="macro"))
 
 
 def _calculate_tps_fps(y_score: Tensor, y_true: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
@@ -285,10 +341,13 @@ def _calculate_tps_fps(y_score: Tensor, y_true: Tensor) -> Tuple[Tensor, Tensor,
 
 
 def precision_recall_curve(y_score: Tensor, y_true: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
-    """此实现只适用于2分类任务. X轴为R, Y轴为P(R=xi时的最大的P)
+    """(task="binary"). X轴为R, Y轴为P(R=xi时的最大的P)
     y_score: [N]. Tensor[float]. scores. {可以未降序排序}
     y_true: [N]. Tensor[Number]
     return: precision, recall. threshold. threshold为从大到小排序. recall为从小到大. shape[N], shape[N], shape[N].
+    # 
+    torchmetrics的实现precision_recall_curve中多了个点: R,P,T: (0,1,/). 
+        但这个在计算ap时, 这个点不计算, 所以该函数不再加进去.
     """
     # 将y_score进行排序. 从高到低. 然后去重后获得很多threshold. 对每一个threshold进行p, r的计算.
     # 获得很多个(r, p)的坐标点. 将坐标点连成线即为pr曲线.
@@ -308,7 +367,7 @@ def precision_recall_curve(y_score: Tensor, y_true: Tensor) -> Tuple[Tensor, Ten
 
 
 def average_precision(y_score: Tensor, y_true: Tensor) -> Tensor:
-    """此实现只适用于2分类任务. AP的使用只能使用二分类. 可以使用mAP用于多分类. 
+    """(task="binary"). AP的使用只能使用二分类. 可以使用mAP用于多分类. 
     y_score: Tensor[float]. shape[N]. scores. {可以未降序排序}
     y_true: Tensor[Number]. shape[N]
     return: Tensor[float]. shape[]
@@ -321,43 +380,31 @@ def average_precision(y_score: Tensor, y_true: Tensor) -> Tensor:
 
 
 # if __name__ == "__main__":
-#     from torchmetrics.functional.classification.average_precision import average_precision as _average_precision
-#     y_score = torch.rand(1000)
-#     y_true = torch.randint(0, 2, (1000,)).long()
-#     print(libs_ml.test_time(lambda: _average_precision(y_score, y_true), 10))
-#     print(libs_ml.test_time(lambda: average_precision(y_score, y_true), 10))
-#     print()
-#     from torchmetrics.classification.average_precision import AveragePrecision
-#     ap_metric = AveragePrecision()
-#     from torch.utils.data import TensorDataset, DataLoader
-#     td = TensorDataset(y_score, y_true)
-#     loader = DataLoader(td, batch_size=16, shuffle=True)
-#     for p, t in loader:
-#         # acc_metric(p, t)
-#         ap_metric.update(p, t)
-#     print(ap_metric.compute())
-#     print()
-
-
-# if __name__ == "__main__":
-#     from sklearn.metrics import precision_recall_curve as _precision_recall_curve, \
-#         average_precision_score as _average_precision_score
+#     from torchmetrics.functional import average_precision as _average_precision, precision_recall_curve as _precision_recall_curve
 #     y_score = torch.rand(1000)
 #     y_true = torch.randint(0, 2, (1000,)).long()
 #     b = libs_ml.test_time(
-#         lambda: average_precision_score(y_score, y_true), number=10)
+#         lambda: average_precision(y_score, y_true), number=10)
 #     b2 = libs_ml.test_time(
-#         lambda: _average_precision_score(y_true, y_score), number=10)
-#     print(torch.allclose(b, torch.tensor(b2, dtype=torch.float)))
+#         lambda: _average_precision(y_score, y_true, "binary"), number=10)
+#     print(torch.allclose(b, b2), b)
+#     from torchmetrics.classification.average_precision import AveragePrecision
+#     ap_metric = AveragePrecision("binary")
+#     ap = libs_ml.test_metric(ap_metric, y_score, y_true)
+#     print(ap)
 #     #
+#     from sklearn.metrics import precision_recall_curve as __precision_recall_curve
 #     y_score = torch.tensor([0.1, 0.2, 0.2, 0.5, 0.5, 0.5, 0.7, 0.8, 0.9, 0.97])
 #     y_true = torch.randint(0, 2, (10,))
 #     a = libs_ml.test_time(
 #         lambda: precision_recall_curve(y_score, y_true), number=10)
 #     a2 = libs_ml.test_time(
-#         lambda: _precision_recall_curve(y_true, y_score), number=10)
+#         lambda: _precision_recall_curve(y_score, y_true, "binary"), number=10)
+#     a3 = libs_ml.test_time(
+#         lambda: __precision_recall_curve(y_true, y_score), number=10)
 #     print(a)
 #     print(a2)
+#     print(a3)
 
 
 # if __name__ == "__main__":
@@ -372,16 +419,18 @@ def average_precision(y_score: Tensor, y_true: Tensor) -> Tensor:
 #         ax.plot(r, p)
 #         plt.savefig(fpath, dpi=200, bbox_inches='tight')
 #     plot_pr_curve(p, r, "asset/images/2.png")
-#     from sklearn.metrics import precision_recall_curve as _precision_recall_curve
-#     p, r, _ = _precision_recall_curve(y_true, y_score)
+#     from torchmetrics.functional import precision_recall_curve as _precision_recall_curve
+#     p, r, _ = _precision_recall_curve(y_score, y_true, "binary")
 #     plot_pr_curve(p, r, "asset/images/3.png")
 
 
 def roc_curve(y_score: Tensor, y_true: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
-    """此实现只适用于2分类任务. X轴为fpr, Y轴为tpr
+    """(task="binary"). X轴为fpr, Y轴为tpr
     y_score: shape[N], Tensor[float]. {可以未排序}
     y_true: shape[N], Tensor[Number] 
     return: tpr, fpr, threshold. threshold单调递减, tpr, fpr单调递增. shape[N], shape[N], shape[N]
+    # 
+    返回中不含0,0点. 该点对auroc的计算无关, 所以不加入. 
     """
     # 将y_score按降序排列, 然后计算tps, fps, threshold.
     # tpr=r=tp/t1. fpr=fp/t0
@@ -396,7 +445,7 @@ def roc_curve(y_score: Tensor, y_true: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
 
 
 def auroc(y_score: Tensor, y_true: Tensor) -> Tensor:
-    """此实现只适用于2分类任务. X轴为fpr, Y轴为tpr
+    """(task="binary"). X轴为fpr, Y轴为tpr
     y_score: Tensor[float]. shape[N]. {可以未排序}
     y_true: Tensor[Number]. shape[N]. 
     return: Tensor[float]. shape[]
@@ -409,21 +458,15 @@ def auroc(y_score: Tensor, y_true: Tensor) -> Tensor:
 
 
 # if __name__ == "__main__":
-#     from torchmetrics.functional.classification.auroc import auroc as _auroc
+#     from torchmetrics.functional import auroc as _auroc
 #     y_score = torch.rand(1000)
 #     y_true = torch.randint(0, 2, (1000,)).long()
 #     print(libs_ml.test_time(lambda:auroc(y_score, y_true)))
-#     print(libs_ml.test_time(lambda:_auroc(y_score, y_true)))
+#     print(libs_ml.test_time(lambda:_auroc(y_score, y_true, "binary")))
 #     print()
 #     from torchmetrics.classification.auroc import AUROC
-#     auroc_metric = AUROC()
-#     from torch.utils.data import TensorDataset, DataLoader
-#     td = TensorDataset(y_score, y_true)
-#     loader = DataLoader(td, batch_size=16, shuffle=True)
-#     for p, t in loader:
-#         # acc_metric(p, t)
-#         auroc_metric.update(p, t)
-#     print(auroc_metric.compute())
+#     auroc_metric = AUROC("binary")
+#     print(libs_ml.test_metric(auroc_metric, y_score, y_true))
 
 
 # if __name__ == "__main__":
@@ -431,7 +474,7 @@ def auroc(y_score: Tensor, y_true: Tensor) -> Tensor:
 #     y_score = torch.rand(1000)
 #     y_true = torch.randint(0, 2, (1000,)).long()
 #     a = libs_ml.test_time(
-#         lambda: roc_auc_score(y_score, y_true), number=10)
+#         lambda: auroc(y_score, y_true), number=10)
 #     a2 = libs_ml.test_time(
 #         lambda: _roc_auc_score(y_true, y_score), number=10)
 #     print(torch.allclose(a, torch.tensor(a2, dtype=torch.float)))
@@ -519,22 +562,19 @@ def pairwise_cosine_similarity(X: Tensor, Y: Tensor) -> Tensor:
 
 
 # if __name__ == "__main__":
-#     from sklearn.metrics.pairwise import cosine_similarity as _cosine_similarity
 #     from torchmetrics.functional.pairwise.cosine import pairwise_cosine_similarity as _pairwise_cosine_similarity
 #     x = torch.rand(1000, 1000)
 #     y = torch.rand(1000, 1000)
 #     z = libs_ml.test_time(lambda: pairwise_cosine_similarity(x, y), 5)
-#     z2 = torch.from_numpy(libs_ml.test_time(lambda: _cosine_similarity(x, y), 5))
-#     z3 = libs_ml.test_time(lambda: _pairwise_cosine_similarity(x, y), 5)
+#     z2 = libs_ml.test_time(lambda: _pairwise_cosine_similarity(x, y), 5)
 #     print(torch.allclose(z, z2, atol=1e-6))
-#     print(torch.allclose(z2, z3, atol=1e-6))
-#     z4 = libs_ml.test_time(lambda: batched_cosine_similarity(x, y), 5)
-#     print(torch.allclose(z.ravel()[::1000+1], z4, atol=1e-6))
+#     z3 = libs_ml.test_time(lambda: batched_cosine_similarity(x, y), 5)
+#     print(torch.allclose(z.ravel()[::1000+1], z3, atol=1e-6))
 #     #
-#     z5 = libs_ml.test_time(lambda: F.cosine_similarity(x, y), 5)
-#     print(torch.allclose(z5, z4, atol=1e-6))
-#     z6 = libs_ml.test_time(lambda: F.cosine_similarity(x[:, None], y[None, :], dim=2), 1)
-#     print(torch.allclose(z, z6, atol=1e-6))
+#     z4 = libs_ml.test_time(lambda: F.cosine_similarity(x, y), 5)
+#     print(torch.allclose(z3, z4, atol=1e-6))
+#     z5 = libs_ml.test_time(lambda: F.cosine_similarity(x[:, None], y[None, :], dim=2), 1)
+#     print(torch.allclose(z, z5, atol=1e-6))
 
 
 def batched_euclidean_distance(
@@ -638,23 +678,6 @@ def _mse(y_pred: Tensor, y_true: Tensor) -> Tensor:
 #     X = torch.randn(2000, 2000)
 #     libs_ml.test_time(lambda: torch.sqrt(X), number=1)
 #     libs_ml.test_time(lambda: torch.sqrt_(X), number=1)
-
-
-# if __name__ == "__main__":
-#     libs_ml.test_time(lambda: torch.zeros((2000, 2000)))
-#     libs_ml.test_time(lambda: torch.zeros((2000, 2000)))
-
-
-# if __name__ == "__main__":
-#     x = torch.randn(1000, 2000)
-#     y = torch.randn(4000, 2000)
-#     x_np = x.numpy()
-#     y_np = y.numpy()
-#     from sklearn.metrics import euclidean_distances as _euclidean_distances
-#     a = libs_ml.test_time(lambda: pairwise_euclidean_distance(x, y), number=20)
-#     b = libs_ml.test_time(lambda: _euclidean_distances(x_np, y_np), number=20)  # 慢!
-#     print(a, b)
-#     print(torch.allclose(a, torch.from_numpy(b), rtol=1e-4, atol=1e-4))
 
 
 # if __name__ == "__main__":

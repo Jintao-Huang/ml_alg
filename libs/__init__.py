@@ -45,9 +45,9 @@ import requests
 from sortedcontainers import SortedList, SortedDict, SortedSet
 from tqdm import tqdm
 import numpy as np
-import pandas as pd
 from numpy import ndarray
 from numpy.random import RandomState
+import pandas as pd
 from pandas import DataFrame, Series
 #
 

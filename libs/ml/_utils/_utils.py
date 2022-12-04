@@ -2,6 +2,7 @@
 # Email: huangjintao@mail.ustc.edu.cn
 # Date:
 
+import math
 import os
 import random
 import time
@@ -187,15 +188,19 @@ def fuse_linear_bn(linear: nn.Linear, bn: nn.BatchNorm1d):
 #     print(torch.allclose(y, y2, atol=1e-6))
 
 
-def test_metric(metric: Metric, *args: Tensor) -> Tuple[Tensor, List[Tensor]]:
+def test_metric(metric: Metric, *args: Tensor, return_mes: bool = False) -> Tuple[Tensor, List[Tensor]]:
     # args: preds, target
     td = TensorDataset(*args)
-    loader = DataLoader(td, batch_size=16, shuffle=True)
+    N = args[0].shape[0]
+    loader = DataLoader(td, batch_size=math.ceil(N/5), shuffle=True)
     mes = []
     for batch_args in loader:
         # metric.update(*batch_args)
         mes.append(metric(*batch_args))
-    return metric.compute(), mes
+    if return_mes:
+        return metric.compute(), mes
+    else:
+        return metric.compute()
 
 
 if __name__ == "__main__":
@@ -206,14 +211,14 @@ if __name__ == "__main__":
     ml.seed_everything(1, False)
     preds = torch.randint(0, 10, (17,), dtype=torch.long)
     target = torch.randint(0, 10, (17,), dtype=torch.long)
-    acc_metric = Accuracy()
-    acc = test_metric(acc_metric, preds, target)
-    acc2 = accuracy(preds, target)
+    acc_metric = Accuracy("multiclass", num_classes=10)
+    acc = test_metric(acc_metric, preds, target, return_mes=True)
+    acc2 = accuracy(preds, target, "multiclass", num_classes=10)
     print(acc, acc2)
     #
     loss = torch.randint(0, 10, (17,), dtype=torch.float32)
     mean_metric = MeanMetric()
-    mean = test_metric(mean_metric, loss)
+    mean = test_metric(mean_metric, loss, return_mes=True)
     mean2 = loss.mean()
     print(mean, mean2)
 
@@ -238,5 +243,5 @@ def reserve_memory(device_ids: List[int], max_G: int = 9) -> None:
         logger.info(f"reserved memory: {cuda.memory_reserved(device) / 1e9:.4f}GB")
 
 
-if __name__ == "__main__":
-    reserve_memory([0], 5)
+# if __name__ == "__main__":
+#     reserve_memory([0], 5)

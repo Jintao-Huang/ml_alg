@@ -133,6 +133,7 @@ Item = Tuple[int, str, List[str], List[str]]  # level, curr_dir, folder_list, fn
 def mywalk(dir_: str, ignore_dirs: Optional[List[str]] = None) -> Iterator[Item]:
     # 使用广搜. 若遇到ignore_dirs则忽略它及其子文件夹
     # 将每一个文件夹存入队列.
+    # return: level, curr_dir, folder_list, fname_list
     ignore_dirs: Set[str] = set(ignore_dirs) if ignore_dirs is not None else set()
     dq = deque([dir_])
     level = 0

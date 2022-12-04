@@ -230,7 +230,8 @@ def hist(
 
 ):
     if label is not None and color is None:
-        raise ValueError(f"label: {label}, color: {color}")  # bug in sns
+        # bug in sns: https://github.com/mwaskom/seaborn/issues/3115
+        raise ValueError(f"label: {label}, color: {color}")
     #
     sns.histplot(x, bins=bins, color=color, stat=stat, kde=kde, edgecolor=edgecolor,
                  label=label, alpha=alpha, ax=ax)
