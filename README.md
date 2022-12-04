@@ -31,8 +31,10 @@
 3. `libs/alg/*`: 传统算法库
    1. 数据结构: 树状数组, 堆, 优先级队列, 可变的优先级队列, 红黑树, 有序数组, 链表, 线段树, Lazy线段树, 字符串哈希, 字典树, 并查集, Huffman树等.
    2. 算法: 图算法(dijkstra, kruskal, prim, dinic, 匈牙利算法, 拓扑排序), 背包问题, math, 单调栈/队列, 大数运算, 字符串匹配KMP算法, 二分搜索, a_star, 常见动态规划, 常见的其他算法等.
-4. `libs/ml/_visualize/_2d.py`, 可视化的库. 
-   1. 含plot, scatter, imshow, hist等.
+4. `libs/plt/*`, 可视化的库. 
+   1. `_2d.py`: 
+      1. 含plot, scatter, imshow, hist等.
+      2. 含config_ax, config_plt等.
 5. `libs/ml/*`: 机器学习算法库
 6. `libs/utils/*`: 一些工具函数的实现
 7. `tests/*`: 测试算法正确性. (其中部分测试写在源文件中)
