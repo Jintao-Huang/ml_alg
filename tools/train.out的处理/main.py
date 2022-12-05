@@ -1,6 +1,4 @@
-import os
-import re
-
+from libs import *
 if __name__ == "__main__":
     # 从文件中不断读取行, 如果以`pattern(tqdm)`形式出现, 则记忆但不加入res.
     # 如果不一这个开头且是第一个, 则将记忆加入res. 并将改行加入res.

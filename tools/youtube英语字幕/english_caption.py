@@ -1,5 +1,4 @@
-import re
-import os
+from libs import *
 
 if __name__ == "__main__":
     cur_dir = os.path.dirname(__file__)

@@ -18,7 +18,7 @@ import mini_lightning as ml
 import datetime as dt
 
 __all__ = ["download_files", "calculate_hash", "xml_to_dict", "mywalk",
-           "test_unit", "ProgramQueue"]
+           "test_unit", "ProgramQueue", "config_to_dict"]
 #
 logger = ml.logger
 
@@ -205,8 +205,33 @@ class ProgramQueue:
         logger.info("Program End...")
 
 
+# if __name__ == "__main__":
+#     pq = ProgramQueue(1, 2)
+#     pq.start()
+#     time.sleep(30)
+#     pq.end()
+
+def config_to_dict(config: type) -> Dict[str, Any]:
+    res = {}
+    for k, v in config.__dict__.items():
+        if k[0].isupper():
+            res[k] = v
+    return res
+
+
 if __name__ == "__main__":
-    pq = ProgramQueue(1, 2)
-    pq.start()
-    time.sleep(30)
-    pq.end()
+    from pprint import pprint
+
+    class GLOBAL_ENV:
+        PRES_MEAN: Literal["true", 1, 2, 3] = "true"  # 每个有3个
+        Normalize: bool = False
+        DIST: Literal["COS", "EU"] = "COS"
+        WITH_STD = True
+        #
+        FIX_ITEM = True
+        N_ITEM: Literal[1, 3] = 1
+        MIN_LEN: int = 32 * 8
+        SPEARMAN_TOPK: int = 100
+        ONLY_DROPOUT: bool = True
+        HAS_CLS: bool = True
+    pprint(config_to_dict(GLOBAL_ENV))

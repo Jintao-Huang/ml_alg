@@ -2,9 +2,7 @@
 # Email: hjt_study@qq.com
 # Date: 
 
-import re
-import os
-import numpy as np
+from libs import *
 
 
 prob = 0.5  # 空的概率
