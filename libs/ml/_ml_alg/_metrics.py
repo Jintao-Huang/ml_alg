@@ -467,7 +467,11 @@ def auroc(y_score: Tensor, y_true: Tensor) -> Tensor:
 #     from torchmetrics.classification.auroc import AUROC
 #     auroc_metric = AUROC("binary")
 #     print(libs_ml.test_metric(auroc_metric, y_score, y_true))
-
+#     # 
+#     y_score = torch.rand(1000, 10)
+#     y_true = torch.randint(0, 2, (1000, 10)).long()
+#     print(libs_ml.test_time(lambda:auroc(y_score.flatten(), y_true.flatten())))
+#     print(libs_ml.test_time(lambda:_auroc(y_score, y_true, "binary")))
 
 # if __name__ == "__main__":
 #     from sklearn.metrics import roc_auc_score as _roc_auc_score, roc_curve as _roc_curve

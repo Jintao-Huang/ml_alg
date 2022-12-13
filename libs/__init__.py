@@ -116,7 +116,7 @@ from gym import Env
 from . import utils as libs_utils
 from . import ml as libs_ml
 from . import alg as libs_alg
-from . import plt as libs_plt
+from . import _plt as libs_plt
 #
 # 以下环境变量需要用户自定义设置, 这里为了自己方便进行导入
 TORCH_HOME = os.environ.get("TORCH_HOME", None)

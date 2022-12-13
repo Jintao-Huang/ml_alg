@@ -36,14 +36,15 @@ Color = Literal[
 # https://matplotlib.org/stable/gallery/color/colormap_reference.html
 Cmap = Literal[
     None, "viridis",  # None 即 "viridis"
-    "gray", "gray_r", "hot"
+    "gray", "gray_r",
+    "hot", "Blues"
 ]
 # https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.plot.html
 Marker = Literal[".", "o", "*", None]
 LineStyle = Literal["-", "--"]
 
 
-def config_plt(backend: Literal["Agg", None] = "Agg", chinese: bool = False) -> None:
+def config_plt(backend: Literal["Agg", None] = None, chinese: bool = False) -> None:
     if chinese:
         plt.rcParams['font.sans-serif'].insert(0, 'SimSun')
         plt.rcParams['axes.unicode_minus'] = False
@@ -74,14 +75,24 @@ def get_figure_2d(
                            figsize=figsize, dpi=dpi)
     return fig, ax
 
-# if __name__ == "__main__":
-#     print(get_figure_2d(2, 1))
-
 
 def config_fig(
     fig: Figure,
-):
-    pass
+    title: Optional[str] = None,
+    hspace: float = 0.2,
+    wspace: float = 0.2,
+) -> None:
+    title_size = 18
+    #
+    if title is not None:
+        fig.suptitle(title, fontsize=title_size)
+    fig.subplots_adjust(wspace=wspace, hspace=hspace)
+
+
+# if __name__ == "__main__":
+#     fig, axs = get_figure_2d(2, 3)
+#     config_fig(fig, "AAA")
+#     plt.show()
 
 
 def config_ax(
@@ -107,6 +118,11 @@ def config_ax(
     yticks_labels: Optional[List[str]] = None,
     xticks_rotate90: bool = False
 ) -> None:
+    """
+    xticks_labels: 必须提供xticks
+        xticks: [N]
+        xticks_labels: [N]
+    """
     title_size = 17
     label_size = 14
     tick_size = 11
@@ -191,16 +207,18 @@ def plot(
     label: Optional[str] = None,
 ) -> None:
     """
+    x: [N]. 默认np.arange(length)
+    y: [N]
     zorder: 多个直线的覆盖的先后顺序, 越大越上面, 越不容易被覆盖. 
     """
     if x is None:
-        length = len(y) if isinstance(y, list) else y.shape[0]
-        x = np.arange(length)
-    sns.lineplot(  # or ax.plot
+        N = len(y) if isinstance(y, list) else y.shape[0]
+        x = np.arange(N)
+    ax.plot(  # sns.lineplot
         x=x, y=y, marker=marker, linestyle=linestyle, color=color,
         markersize=markersize, markeredgecolor=markeredgecolor,
         markerfacecolor=markerfacecolor, linewidth=linewidth,
-        alpha=alpha, zorder=zorder, label=label, ax=ax
+        alpha=alpha, zorder=zorder, label=label,  # ax=ax
     )
 
 
@@ -227,8 +245,7 @@ def hist(
     #
     label: Optional[str] = None,
     alpha: float = 1.
-
-):
+) -> None:
     if label is not None and color is None:
         # bug in sns: https://github.com/mwaskom/seaborn/issues/3115
         raise ValueError(f"label: {label}, color: {color}")
@@ -241,16 +258,66 @@ def hist(
 
 # if __name__ == "__main__":
 #     fig, ax = get_figure_2d()
-#     x = np.random.randn(1000)
-#     hist(ax, x, color="C0", kde=True, label="AAA")
-#     x = np.random.rand(1000)
-#     hist(ax, x, color="C1", kde=True, label="BBB")
+#     x = np.random.randn(100000)
+#     hist(ax, x, 1000, color="C0", kde=True, label="AAA", alpha=0.5, edgecolor=None)
+#     x = np.random.rand(100000)
+#     hist(ax, x, 1000, color="C1", kde=True, label="BBB", alpha=0.5, edgecolor=None)
 #     config_ax(ax, legend=True)
-#     plt.show()
+#     save_and_show("./asset/1.png")
+
+def text(
+    ax: Axes,
+    x: float, y: float,  # 坐标(文字左下角与该点对其)
+    s: str,
+    #
+    fontsize: int = 11,
+    color: Color = "k",
+) -> None:
+    ax.text(x, y, s, fontsize=fontsize, color=color)
 
 
-def bar():
-    pass
+# if __name__ == "__main__":
+#     fig, ax = get_figure_2d()
+#     text(ax, 0, 1, "123aaa")
+#     save_and_show()
+
+
+def bar(
+    ax: Axes,
+    x: ArrayLike,
+    height: ArrayLike,
+    #
+    width: float = 0.8,
+    bottom: float = 0.,
+    color: Color = None,
+    #
+    edgecolor: Color = None,
+    linewidth: Optional[float] = None,
+    label: Optional[str] = None,
+    alpha: float = 1.
+) -> None:
+    """
+    x: [N]
+    height: [N]
+    """
+    ax.bar(
+        x, height, width, bottom,
+        color=color,
+        edgecolor=edgecolor,
+        linewidth=linewidth,
+        label=label,
+        alpha=alpha
+    )
+
+# if __name__ == "__main__":
+#     fig, ax = get_figure_2d()
+#     x = np.arange(5)
+#     y = np.random.rand(5)
+#     y2 = np.random.rand(5)
+#     bar(ax, x, y, 0.6, 0.1, label="AAA", alpha=0.5)
+#     bar(ax, x, y2, label="BBB", alpha=0.5)
+#     config_ax(ax, legend=True, xticks=x, xticks_labels=["aaa", "bbb", "ccc", "ddd", "eee"])
+#     save_and_show()
 
 
 def scatter(
@@ -263,7 +330,13 @@ def scatter(
     edgecolor: Color = "#333",
     label: Optional[str] = None,
 ) -> None:
-    sns.scatterplot(x=x, y=y, s=s, color=color, edgecolor=edgecolor, label=label, ax=ax)  # or ax.scatter
+    """
+    x: [N]
+    y: [N]
+    """
+    ax.scatter(
+        x=x, y=y, s=s, color=color, edgecolor=edgecolor, label=label,  # ax=ax
+    )  # or sns.scatterplot
 
 
 # if __name__ == "__main__":
@@ -282,7 +355,7 @@ def imshow(
     vmax: Union[None, int, float] = None,  # 1, 255
     origin: Literal["lower", "upper"] = "upper",
     extent: Optional[Tuple[int, int, int, int]] = None,
-):
+) -> None:
     """
     x: [H, W]. [0..1] float or [0..255] uint8. 
         or [H, W, 3] (cmap无效了), 一般伴随着axis_off
@@ -312,3 +385,14 @@ def imshow(
 #     fig, ax = get_figure_2d()
 #     imshow(ax, y)
 #     save_and_show()
+
+
+def contour(
+    ax: Axes,
+
+) -> None:
+    pass
+
+if __name__ == "__main__":
+    pass
+
