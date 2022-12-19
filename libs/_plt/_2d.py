@@ -389,10 +389,17 @@ def imshow(
 
 def contour(
     ax: Axes,
+    x: ArrayLike, y: ArrayLike, z: ArrayLike, 
+    levels: List[float], 
 
 ) -> None:
-    pass
+    ax.contour(x, y, z, levels=levels)
 
-if __name__ == "__main__":
-    pass
 
+# if __name__ == "__main__":
+#     x, y = np.arange(200), np.arange(200)
+#     x, y = np.meshgrid(x, y, indexing="xy")
+#     z = np.sin(x + y)
+#     fig, ax = get_figure_2d()
+#     contour(ax, x, y, z, [0])
+#     save_and_show()
