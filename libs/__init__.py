@@ -50,7 +50,7 @@ from numpy.random import RandomState
 import pandas as pd
 from pandas import DataFrame, Series
 #
-
+import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
@@ -62,7 +62,7 @@ import cv2 as cv
 #
 import sklearn
 import torch
-from torch import Tensor, device as Device
+from torch import Tensor, dtype as Dtype, device as Device, Generator
 from torch.nn import Module
 from torch.optim import Optimizer
 from torch.nn.parameter import Parameter
@@ -74,7 +74,12 @@ from torch.optim import lr_scheduler as lrs
 from torch.optim.lr_scheduler import _LRScheduler as LRScheduler
 import torch.nn.init as init
 from torch.nn.utils.clip_grad import clip_grad_norm_
-from torch.utils.data import Dataset, DataLoader, random_split, IterableDataset, TensorDataset
+from torch.utils.data import (
+    Dataset, IterableDataset, TensorDataset,
+    Sampler, RandomSampler, SequentialSampler, BatchSampler,
+    DataLoader, default_collate, get_worker_info,
+    random_split,
+)
 import torch.utils.data as tud
 from torch.utils.tensorboard.writer import SummaryWriter
 from torch.nn.modules.module import _IncompatibleKeys as IncompatibleKeys

@@ -3,36 +3,65 @@
 # Date:
 
 import torch
-from typing import Tuple, Union
-from torch import Tensor
-__all__ = []
+from typing import Tuple, Union, Optional
+from torch import Tensor, dtype as Dtype, device as Device, Generator
+__all__ = ["normal", "uniform"]
 
 Size = Union[Tuple[int, ...], int]
 
 
-def normal(mean: float, std: float, size: Size) -> Tensor:
-    return torch.randn(size) * std + mean
+def _normal(mean: float, std: float, size: Size) -> Tensor:
+    return torch.randn(size).mul_(std).add_(mean)
 
 
-def uniform(a: float, b: float, size: Size) -> Tensor:
-    return torch.rand(size) * (b - a) + a
+def _uniform(a: float, b: float, size: Size) -> Tensor:
+    return torch.rand(size).mul_(b - a).add_(a)
+
+
+def normal(
+    mean: float, std: float,
+    size: Size,
+    dtype: Dtype = torch.float32,
+    device: Device = Device("cpu"),
+    generator: Optional[Generator] = None,
+) -> Tensor:
+    return torch.empty(size, dtype=dtype, device=device).normal_(mean, std, generator=generator)
+
+
+def uniform(
+    a: float, b: float,
+    size: Size,
+    dtype: Dtype = torch.float32,
+    device: Device = Device("cpu"),
+    generator: Optional[Generator] = None,
+) -> Tensor:
+    return torch.empty(size, dtype=dtype, device=device).uniform_(a, b, generator=generator)
 
 
 # if __name__ == "__main__":
 #     from libs import *
-#     x = normal(10, 4, 1000)
+#     x = _normal(10, 4, 1000)
 #     print(x.mean(), x.std())
-#     # 
+#     #
 #     libs_ml.seed_everything(42)
-#     x = normal(10, 4, 1)
+#     x = _normal(10, 4, 1)
 #     libs_ml.seed_everything(42)
 #     x2 = torch.normal(10, 4, (1,))
 #     libs_ml.seed_everything(42)
 #     x3 = torch.distributions.Normal(10, 4).sample()
 #     print(x, x2, x3)
-#     # 
-#     x = uniform(4, 10, 1000)
+#     #
+#     x = _uniform(4, 10, 1000)
 #     print(x.min(), x.max())
+
+
+if __name__ == "__main__":
+    import mini_lightning as ml
+    ml.seed_everything(42)
+    y = ml.test_time(lambda: normal(0.1, 0.2, (10000, 1000)), 10)
+    ml.seed_everything(42)
+    y2 = ml.test_time(lambda: torch.normal(0.1, 0.2, (10000, 1000)), 10)
+    print(torch.allclose(y, y2))
 
 
 def randperm(n: int) -> Tensor:

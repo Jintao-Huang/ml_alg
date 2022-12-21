@@ -44,7 +44,10 @@ Marker = Literal[".", "o", "*", None]
 LineStyle = Literal["-", "--"]
 
 
-def config_plt(backend: Literal["Agg", None] = None, chinese: bool = False) -> None:
+def config_plt(
+    backend: Literal["Agg", "TkAgg", None] = None,
+    chinese: bool = False
+) -> None:
     if chinese:
         plt.rcParams['font.sans-serif'].insert(0, 'SimSun')
         plt.rcParams['axes.unicode_minus'] = False
@@ -107,7 +110,6 @@ def config_ax(
     axis: Literal["off", "on", None] = None,
     grid: Literal["both", "y", "off", None] = None,
     legend: bool = False,
-
     #
     xscale: Literal["linear", "log", None] = None,
     yscale: Literal["linear", "log", None] = None,
@@ -128,11 +130,11 @@ def config_ax(
     tick_size = 11
     pad = 7
     if title is not None:
-        ax.set_title(title, fontsize=title_size, pad=pad)  # pad 默认: 6
+        ax.set_title(title, fontsize=title_size, pad=pad, weight="bold")  # pad 默认: 6
     if xlabel is not None:
-        ax.set_xlabel(xlabel, labelpad=pad, fontsize=label_size)
+        ax.set_xlabel(xlabel, labelpad=pad, fontsize=label_size, weight="bold")
     if ylabel is not None:
-        ax.set_ylabel(ylabel, labelpad=pad, fontsize=label_size)
+        ax.set_ylabel(ylabel, labelpad=pad, fontsize=label_size, weight="bold")
     #
     if xlim is not None:
         ax.set_xlim(xlim)
@@ -389,8 +391,9 @@ def imshow(
 
 def contour(
     ax: Axes,
-    x: ArrayLike, y: ArrayLike, z: ArrayLike, 
-    levels: List[float], 
+    x: ArrayLike, y: ArrayLike, z: ArrayLike,
+    levels: List[float],
+    #
 
 ) -> None:
     ax.contour(x, y, z, levels=levels)
@@ -403,3 +406,23 @@ def contour(
 #     fig, ax = get_figure_2d()
 #     contour(ax, x, y, z, [0])
 #     save_and_show()
+
+def fill_between(
+    ax: Axes,
+    x: ArrayLike,
+    y1: Union[float, ArrayLike],
+    y2: Union[float, ArrayLike] = 0,  # between y1..y2(y1, y2谁大谁小无所谓)
+    #
+    color: Color = None,
+    alpha: float = 0.2,
+) -> None:
+    ax.fill_between(x, y1, y2, color=color, alpha=alpha)
+
+
+if __name__ == "__main__":
+    x = np.arange(200)
+    y = np.sin(x) + 2
+    y2 = np.ones_like(y)
+    fig, ax = get_figure_2d()
+    fill_between(ax, x, 0, 1, alpha=0.2)
+    save_and_show()

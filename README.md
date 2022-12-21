@@ -18,16 +18,18 @@
       1. 含归一化方法, LinearRegression, Ridge, LogisticRegression, PCA, KMeans, NearestNeighbors等
    4. `_optim_functional.py`: 优化器的实现. (没啥实用性, 用于学习)
       1. 含sgd, adam, adamw.
-   5. `_tvt_functional.py`: torchvision.transforms.functional的实现. (没啥实用性, 用于学习)
-      1. 含to_tensor, normalize, pad, hflip, vflip, rgb_to_grayscale, crop, center_crop, resize, resized_crop, adjust_brightness, adjust_contrast, adjust_saturation, adjust_hue, rotate, affine
-   6. `_linalg.py`: 线性代数算法. (没啥实用性, 用于学习)
+   5. `_tvt_functional_tensor.py`: torchvision.transforms.functional_tensor的实现. (没啥实用性, 用于学习)
+      1. 含: to_tensor, normalize, pad, hflip, vflip, rgb_to_grayscale, crop, center_crop, resize, resized_crop, adjust_brightness, adjust_contrast, adjust_saturation, adjust_hue, rotate, affine
+   6. `_tvt_functional.py`: torchvision.transforms.functional; torchvision.transforms的实现. (没啥实用性, 用于学习)
+      1. 含: random_horizontal_flip, random_resized_crop...
+   7. `_linalg.py`: 线性代数算法. (没啥实用性, 用于学习)
       1. 含pinv, solve, lstsq, cholesky_solve, lu_solve等
-   7. `_functional.py`: 一些torch的函数实现. (没啥实用性, 用于学习)
+   8. `_functional.py`: 一些torch的函数实现. (没啥实用性, 用于学习)
       1. 含logsumexp, softmax, var, cov, corrcoef, bincount, unique_consecutive
       2. 含div, fmod, remainder
-   8. `_rand.py`: 
+   9.  `_rand.py`: 
       1. 含normal, uniform, randperm, multivariate_normal
-   9.  `_pygnn_functional.py`: 图网络的实现. (开发中...)
+   10. `_pygnn_functional.py`: 图网络的实现. (开发中...)
 3. `libs/alg/*`: 传统算法库
    1. `_data_structure`: 树状数组, 堆, 优先级队列, 可变的优先级队列, 红黑树, 有序数组, 链表, 线段树, Lazy线段树, 字符串哈希, 字典树, 并查集, Huffman树等.
    2. `_algorithm`: 图算法(dijkstra, kruskal, prim, dinic, 匈牙利算法, 拓扑排序), 背包问题, math, 单调栈/队列, 大数运算, 字符串匹配KMP算法, 二分搜索, a_star, 常见动态规划, 常见的其他算法等.

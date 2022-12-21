@@ -14,7 +14,9 @@ __all__ = []
 
 
 def logsumexp(x: Tensor, dim: Union[Tuple[int, ...], int], keepdim: bool = False):
-    """logsumexp是数值不稳定的, 容易exp时出现inf. 可以将e^x全部除以e^{max(x)}解决."""
+    """logsumexp是数值不稳定的, 容易exp时出现inf. 可以将e^x全部除以e^{max(x)}解决.
+        先exp, 再sum, 再log. 同log_softmax
+    """
     x_max = x.max()
     return (x-x_max).exp_().sum(dim, keepdim).log_() + x_max
 
