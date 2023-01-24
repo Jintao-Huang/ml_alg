@@ -11,8 +11,6 @@ np.random.seed(seed)
 
 
 if __name__ == "__main__":
-    
-
     cur_dir = os.path.dirname(__file__)
     in_fpath = os.path.join(cur_dir, "./in.txt")
     out_fpath = os.path.join(cur_dir, "./out.txt")

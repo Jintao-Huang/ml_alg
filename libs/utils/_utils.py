@@ -9,16 +9,18 @@ from urllib.parse import urljoin
 from urllib.error import HTTPError
 from urllib.request import urlretrieve
 import hashlib
-import xml.etree.ElementTree as ET
-from xml.etree.ElementTree import ElementTree, Element
+from xml.etree.ElementTree import ElementTree as ET, Element
+from lxml.etree import _Element as Element2
+from lxml import etree
 from collections import deque
 import logging
 import unittest as ut
 import mini_lightning as ml
 import datetime as dt
 
+
 __all__ = ["download_files", "calculate_hash", "xml_to_dict", "mywalk",
-           "test_unit", "ProgramQueue", "config_to_dict"]
+           "test_unit", "ProgramQueue", "config_to_dict", "xpath_get_text"]
 #
 logger = ml.logger
 
@@ -235,3 +237,25 @@ if __name__ == "__main__":
         ONLY_DROPOUT: bool = True
         HAS_CLS: bool = True
     pprint(config_to_dict(GLOBAL_ENV))
+
+
+def xpath_get_text(elem: Element2) -> str:
+    """return text"""
+    def _dfs(elem: Element2) -> Tuple[str, str]:
+        """return text, tail. tail for outer text"""
+        children: List[Element2] = elem.getchildren()
+        texts: List[str] = []
+        if elem.text is not None:
+            texts.append(elem.text)
+        for c in children:
+            text, tail = _dfs(c)
+            texts.append(text + tail)
+        return "".join(texts), elem.tail if elem.tail is not None else ""
+    return _dfs(elem)[0]
+
+
+if __name__ == "__main__":
+    text = "<p>aaa<em>123</em>bbb</p>"
+    html: Element2 = etree.HTML(text, None)
+    p: Element2 = html.xpath("//p")
+    print(xpath_get_text(p[0]))

@@ -27,7 +27,7 @@
    8. `_functional.py`: 一些torch的函数实现. (没啥实用性, 用于学习)
       1. 含logsumexp, softmax, var, cov, corrcoef, bincount, unique_consecutive
       2. 含div, fmod, remainder
-   9.  `_rand.py`: 
+   9. `_rand.py`: 
       1. 含normal, uniform, randperm, multivariate_normal
    10. `_pygnn_functional.py`: 图网络的实现. (开发中...)
 3. `libs/alg/*`: 传统算法库

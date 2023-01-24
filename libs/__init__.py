@@ -34,14 +34,12 @@ from typing import (
     Deque, Sequence, Mapping, Iterable, Iterator, DefaultDict, overload
 )
 from typing_extensions import TypeAlias
-from xml.etree import ElementTree as ET
 from contextlib import contextmanager
 from numbers import Number
 from fractions import Fraction
 
 #
 import yaml
-import requests
 from sortedcontainers import SortedList, SortedDict, SortedSet
 from tqdm import tqdm
 import numpy as np
@@ -49,6 +47,25 @@ from numpy import ndarray
 from numpy.random import RandomState
 import pandas as pd
 from pandas import DataFrame, Series
+#
+PROXIES = {
+    'http': '127.0.0.1:7890',
+    'https': '127.0.0.1:7890'
+}
+HEADERS = {
+    "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36",
+}
+import urllib
+import requests
+from xml.etree.ElementTree import ElementTree as ET, Element
+from lxml import etree
+from lxml.etree import _Element as Element2
+# 
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver import Keys, Proxy, ActionChains
+from selenium.webdriver.remote.webdriver import WebDriver
+from selenium.webdriver.remote.webelement import WebElement
 #
 import matplotlib
 import matplotlib.pyplot as plt
