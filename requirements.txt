@@ -1,10 +1,11 @@
-mini-lightning>=0.1.8
+mini-lightning>=0.1.*
 threadpoolctl>=3.1.*
 # 
 requests>=2.28.*
 selenium>=4.8.*
 lxml>=4.9.*
 sortedcontainers>=2.4
+numba>=0.56.*
 pandas>=1.5.*
 # 
 seaborn>=0.12.*

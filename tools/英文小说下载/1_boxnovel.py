@@ -9,7 +9,8 @@ with open(fpath, "w") as f:
     pass
 #
 while True:
-    resp = requests.get(URL)
+    resp = requests.get(URL, headers=HEADERS, proxies=PROXIES)
+    assert resp.status_code == 200
     html: Element2 = etree.HTML(resp.text, None)
     #
     elem: Element2 = html.xpath("//div[@class=\"text-left\"]")[0]
@@ -22,7 +23,7 @@ while True:
     next_pages: List[Element2] = html.xpath("//*[@id=\"manga-reading-nav-foot\"]//div[@class=\"nav-next \"]/a")
     if len(next_pages) == 0:
         break
-    # 
+    #
     next_page: Element2 = next_pages[0]
     URL: str = next_page.attrib["href"]
     print(f"\r>> {i}, len(texts)={len(texts)}, next_url={URL}", end="")

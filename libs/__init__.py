@@ -47,6 +47,16 @@ from numpy import ndarray
 from numpy.random import RandomState
 import pandas as pd
 from pandas import DataFrame, Series
+# 
+import numba
+from numba import jit, njit, vectorize, guvectorize
+from numba.core.types import (
+    void, uint8, int32, int64, float32, float64, boolean,
+    ListType, List as ReflectList, Array
+)
+from numba.typed.typedlist import List as TypedList
+from numba.typed.typeddict import Dict as TypedDict
+from numba import typeof
 #
 PROXIES = {
     'http': '127.0.0.1:7890',
@@ -56,16 +66,19 @@ HEADERS = {
     "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36",
 }
 import urllib
+from urllib.error import HTTPError
 import requests
-from xml.etree.ElementTree import ElementTree as ET, Element
 from lxml import etree
+# 
+from xml.etree.ElementTree import ElementTree as ET, Element
 from lxml.etree import _Element as Element2
+from selenium.webdriver.remote.webelement import WebElement
 # 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver import Keys, Proxy, ActionChains
 from selenium.webdriver.remote.webdriver import WebDriver
-from selenium.webdriver.remote.webelement import WebElement
+from selenium.common.exceptions import NoSuchElementException
 #
 import matplotlib
 import matplotlib.pyplot as plt
