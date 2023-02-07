@@ -1,3 +1,7 @@
+# Author: Jintao Huang
+# Email: huangjintao@mail.ustc.edu.cn
+# Date:
+
 from typing import Dict, List
 from numba import njit, jit
 from numba.typed.typedlist import List as TypedList

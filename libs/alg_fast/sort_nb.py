@@ -1,3 +1,7 @@
+# Author: Jintao Huang
+# Email: huangjintao@mail.ustc.edu.cn
+# Date:
+
 from numba import njit, guvectorize
 from numba.typed.typedlist import List as TypedList
 from numba.core.types import void, int64, float64, ListType, List as ReflectList, Array
