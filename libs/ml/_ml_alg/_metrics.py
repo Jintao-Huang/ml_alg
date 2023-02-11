@@ -2,6 +2,8 @@
 # Email: huangjintao@mail.ustc.edu.cn
 # Date:
 
+from numba import njit
+from numpy import ndarray
 from typing import Optional, Tuple, Literal
 from torch import Tensor
 import torch.nn.functional as F
@@ -14,6 +16,7 @@ __all__ = [
     "r2_score",
     "pairwise_cosine_similarity", "pairwise_euclidean_distance",
     "batched_cosine_similarity", "batched_euclidean_distance",
+    "batched_mse", "pairwise_mse", "pairwise_equal",
     "kl_divergence",
     "pearson_corrcoef", "spearman_corrcoef", "calc_rank"
 ]
@@ -467,7 +470,7 @@ def auroc(y_score: Tensor, y_true: Tensor) -> Tensor:
 #     from torchmetrics.classification.auroc import AUROC
 #     auroc_metric = AUROC("binary")
 #     print(libs_ml.test_metric(auroc_metric, y_score, y_true))
-#     # 
+#     #
 #     y_score = torch.rand(1000, 10)
 #     y_true = torch.randint(0, 2, (1000, 10)).long()
 #     print(libs_ml.test_time(lambda:auroc(y_score.flatten(), y_true.flatten())))
@@ -645,21 +648,58 @@ def pairwise_euclidean_distance(
 #     print(torch.allclose(y4, y3, atol=1e-6))  # True
 
 
-def _mse(y_pred: Tensor, y_true: Tensor) -> Tensor:
-    """展示mse与batched_euclidean_distance的关系. 速度会稍慢
+def batched_mse(y_pred: Tensor, y_true: Tensor, reduction: Literal["mean", "sum"] = "mean") -> Tensor:
+    """
     pred: [N, F]. float
     target: [N, F]. float
+    return: [N]
     """
-    F = y_pred.shape[0]
-    return batched_euclidean_distance(y_pred, y_true, squared=True).div_(F)  # sum -> mean
+    F = y_pred.shape[1]
+    res = batched_euclidean_distance(y_pred, y_true, squared=True)
+    if reduction == "mean":
+        res.div_(F)
+    else:
+        assert reduction == "sum"
+    return res
+
+
+def pairwise_mse(y_pred: Tensor, y_true: Tensor, reduction: Literal["mean", "sum"] = "mean") -> Tensor:
+    """
+    pred: [N, F]. float
+    target: [N, F]. float
+    return: [N, N]
+    """
+    F = y_pred.shape[1]
+    res = pairwise_euclidean_distance(y_pred, y_true, squared=True)
+    if reduction == "mean":
+        res.div_(F)
+    else:
+        assert reduction == "sum"
+    return res
+
 
 # if __name__ == "__main__":
-#     x = torch.randn((10000, 1000))
-#     x2 = torch.randn((10000, 1000))
-#     y = libs_ml.test_time(lambda: _mse(x, x2), number=10)
-#     y2 = libs_ml.test_time(lambda: F.mse_loss(x, x2), number=10)
+#     x = torch.randn((2000, 1000))
+#     x2 = torch.randn((2000, 1000))
+#     y = libs_ml.test_time(lambda: batched_mse(x, x2), number=10)
+#     y2 = libs_ml.test_time(lambda: F.mse_loss(x, x2, reduction="none").mean(dim=1), number=10)
+#     y3 = libs_ml.test_time(lambda: pairwise_mse(x, x2), number=10)
 #     print(torch.allclose(y, y2))
+#     print(torch.allclose(y, y3.diag()))
 
+
+def pairwise_equal(X: Tensor, Y: Tensor) -> Tensor:
+    """
+    X: [N], y: [M]
+    return: [N, M]
+    """
+    return X[:, None] == Y
+
+# if __name__ == '__main__':
+#     x = torch.arange(1000)
+#     x2 = torch.arange(5, 1005)
+#     y = libs_ml.test_time(lambda: pairwise_equal(x, x2), number=10)
+#     print(y)
 
 # if __name__ == "__main__":
 #     # test einsum 的speed
@@ -770,7 +810,7 @@ def calc_rank(x: Tensor) -> Tensor:
     repeat_value: Tensor = sorted_x[:-1][sorted_x.diff() == 0]
     repeat_value = repeat_value.unique_consecutive()
     for r in repeat_value:
-        cond = x == r
+        cond = torch.nonzero(x == r, as_tuple=True)
         rank[cond] = rank[cond].mean()
     return rank
 
@@ -813,6 +853,12 @@ def spearman_corrcoef(y_pred: Tensor, y_true: Tensor) -> Tensor:
 #     print(torch.allclose(y, y2))
 #     target = torch.randn(10000, 1000)
 #     preds = torch.randn(10000, 1000)
+#     y = libs_ml.test_time(lambda: _spearman_corrcoef(preds, target))
+#     y2 = libs_ml.test_time(lambda: spearman_corrcoef(preds, target))
+#     print(torch.allclose(y, y2))
+#     #
+#     target = torch.randint(10000, (1000000,)).float()
+#     preds = torch.randint(10000, (1000000,)).float()
 #     y = libs_ml.test_time(lambda: _spearman_corrcoef(preds, target))
 #     y2 = libs_ml.test_time(lambda: spearman_corrcoef(preds, target))
 #     print(torch.allclose(y, y2))

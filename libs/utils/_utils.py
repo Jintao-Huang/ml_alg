@@ -3,6 +3,7 @@
 # Date:
 
 import time
+import numpy as np
 from typing import Callable, Any, Optional, List, Dict, Union, Tuple, Iterator, Set
 import os
 from urllib.parse import urljoin
@@ -20,7 +21,7 @@ import datetime as dt
 
 
 __all__ = ["download_files", "calculate_hash", "xml_to_dict", "mywalk",
-           "test_unit", "ProgramQueue", "config_to_dict", "xpath_get_text"]
+           "test_unit", "ProgramQueue", "config_to_dict", "xpath_get_text", "dict_head"]
 #
 logger = ml.logger
 
@@ -164,14 +165,14 @@ def test_unit(test_cases: List[type], prefix_method_name="test") -> ut.TestResul
     return runner.run(suite)
 
 
-if __name__ == "__main__":
-    import torch
+# if __name__ == "__main__":
+#     import torch
 
-    class Test1(ut.TestCase):
-        def test1(self):
-            print(torch.randn(10))
+#     class Test1(ut.TestCase):
+#         def test1(self):
+#             print(torch.randn(10))
 
-    test_unit([Test1])
+#     test_unit([Test1])
 
 
 class ProgramQueue:
@@ -221,22 +222,22 @@ def config_to_dict(config: type) -> Dict[str, Any]:
     return res
 
 
-if __name__ == "__main__":
-    from pprint import pprint
+# if __name__ == "__main__":
+#     from pprint import pprint
 
-    class GLOBAL_ENV:
-        PRES_MEAN: Literal["true", 1, 2, 3] = "true"  # 每个有3个
-        Normalize: bool = False
-        DIST: Literal["COS", "EU"] = "COS"
-        WITH_STD = True
-        #
-        FIX_ITEM = True
-        N_ITEM: Literal[1, 3] = 1
-        MIN_LEN: int = 32 * 8
-        SPEARMAN_TOPK: int = 100
-        ONLY_DROPOUT: bool = True
-        HAS_CLS: bool = True
-    pprint(config_to_dict(GLOBAL_ENV))
+#     class GLOBAL_ENV:
+#         PRES_MEAN: Literal["true", 1, 2, 3] = "true"  # 每个有3个
+#         Normalize: bool = False
+#         DIST: Literal["COS", "EU"] = "COS"
+#         WITH_STD = True
+#         #
+#         FIX_ITEM = True
+#         N_ITEM: Literal[1, 3] = 1
+#         MIN_LEN: int = 32 * 8
+#         SPEARMAN_TOPK: int = 100
+#         ONLY_DROPOUT: bool = True
+#         HAS_CLS: bool = True
+#     pprint(config_to_dict(GLOBAL_ENV))
 
 
 def xpath_get_text(elem: Element2) -> str:
@@ -254,8 +255,33 @@ def xpath_get_text(elem: Element2) -> str:
     return _dfs(elem)[0]
 
 
-if __name__ == "__main__":
-    text = "<p>aaa<em>123</em>bbb</p>"
-    html: Element2 = etree.HTML(text, None)
-    p: Element2 = html.xpath("//p")
-    print(xpath_get_text(p[0]))
+# if __name__ == "__main__":
+#     text = "<p>aaa<em>123</em>bbb</p>"
+#     html: Element2 = etree.HTML(text, None)
+#     p: Element2 = html.xpath("//p")
+#     print(xpath_get_text(p[0]))
+
+
+def dict_head(data: Dict[Any, Any],
+              max_n: int = 10, shuffle: bool = False) -> Dict[Any, Any]:
+    keys = np.array(list(data.keys()))
+    n = len(keys)
+    if shuffle:
+        shuffle_order = np.random.permutation(n)
+    #
+    res = {}
+    for i in range(n):
+        if i == max_n:
+            break
+        if shuffle:
+            i = shuffle_order[i]
+        k = keys[i]
+        res[k] = data[k]
+    return res
+
+
+# if __name__ == "__main__":
+#     d = {i: -i for i in range(100)}
+#     print(dict_head(d, shuffle=True))
+#     d = {i: -i for i in range(5)}
+#     print(dict_head(d))

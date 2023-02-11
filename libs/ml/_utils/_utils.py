@@ -37,7 +37,7 @@ import mini_lightning as ml
 
 __all__ = ["load_state_dict", "save_state_dict",
            "split_dataset", "extract_dataset", "smart_load_state_dict",
-           "fuse_conv_bn", "fuse_linear_bn", "test_metric", "reserve_memory"]
+           "fuse_conv_bn", "fuse_linear_bn", "test_metric", "reserve_memory", "test_nan"]
 
 logger = ml.logger
 #
@@ -65,7 +65,7 @@ def extract_dataset(dataset: Dataset, idxs: Union[slice, List[int], ndarray], sp
             if isinstance(v, list):
                 v = np.array(v)  # note!
             v = v[idxs]
-        setattr(new_dataset, k, v)
+        setattr(new_dataset, k, deepcopy(v))
     return new_dataset
 
 
@@ -203,24 +203,24 @@ def test_metric(metric: Metric, *args: Tensor, return_mes: bool = False) -> Tupl
         return metric.compute()
 
 
-if __name__ == "__main__":
-    import mini_lightning as ml
-    from torchmetrics import MeanMetric
-    from torchmetrics.classification.accuracy import Accuracy
-    from torchmetrics.functional.classification.accuracy import accuracy
-    ml.seed_everything(1, False)
-    preds = torch.randint(0, 10, (17,), dtype=torch.long)
-    target = torch.randint(0, 10, (17,), dtype=torch.long)
-    acc_metric = Accuracy("multiclass", num_classes=10)
-    acc = test_metric(acc_metric, preds, target, return_mes=True)
-    acc2 = accuracy(preds, target, "multiclass", num_classes=10)
-    print(acc, acc2)
-    #
-    loss = torch.randint(0, 10, (17,), dtype=torch.float32)
-    mean_metric = MeanMetric()
-    mean = test_metric(mean_metric, loss, return_mes=True)
-    mean2 = loss.mean()
-    print(mean, mean2)
+# if __name__ == "__main__":
+#     import mini_lightning as ml
+#     from torchmetrics import MeanMetric
+#     from torchmetrics.classification.accuracy import Accuracy
+#     from torchmetrics.functional.classification.accuracy import accuracy
+#     ml.seed_everything(1, False)
+#     preds = torch.randint(0, 10, (17,), dtype=torch.long)
+#     target = torch.randint(0, 10, (17,), dtype=torch.long)
+#     acc_metric = Accuracy("multiclass", num_classes=10)
+#     acc = test_metric(acc_metric, preds, target, return_mes=True)
+#     acc2 = accuracy(preds, target, "multiclass", num_classes=10)
+#     print(acc, acc2)
+#     #
+#     loss = torch.randint(0, 10, (17,), dtype=torch.float32)
+#     mean_metric = MeanMetric()
+#     mean = test_metric(mean_metric, loss, return_mes=True)
+#     mean2 = loss.mean()
+#     print(mean, mean2)
 
 
 def reserve_memory(device_ids: List[int], max_G: int = 9) -> None:
@@ -245,3 +245,29 @@ def reserve_memory(device_ids: List[int], max_G: int = 9) -> None:
 
 # if __name__ == "__main__":
 #     reserve_memory([0], 5)
+
+
+def _test_object_nan(arr: ndarray) -> ndarray:
+    assert arr.dtype == np.object_
+    res = np.zeros_like(arr, dtype=np.bool8)
+    for i, x in enumerate(arr):
+        if isinstance(x, float) and math.isnan(x):
+            res[i] = True
+    return np.array(res)
+
+
+def test_nan(arr: ndarray) -> ndarray:
+    if arr.dtype == np.object_:
+        res = _test_object_nan(arr)
+    else:
+        res = np.isnan(arr)
+    n = np.sum(res)
+    logger.info(f"N(NAN): {n}")
+    return res
+
+
+if __name__ == "__main__":
+    x = np.array([1, 1, float("nan"), float("nan")])
+    print(test_nan(x))
+    x = np.array([1, "1", float("nan"), float("nan")], dtype=np.object_)
+    print(test_nan(x))

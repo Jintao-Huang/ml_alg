@@ -4,7 +4,7 @@
 
 import os
 import pickle
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, Union
 import json
 import yaml
 import pandas as pd
@@ -15,11 +15,23 @@ from torch.nn.modules.module import _IncompatibleKeys as IncompatibleKeys
 from pandas import DataFrame
 
 __all__ = [
-    "read_from_pickle", "save_to_pickle",
-    "read_from_json", "save_to_json",
-    "read_from_yaml", "save_to_yaml",
-    "read_from_csv", "save_to_csv"
+    "read_from_file", "write_to_file",
+    "read_from_pickle", "write_to_pickle",
+    "read_from_json", "write_to_json",
+    "read_from_yaml", "write_to_yaml",
+    "read_from_csv", "write_to_csv"
 ]
+
+
+def read_from_file(fpath: str, mode: str = "r") -> Union[str, bytes]:
+    with open(fpath, mode) as f:
+        text = f.read()
+    return text
+
+
+def write_to_file(text: Union[str, bytes], fpath: str, mode: str = "w") -> None:
+    with open(fpath, mode) as f:
+        f.write(text)
 
 
 # def torch_load(fpath: str, map_location: Optional[Device]) -> Any:
@@ -36,7 +48,7 @@ def read_from_pickle(fpath: str) -> Any:
     return res
 
 
-def save_to_pickle(obj: Any, fpath: str) -> None:
+def write_to_pickle(obj: Any, fpath: str) -> None:
     with open(fpath, "wb") as f:
         pickle.dump(obj, f)
 
@@ -47,7 +59,7 @@ def read_from_json(fpath: str, encoding: str = "utf-8") -> Any:
     return res
 
 
-def save_to_json(obj: Any, fpath: str, encoding: str = "utf-8") -> None:
+def write_to_json(obj: Any, fpath: str, encoding: str = "utf-8") -> None:
     with open(fpath, "w", encoding=encoding) as f:
         json.dump(obj, f)
 
@@ -59,7 +71,7 @@ def read_from_yaml(fpath: str, encoding: str = "utf-8", loader=None) -> Any:
     return res
 
 
-def save_to_yaml(obj: Any, fpath: str, encoding: str = "utf-8", mode: str = "w") -> None:
+def write_to_yaml(obj: Any, fpath: str, encoding: str = "utf-8", mode: str = "w") -> None:
     with open(fpath, mode, encoding=encoding) as f:
         yaml.dump(obj, f)
 
@@ -68,7 +80,7 @@ def read_from_csv(fpath: str, *, sep: str = ",") -> DataFrame:
     return pd.read_csv(fpath, sep=sep)
 
 
-def save_to_csv(df: DataFrame, fpath: str, *, sep: str = ",", index: bool = False) -> None:
+def write_to_csv(df: DataFrame, fpath: str, *, sep: str = ",", index: bool = False) -> None:
     df.to_csv(fpath, sep=sep, index=index)
 
 
@@ -76,7 +88,7 @@ def save_to_csv(df: DataFrame, fpath: str, *, sep: str = ",", index: bool = Fals
 #     import os
 #     fpath = "asset/1.pkl"
 #     obj = ({"123"}, [123, ], 1.1)
-#     save_to_pickle(obj, fpath)
+#     write_to_pickle(obj, fpath)
 #     obj = read_from_pickle(fpath)
 #     print(obj)
 #     os.remove(fpath)
@@ -86,7 +98,7 @@ def save_to_csv(df: DataFrame, fpath: str, *, sep: str = ",", index: bool = Fals
 #     import os
 #     fpath = "asset/1.json"
 #     obj = [{"123": "aaa"}, [123, ], 1.1]
-#     save_to_json(obj, fpath)
+#     write_to_json(obj, fpath)
 #     obj = read_from_json(fpath)
 #     print(obj)
 #     os.remove(fpath)
@@ -96,7 +108,7 @@ def save_to_csv(df: DataFrame, fpath: str, *, sep: str = ",", index: bool = Fals
 #     import os
 #     fpath = "asset/1.yaml"
 #     obj = [{"123": "aaa"}, [123, ], 1.1]
-#     save_to_yaml(obj, fpath)
+#     write_to_yaml(obj, fpath)
 #     obj = read_from_yaml(fpath)
 #     print(obj)
 #     os.remove(fpath)
@@ -110,5 +122,5 @@ def save_to_csv(df: DataFrame, fpath: str, *, sep: str = ",", index: bool = Fals
 #     import mini_lightning as ml
 #     ml.test_time(lambda: read_from_csv(FPAHT1))
 #     df = ml.test_time(lambda: read_from_csv(FPATH3, sep="|"))
-#     save_to_csv(df, FPATH4)
+#     write_to_csv(df, FPATH4)
 #     os.remove(FPATH4)

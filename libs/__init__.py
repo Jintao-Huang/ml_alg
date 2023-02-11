@@ -91,7 +91,12 @@ import seaborn as sns
 from PIL import Image
 import cv2 as cv
 #
-import sklearn
+from sklearn.model_selection import cross_val_predict
+from sklearn.linear_model import LogisticRegression
+from sklearn.cluster import KMeans, DBSCAN
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.manifold import TSNE
+# 
 import torch
 from torch import Tensor, dtype as Dtype, device as Device, Generator
 from torch.nn import Module
@@ -158,3 +163,4 @@ from . import _plt as libs_plt
 TORCH_HOME = os.environ.get("TORCH_HOME", None)
 DATASETS_PATH = os.environ.get("DATASETS_PATH", None)
 HF_HOME = os.environ.get("HF_HOME", None)
+logger = libs_ml.logger
