@@ -857,8 +857,8 @@ def spearman_corrcoef(y_pred: Tensor, y_true: Tensor) -> Tensor:
 #     y2 = libs_ml.test_time(lambda: spearman_corrcoef(preds, target))
 #     print(torch.allclose(y, y2))
 #     #
-#     target = torch.randint(10000, (1000000,)).float()
-#     preds = torch.randint(10000, (1000000,)).float()
+#     target = torch.randn(2000 * 1000)
+#     preds = torch.randn(2000 * 1000)
 #     y = libs_ml.test_time(lambda: _spearman_corrcoef(preds, target))
 #     y2 = libs_ml.test_time(lambda: spearman_corrcoef(preds, target))
 #     print(torch.allclose(y, y2))

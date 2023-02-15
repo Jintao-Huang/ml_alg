@@ -106,13 +106,15 @@ import torch.cuda as cuda
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from torch.autograd import Function
 from torch.optim import lr_scheduler as lrs
 from torch.optim.lr_scheduler import _LRScheduler as LRScheduler
 import torch.nn.init as init
 from torch.nn.utils.clip_grad import clip_grad_norm_
+from torch.nn.parallel import DataParallel as DP, DistributedDataParallel as DDP
 from torch.utils.data import (
-    Dataset, IterableDataset, TensorDataset,
-    Sampler, RandomSampler, SequentialSampler, BatchSampler,
+    Dataset, IterableDataset, TensorDataset, 
+    Sampler, RandomSampler, SequentialSampler, BatchSampler, DistributedSampler,
     DataLoader, default_collate, get_worker_info,
     random_split,
 )
@@ -120,6 +122,9 @@ import torch.utils.data as tud
 from torch.utils.tensorboard.writer import SummaryWriter
 from torch.nn.modules.module import _IncompatibleKeys as IncompatibleKeys
 import torch.distributed as dist
+from torch.multiprocessing.spawn import spawn
+from torch.cuda.amp.grad_scaler import GradScaler
+from torch.amp.autocast_mode import autocast
 #
 import torchvision.transforms.functional_tensor as tvtF_t
 import torchvision.transforms.functional_pil as tvtF_pil

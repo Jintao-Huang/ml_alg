@@ -37,7 +37,9 @@ import mini_lightning as ml
 
 __all__ = ["load_state_dict", "save_state_dict",
            "split_dataset", "extract_dataset", "smart_load_state_dict",
-           "fuse_conv_bn", "fuse_linear_bn", "test_metric", "reserve_memory", "test_nan"]
+           "fuse_conv_bn", "fuse_linear_bn", "test_metric", 
+           "reserve_memory", "test_nan",
+           "load_state_dict_with_mapper"]
 
 logger = ml.logger
 #
@@ -98,17 +100,6 @@ def split_dataset(dataset: Dataset, n_list: List[int], split_keys: List[str],
 
 if __name__ == "__main__":
     from libs import *
-
-
-def smart_load_state_dict(model: Module, state_dict: Dict[str, Tensor],
-                          prefix_key: str = "", strict: bool = True) -> IncompatibleKeys:
-    if prefix_key != "":
-        new_state_dict = {}
-        for k, v in state_dict.items():
-            new_state_dict[prefix_key + k] = v
-        state_dict = new_state_dict
-    #
-    return model.load_state_dict(state_dict, strict=strict)
 
 
 @torch.no_grad()
@@ -271,3 +262,68 @@ if __name__ == "__main__":
     print(test_nan(x))
     x = np.array([1, "1", float("nan"), float("nan")], dtype=np.object_)
     print(test_nan(x))
+
+
+def load_state_dict_with_mapper(model: Module, state_dict: Dict[str, Tensor], m_fpath: str = "m.txt", s_fpath="s.txt") -> IncompatibleKeys:
+    if not os.path.exists(m_fpath) and not os.path.exists(s_fpath):
+        m_keys = list(model.state_dict().keys())
+        with open(m_fpath, "w") as f:
+            for k in m_keys:
+                f.write(k + "\n")
+        with open(s_fpath, "w") as f:
+            for k in state_dict.keys():
+                f.write(k + "\n")
+        #
+        input("请修改...")
+    #
+    m_keys = []
+    s_keys = []
+    with open(m_fpath, "r") as f:
+        for k in f:
+            m_keys.append(k.rstrip())
+    with open(s_fpath, "r") as f:
+        for k in f:
+            s_keys.append(k.rstrip())
+    #
+    new_state_dict = {}
+    for mk, sk in zip(m_keys, s_keys):
+        new_state_dict[mk] = state_dict[sk]
+    return model.load_state_dict(new_state_dict)
+
+
+def smart_load_state_dict(model: Module, state_dict: Dict[str, Tensor], s_prefix_key: str = "", s_start_key: int = 0,
+                          replace_keys: Dict[str, str] = {},
+                          callback_func: Optional[Callable[[Dict[str, Tensor]], Dict[str, Tensor]]] = None) -> IncompatibleKeys:
+    """先fix, 再replace, 再prefix"""
+    def _fix_keys(state_dict: Dict[str, Tensor]) -> Dict[str, Tensor]:
+        new_state_dict = {}
+        for k, v in state_dict.items():
+            if k.endswith("LayerNorm.gamma"):
+                k = k.replace("gamma", "weight")
+            elif k.endswith("LayerNorm.beta"):
+                k = k.replace("beta", "bias")
+            new_state_dict[k] = v
+        return new_state_dict
+    state_dict = _fix_keys(state_dict)
+    # 额外的操作.
+    if len(replace_keys) > 0:
+        state_dict = _replace_callback(replace_keys)(state_dict)
+    if callback_func:
+        state_dict = callback_func(state_dict)
+    # s_prefix_key and s_start_key
+    new_state_dict = {}
+    for k, v in state_dict.items():
+        new_state_dict[s_prefix_key + k[s_start_key:]] = v
+    state_dict = new_state_dict
+    #
+    return model.load_state_dict(state_dict, strict=False)
+
+
+def _replace_callback(replace_keys: Dict[str, str]) -> Callable[[Dict[str, Tensor]], Dict[str, Tensor]]:
+    # e.g. 将state_dict的keys进行替换.
+    def func(state_dict: Dict[str, Tensor]) -> Dict[str, Tensor]:
+        for k, v in replace_keys.items():
+            state_dict[v] = state_dict[k]
+            state_dict.pop(k)
+        return state_dict
+    return func

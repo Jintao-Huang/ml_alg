@@ -1497,3 +1497,29 @@ def adaptive_max_pool2d(x: Tensor, output_size: Tuple[int, int]) -> Tensor:
 #     y = libs_ml.test_time(lambda: adaptive_max_pool2d(x, (101, 102)))
 #     y2 = libs_ml.test_time(lambda: F.adaptive_max_pool2d(x, (101, 102)))
 #     print(torch.allclose(y, y2))
+
+
+def embedding(x: Tensor, weight: Tensor, padding_idx: int) -> Tensor:
+    N = x.shape[0]
+    E = weight.shape[1]
+    res = torch.empty(N, E)
+    mask = x != padding_idx
+    res[mask] = weight[x[mask]]
+    with torch.no_grad():
+        res[~mask] = weight[x[~mask]]  # no grad.
+    return res
+
+
+# if __name__ == "__main__":
+#     weight = torch.randn(100, 512, requires_grad=True)
+#     x = torch.arange(20, dtype=torch.long)
+#     y = F.embedding(x, weight, 1)
+#     y2 = embedding(x, weight, 1)
+#     print(torch.allclose(y, y2))
+#     #
+#     y.mean().backward()
+#     g = weight.grad
+#     weight.grad = None
+#     y2.mean().backward()
+#     g2 = weight.grad
+#     print(torch.allclose(g, g2))
