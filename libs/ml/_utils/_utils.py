@@ -33,13 +33,19 @@ from torch import Tensor
 from torch.utils.data import TensorDataset, DataLoader
 from torchvision.models import resnet152
 import mini_lightning as ml
+try:
+    from ...utils._io import write_to_pickle, read_from_pickle
+    from ..._env import CACHE_HOME
+except ImportError:
+    from libs.utils._io import write_to_pickle, read_from_pickle
+    from libs._env import CACHE_HOME
 
 
 __all__ = ["load_state_dict", "save_state_dict",
            "split_dataset", "extract_dataset", "smart_load_state_dict",
-           "fuse_conv_bn", "fuse_linear_bn", "test_metric", 
+           "fuse_conv_bn", "fuse_linear_bn", "test_metric",
            "reserve_memory", "test_nan",
-           "load_state_dict_with_mapper"]
+           "load_state_dict_with_mapper", "test_tensor_allclose"]
 
 logger = ml.logger
 #
@@ -327,3 +333,25 @@ def _replace_callback(replace_keys: Dict[str, str]) -> Callable[[Dict[str, Tenso
             state_dict.pop(k)
         return state_dict
     return func
+
+
+def test_tensor_allclose(t: Optional[Tensor] = None, idx: int = 0, remove_file: bool = False) -> Tensor:
+    fpath: str = os.path.join(CACHE_HOME, "test_tensor", "{}.t")
+    os.makedirs(os.path.dirname(fpath), exist_ok=True)
+    fpath = fpath.format(idx)
+    if t is None:
+        assert os.path.isfile(fpath)
+        t = read_from_pickle(fpath)
+    else:
+        write_to_pickle(t, fpath)
+    #
+    if remove_file and os.path.isfile(fpath):
+        os.remove(fpath)
+    return t
+
+
+# if __name__ == "__main__":
+#     t = torch.randn(1000)
+#     test_tensor_allclose(t)
+#     t2 = test_tensor_allclose()
+#     print(torch.allclose(t, t2))

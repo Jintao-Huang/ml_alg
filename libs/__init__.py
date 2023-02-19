@@ -163,9 +163,6 @@ from . import utils as libs_utils
 from . import ml as libs_ml
 from . import alg as libs_alg
 from . import _plt as libs_plt
+from ._env import *
 #
-# 以下环境变量需要用户自定义设置, 这里为了自己方便进行导入
-TORCH_HOME = os.environ.get("TORCH_HOME", None)
-DATASETS_PATH = os.environ.get("DATASETS_PATH", None)
-HF_HOME = os.environ.get("HF_HOME", None)
 logger = libs_ml.logger

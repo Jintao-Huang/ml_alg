@@ -45,7 +45,7 @@ LineStyle = Literal["-", "--"]
 
 
 def config_plt(
-    backend: Literal["Agg", "TkAgg", None] = None,
+    backend: Literal["Agg", "TkAgg", None] = None,  # 非交互式, 交互式, 不变
     chinese: bool = False
 ) -> None:
     if chinese:

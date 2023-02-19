@@ -8,7 +8,7 @@ sortedcontainers>=2.4
 numba>=0.56
 pandas>=1.5
 # 
-seaborn>=0.12
+seaborn>=0.11
 opencv-python>=4.6
 scikit-learn>=1.1
 # 
