@@ -10,6 +10,7 @@ import logging
 from copy import deepcopy
 from typing import List, Tuple, Any, Dict, Optional, Literal
 from typing import Optional, Callable, Tuple, List, Dict, Any, Union
+from argparse import ArgumentParser, Namespace
 from collections import defaultdict
 #
 from tqdm import tqdm
@@ -45,7 +46,8 @@ __all__ = ["load_state_dict", "save_state_dict",
            "split_dataset", "extract_dataset", "smart_load_state_dict",
            "fuse_conv_bn", "fuse_linear_bn", "test_metric",
            "reserve_memory", "test_nan",
-           "load_state_dict_with_mapper", "test_tensor_allclose"]
+           "load_state_dict_with_mapper", "test_tensor_allclose", "multi_runs",
+           "parse_device_ids"]
 
 logger = ml.logger
 #
@@ -271,6 +273,11 @@ if __name__ == "__main__":
 
 
 def load_state_dict_with_mapper(model: Module, state_dict: Dict[str, Tensor], m_fpath: str = "m.txt", s_fpath="s.txt") -> IncompatibleKeys:
+    m_fpath = os.path.abspath(m_fpath)
+    s_fpath = os.path.abspath(s_fpath)
+    os.makedirs(os.path.dirname(m_fpath), exist_ok=True)
+    os.makedirs(os.path.dirname(s_fpath), exist_ok=True)
+    # 
     if not os.path.exists(m_fpath) and not os.path.exists(s_fpath):
         m_keys = list(model.state_dict().keys())
         with open(m_fpath, "w") as f:
@@ -355,3 +362,69 @@ def test_tensor_allclose(t: Optional[Tensor] = None, idx: int = 0, remove_file: 
 #     test_tensor_allclose(t)
 #     t2 = test_tensor_allclose()
 #     print(torch.allclose(t, t2))
+
+
+def _gen_seed_list(n: int, seed: Optional[int] = None,) -> List[int]:
+    max_ = np.iinfo(np.int32).max
+    random_state = np.random.RandomState(seed)
+    return random_state.randint(0, max_, n).tolist()
+
+
+def multi_runs(collect_res: Callable[[int], Dict[str, float]], n: int, seed: Optional[int] = None, *,
+               seed_list: Optional[List[int]] = None) -> Dict[str, Dict[str, Any]]:  # Any: int, float, List[int]
+    """
+    collect_res: function(seed: int) -> Dict[str, float]
+    n: the number of runs. Seed_list has the higher priority. If seed_list is provided, n, seed is invalid
+    """
+    rank = ml.get_dist_setting()[0]
+    t = time.perf_counter()
+    if seed_list is None:
+        seed_list = _gen_seed_list(n, seed)
+    n = len(seed_list)
+    result: Dict[str, List] = defaultdict(list)
+    for _seed in seed_list:
+        _res = collect_res(_seed)
+        if rank in {-1, 0}:
+            logger.info(f"Result: {_res}")
+        for k, v in _res.items():
+            result[k].append(v)
+    t = int(time.perf_counter() - t)
+    h, m, s = t // 3600, t // 60 % 60, t % 60
+    t = f"{h:02d}:{m:02d}:{s:02d}"
+    #
+    res: Dict[str, Dict[str, Any]] = {}
+    res_str: List = []
+    res_str.append(
+        f"[RUNS_MES] n_runs={n}, time={t}, seed={seed}, seed_list={seed_list}"
+    )
+    res["runs_mes"] = {
+        "n_runs": n,
+        "time": t,
+        "seed": seed,
+        "seed_list": seed_list
+    }
+    for k, v_list in result.items():
+        v_list = np.array(v_list)
+        (mean, std, max_, min_), stat_str = ml.stat_array(v_list)
+        res_str.append(f"  {k}: {stat_str}")
+        res[k] = {
+            "mean": mean,
+            "std": std,
+            "max_": max_,
+            "min_": min_,
+        }
+    if rank in {-1, 0}:
+        logger.info("\n".join(res_str))
+    return res
+
+
+def parse_device_ids() -> List[int]:
+    parser = ArgumentParser()
+    parser.add_argument("--device_ids", nargs="*", type=int,
+                        default=[0], help="e.g. [], [0], [0, 1, 2]. --device_ids; --device_ids 0; --device_ids 0 1 2")
+    opt: Namespace = parser.parse_args()  # options
+    return opt.device_ids
+
+
+# if __name__ == "__main__":
+#     print(parse_device_ids())

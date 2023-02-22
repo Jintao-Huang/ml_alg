@@ -2,9 +2,10 @@
 # Email: huangjintao@mail.ustc.edu.cn
 # Date:
 
+import csv
 import os
 import pickle
-from typing import Any, Literal, Optional, Union
+from typing import Any, Literal, Optional, Union, List
 import json
 import yaml
 import pandas as pd
@@ -13,13 +14,16 @@ from torch import device as Device
 from torch.nn import Module
 from torch.nn.modules.module import _IncompatibleKeys as IncompatibleKeys
 from pandas import DataFrame
+from mini_lightning import write_to_yaml, read_from_yaml, write_to_csv
+
 
 __all__ = [
     "read_from_file", "write_to_file",
     "read_from_pickle", "write_to_pickle",
     "read_from_json", "write_to_json",
     "read_from_yaml", "write_to_yaml",
-    "read_from_csv", "write_to_csv"
+    "read_from_csv_df", "write_to_csv_df",
+    "read_from_csv", "write_to_csv",
 ]
 
 
@@ -64,25 +68,28 @@ def write_to_json(obj: Any, fpath: str, encoding: str = "utf-8") -> None:
         json.dump(obj, f)
 
 
-def read_from_yaml(fpath: str, encoding: str = "utf-8", loader=None) -> Any:
-    loader = yaml.SafeLoader if loader is None else loader
-    with open(fpath, "r", encoding=encoding) as f:
-        res = yaml.load(f, loader)
-    return res
-
-
-def write_to_yaml(obj: Any, fpath: str, encoding: str = "utf-8", mode: str = "w") -> None:
-    with open(fpath, mode, encoding=encoding) as f:
-        yaml.dump(obj, f)
-
-
-def read_from_csv(fpath: str, *, sep: str = ",") -> DataFrame:
+def read_from_csv_df(fpath: str, *, sep: str = ",") -> DataFrame:
     return pd.read_csv(fpath, sep=sep)
 
 
-def write_to_csv(df: DataFrame, fpath: str, *, sep: str = ",", index: bool = False) -> None:
+def write_to_csv_df(df: DataFrame, fpath: str, *, sep: str = ",", index: bool = False) -> None:
     df.to_csv(fpath, sep=sep, index=index)
 
+
+def read_from_csv(fpath: str, nrows: int = -1, *, sep: str = ",") -> List[List[str]]:
+    res = []
+    n = 0
+    if nrows == 0:
+        return res
+    #
+    with open(fpath, "r", newline="") as f:
+        reader = csv.reader(f, delimiter=sep)
+        for l in reader:
+            res.append(l)
+            n += 1
+            if nrows > 0 and nrows == n:
+                break
+    return res
 
 # if __name__ == "__main__":
 #     import os
@@ -115,12 +122,17 @@ def write_to_csv(df: DataFrame, fpath: str, *, sep: str = ",", index: bool = Fal
 
 
 # if __name__ == "__main__":
-#     FPAHT1 = "/home/jintao/Desktop/coding/python/private/asset/updated_fileindex.csv"
-#     FPATH2 = "/home/jintao/Desktop/coding/python/private/asset/monthly_return.csv"
-#     FPATH3 = "/home/jintao/Desktop/coding/python/private/asset/cik_ticker.csv"
-#     FPATH4= "./asset/1.csv"
+#     FPAHT1 = "/home/jintao/Desktop/0_coding/0_python/2_ICS/ics/.dataset/stock/monthly_return.csv"
+#     FPATH3 = "/home/jintao/Desktop/0_coding/0_python/2_ICS/ics/.dataset/cik_ticker/1.csv"
+#     FPATH4 = "./asset/1.csv"
+#     FPATH5 = "./asset/2.csv"
 #     import mini_lightning as ml
 #     ml.test_time(lambda: read_from_csv(FPAHT1))
-#     df = ml.test_time(lambda: read_from_csv(FPATH3, sep="|"))
-#     write_to_csv(df, FPATH4)
+#     obj = ml.test_time(lambda: read_from_csv(FPATH3, sep="|"))
+#     ml.test_time(lambda: write_to_csv(obj, FPATH4))
+#     os.remove(FPATH4)
+#     #
+#     ml.test_time(lambda: read_from_csv_df(FPAHT1))
+#     df = ml.test_time(lambda: read_from_csv_df(FPATH3, sep="|"))
+#     ml.test_time(lambda: write_to_csv_df(df, FPATH4))
 #     os.remove(FPATH4)
