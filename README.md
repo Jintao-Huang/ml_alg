@@ -39,11 +39,14 @@
       1. 含plot, scatter, imshow, hist, bar, text, contour等.
       2. 含config_ax, config_plt, config_fig等.
    2. `_3d.py`
-6. `libs/ml/_pd/*`: torch pandas库. (开发中)
-7. `libs/ml/*`: 机器学习算法库
-8. `libs/utils/*`: 一些工具函数的实现
-9. `tests/*`: 测试算法正确性. (其中部分测试写在源文件中)
-10. `examples/*`: 一些代表性的examples. (开发中...) 
+6. `libs/ml/`
+   1. `_pd/*`: torch pandas库. (开发中)
+   2. `_models/*`: efficient Transformer等相关模型的库, 参考huggingface. (开发中)
+      1. 含: roberta, longformer, NT_Xent_loss, GatherLayer等. 
+7. `libs/utils/*`: 一些工具函数的实现
+8. `tests/*`: 测试算法正确性. (其中部分测试写在源文件中)
+   1. leetcode代码用于测试`alg`的实现正确性. 
+9.  `examples/*`: 一些代表性的examples. (开发中...) 
 
 ## Installation and Use
 ```bash
