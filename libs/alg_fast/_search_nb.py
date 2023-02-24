@@ -14,7 +14,7 @@ from numba.core.types import ListType, int64, boolean
 #   numba的没法用set(numba还没实现TypedSet), 使用字典代替.
 #   TypedDict和TypedList虽然比List要快, 但是慢的要死.
 @njit()
-def _n_queens(n: int, i: int, path: List[int],
+def _n_queens_nb(n: int, i: int, path: List[int],
               v: Dict[int, bool], v2: Dict[int, bool], v3: Dict[int, bool], res: List[List[int]]) -> None:
     """
     v1-3: 分别表示: 列, 0,0点->n-1,n-1点方向的斜线. 0,n-1点->n-1,0点方向的斜线. (visited)
@@ -30,14 +30,14 @@ def _n_queens(n: int, i: int, path: List[int],
         v2[i-j] = True
         v3[i+j] = True
         path.append(j)
-        _n_queens(n, i + 1, path, v, v2, v3, res)
+        _n_queens_nb(n, i + 1, path, v, v2, v3, res)
         v.pop(j)
         v2.pop(i-j)
         v3.pop(i+j)
         path.pop()
 
 
-def n_queens(n: int) -> List[List[int]]:
+def n_queens_nb(n: int) -> List[List[int]]:
     """返回n皇后的摆放次数
     Test Ref: https://leetcode.cn/problems/n-queens/
     """
@@ -47,14 +47,14 @@ def n_queens(n: int) -> List[List[int]]:
     #
     res = TypedList.empty_list(ListType(int64))
     path = TypedList.empty_list(int64)
-    _n_queens(n, 0, path, v, v2, v3, res)
+    _n_queens_nb(n, 0, path, v, v2, v3, res)
     return res
 
 # 实现2, 使用ndarray代替set, list. 完全替代会更快, 即替代res(设置MAXSIZE).
 
 
 @njit()
-def _n_queens2(n: int, i: int, path: ndarray,
+def _n_queens2_nb(n: int, i: int, path: ndarray,
                v: ndarray, v2: ndarray, v3: ndarray, res: List[ndarray]) -> None:
     """
     v1-3: 分别表示: 列, 0,0点->n-1,n-1点方向的斜线. 0,n-1点->n-1,0点方向的斜线. (visited)
@@ -70,13 +70,13 @@ def _n_queens2(n: int, i: int, path: ndarray,
         v2[i-j+n-1] = True
         v3[i+j] = True
         path[i] = j
-        _n_queens2(n, i + 1, path, v, v2, v3, res)
+        _n_queens2_nb(n, i + 1, path, v, v2, v3, res)
         v[j] = False
         v2[i-j+n-1] = False
         v3[i+j] = False
 
 
-def n_queens2(n: int) -> List[ndarray]:
+def n_queens2_nb(n: int) -> List[ndarray]:
     """返回n皇后的摆放次数
     Test Ref: https://leetcode.cn/problems/n-queens/
     """
@@ -86,16 +86,16 @@ def n_queens2(n: int) -> List[ndarray]:
     #
     res = TypedList.empty_list(int32[:])
     path = np.empty((n,), dtype=np.int32)
-    _n_queens2(n, 0, path, v, v2, v3, res)
+    _n_queens2_nb(n, 0, path, v, v2, v3, res)
     return res
 
 
 if __name__ == "__main__":
     from libs import *
-    print(n_queens(4))
-    print(n_queens2(4))
+    print(n_queens_nb(4))
+    print(n_queens2_nb(4))
     print(libs_alg.n_queens(4))
     n = 12
-    libs_ml.test_time(lambda: n_queens(n), warm_up=1)
-    libs_ml.test_time(lambda: n_queens2(n), warm_up=1)
+    libs_ml.test_time(lambda: n_queens_nb(n), warm_up=1)
+    libs_ml.test_time(lambda: n_queens2_nb(n), warm_up=1)
     libs_ml.test_time(lambda: libs_alg.n_queens(n), warm_up=1)

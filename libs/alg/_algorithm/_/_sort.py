@@ -1,5 +1,6 @@
 
 import random
+from copy import deepcopy
 from typing import TypeVar, List, Any
 from heapq import heapify, heappop
 
@@ -48,6 +49,7 @@ def _quick_sort(nums: List[Any], lo: int, hi: int) -> None:
     if lo >= hi:
         return
     r = random.randint(lo, hi)
+    # r = (lo + hi) // 2
     nums[r], nums[lo] = nums[lo], nums[r]
     idx = partition(nums, lo, hi)
     _quick_sort(nums, lo, idx - 1)
@@ -71,7 +73,9 @@ def merge(nums: List[Any], lo: int, mid: int, hi: int) -> None:
     # 
         如果有一个放完后, 我们将A_copy剩余的放入nums中.
     """
-    A_copy = nums[lo:mid + 1]  # 浅复制
+    if hi - lo == 1:
+        return
+    A_copy = deepcopy(nums[lo:mid + 1])
     i, j, k = 0, mid + 1, lo
     n = len(A_copy)
     while i < n and j <= hi:  # 避免A, B为空
@@ -89,16 +93,16 @@ def merge(nums: List[Any], lo: int, mid: int, hi: int) -> None:
         k += 1
 
 
-if __name__ == "__main__":
-    nums = [1, 3, 4, 7, 9, 0, 2, 5, 6, 8]
-    merge(nums, 0, 4, 9)
-    print(nums)
-    nums = [3, 1]
-    merge(nums, 0, 0, 1)
-    print(nums)
-    nums = [3]
-    merge(nums, 0, 0, 0)
-    print(nums)
+# if __name__ == "__main__":
+#     nums = [1, 3, 4, 7, 9, 0, 2, 5, 6, 8]
+#     merge(nums, 0, 4, 9)
+#     print(nums)
+#     nums = [3, 1]
+#     merge(nums, 0, 0, 1)
+#     print(nums)
+#     nums = [3]
+#     merge(nums, 0, 0, 0)
+#     print(nums)
 
 
 def _merge_sort(nums: List[Any], lo: int, hi: int) -> None:
@@ -121,6 +125,10 @@ if __name__ == "__main__":
     nums = [1, 4, 6, 3, 2, 5, 0, 8, 9, 7]
     merge_sort(nums)
     print(nums)
+    import numpy as np
+    nums = np.arange(1000000)
+    import mini_lightning as ml
+    ml.test_time(lambda: quick_sort(nums))
 
 
 def heap_sort():

@@ -8,11 +8,11 @@ from numba.core.types import void, int64, float64, ListType, List as ReflectList
 from numba import typeof
 import random
 
-__all__ = ["partition", "quick_sort", "merge", "merge_sort"]
+__all__ = ["partition_nb", "quick_sort_nb", "merge_nb", "merge_sort_nb"]
 
 # int64(ListType(int64), int64, int64)
 @njit()
-def partition(nums, lo, hi):
+def partition_nb(nums, lo, hi):
     """
     -: 将nums[lo]为标杆, 将小于的放置其右边, 大于的放置其左. 等于的随意. 
         使用相撞二指针实现. 当lo == hi时跳出循环. 
@@ -43,47 +43,48 @@ def partition(nums, lo, hi):
 
 if __name__ == "__main__":
     nums = TypedList([1, 4, 6, 3, 2, 5, 0, 8, 9, 7])
-    print(partition(nums, 0, len(nums) - 1))
+    print(partition_nb(nums, 0, len(nums) - 1))
     print(nums)
 
 
 # void(ListType(int64), int64, int64)
 @njit()
-def _quick_sort(nums, lo, hi):
+def _quick_sort_nb(nums, lo, hi):
     """[lo..hi]. 右偏划分
     -: 划分法. 使用随机算法
     """
     if lo >= hi:
         return
     r = random.randint(lo, hi)
+    # r = len(nums) // 2
     nums[r], nums[lo] = nums[lo], nums[r]
-    idx = partition(nums, lo, hi)
-    _quick_sort(nums, lo, idx - 1)
-    _quick_sort(nums, idx + 1, hi)
+    idx = partition_nb(nums, lo, hi)
+    _quick_sort_nb(nums, lo, idx - 1)
+    _quick_sort_nb(nums, idx + 1, hi)
 
 
 # void(ListType(int64))
 @njit()
-def quick_sort(nums):
-    _quick_sort(nums, 0, len(nums) - 1)
+def quick_sort_nb(nums):
+    _quick_sort_nb(nums, 0, len(nums) - 1)
 
 
 if __name__ == "__main__":
     nums = TypedList([1, 4, 6, 3, 2, 5, 0, 8, 9, 7])
-    quick_sort(nums)
+    quick_sort_nb(nums)
     print(nums)
 
 
 # void(ListType(int64), int64, int64, int64)
 @njit()
-def merge(nums, lo, mid, hi):
+def merge_nb(nums, lo, mid, hi):
     """merge nums[lo..mid], nums[mid+1..hi]
     -: A: nums[lo..mid]和B: nums[mid+1..hi]都是顺序的(小->大)
         我们创建一个A_copy, 随后不断将A_copy和B的较小值, 放入nums中.
     #
         如果有一个放完后, 我们将A_copy剩余的放入nums中.
     """
-    A_copy = nums[lo:mid + 1]  # 浅复制
+    A_copy = nums[lo:mid + 1].copy()
     i, j, k = 0, mid + 1, lo
     n = len(A_copy)
     while i < n and j <= hi:  # 避免A, B为空
@@ -103,46 +104,46 @@ def merge(nums, lo, mid, hi):
 
 if __name__ == "__main__":
     nums = TypedList([1, 3, 4, 7, 9, 0, 2, 5, 6, 8])
-    merge(nums, 0, 4, 9)
+    merge_nb(nums, 0, 4, 9)
     print(nums)
     nums = TypedList([3, 1])
-    merge(nums, 0, 0, 1)
+    merge_nb(nums, 0, 0, 1)
     print(nums)
     nums = TypedList([3])
-    merge(nums, 0, 0, 0)
+    merge_nb(nums, 0, 0, 0)
     print(nums)
 
 
 # void(ListType(int64), int64, int64)
 @njit()
-def _merge_sort(nums, lo, hi):
+def _merge_sort_nb(nums, lo, hi):
     """[lo..hi]左偏划分
     """
     if lo == hi:
         return
     #
     mid = (lo + hi) // 2
-    _merge_sort(nums, lo, mid)
-    _merge_sort(nums, mid+1, hi)
-    merge(nums, lo, mid, hi)
+    _merge_sort_nb(nums, lo, mid)
+    _merge_sort_nb(nums, mid+1, hi)
+    merge_nb(nums, lo, mid, hi)
 
 
 # void(ListType(int64))
 @njit()
-def merge_sort(nums):
-    _merge_sort(nums, 0, len(nums) - 1)
+def merge_sort_nb(nums):
+    _merge_sort_nb(nums, 0, len(nums) - 1)
 
 
 if __name__ == "__main__":
     nums = TypedList([1, 4, 6, 3, 2, 5, 0, 8, 9, 7])
-    merge_sort(nums)
+    merge_sort_nb(nums)
     print(nums)
 
 
 @guvectorize("(n)->(n)")
-def quick_sort_np(nums, res):
+def quick_sort_np_nb(nums, res):
     res[:] = nums
-    quick_sort(res)
+    quick_sort_nb(res)
 
 
 if __name__ == "__main__":
@@ -155,17 +156,18 @@ if __name__ == "__main__":
     x_tl = libs_ml.test_time(lambda: TypedList(x))  # very slow
     libs_ml.test_time(lambda: np.sort(x), 1)  # fast
     libs_ml.test_time(lambda: x_l.sort(), 1)
-    libs_ml.test_time(lambda: quick_sort(x.copy()), 1, warm_up=1)  # fast
-    libs_ml.test_time(lambda: quick_sort(x_tl), 1, warm_up=1)
-    # libs_ml.test_time(lambda: quick_sort(x_l), 1)  # warning
-    libs_ml.test_time(lambda: libs_alg.quick_sort(x_l), 1)  # very slow
-    print()
-    res = np.empty_like(x)
-    libs_ml.test_time(lambda: quick_sort_np(x, res), 1, warm_up=1)  # fast
-    x_2d = x.reshape(10, 100000)
-    res = np.empty_like(x_2d)
-    libs_ml.test_time(lambda: quick_sort_np(x_2d, res), 1, warm_up=1)  # fast
-    print()
+    libs_ml.test_time(lambda: quick_sort_nb(x.copy()), 1, warm_up=1)  # fast
+    libs_ml.test_time(lambda: merge_sort_nb(x.copy()), 1, warm_up=1)  # fast
+    # libs_ml.test_time(lambda: quick_sort_nb(x_tl), 1, warm_up=1)
+    # # libs_ml.test_time(lambda: quick_sort(x_l), 1)  # warning
+    # libs_ml.test_time(lambda: libs_alg.quick_sort(x_l), 1)  # very slow
+    # print()
+    # res = np.empty_like(x)
+    # libs_ml.test_time(lambda: quick_sort_np_nb(x, res), 1, warm_up=1)  # fast
+    # x_2d = x.reshape(10, 100000)
+    # res = np.empty_like(x_2d)
+    # libs_ml.test_time(lambda: quick_sort_np_nb(x_2d, res), 1, warm_up=1)  # fast
+    # print()
 
 
 # def heap_sort():

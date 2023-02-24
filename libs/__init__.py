@@ -39,7 +39,7 @@ from typing_extensions import TypeAlias
 from contextlib import contextmanager
 from numbers import Number
 from fractions import Fraction
-
+from pyximport import install
 #
 import yaml
 from sortedcontainers import SortedList, SortedDict, SortedSet
