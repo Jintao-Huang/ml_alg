@@ -35,7 +35,7 @@ setup(
     classifiers=classifiers,
     python_requires=">=3.8",
     ext_modules=cythonize(
-        "libs/alg_fast/*.pyx",
+        ["libs/alg_fast/*.pyx", "libs/ml/_ml_alg/*.pyx"],
         compiler_directives={
             "language_level": 3,
             "boundscheck": False,

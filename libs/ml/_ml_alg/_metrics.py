@@ -9,6 +9,8 @@ from torch import Tensor
 import torch.nn.functional as F
 from torch import dtype as Dtype
 import torch
+from ._cy import calc_rank_loop as _calc_rank_loop
+
 __all__ = [
     "accuracy", "confusion_matrix",
     "precision_recall_fbeta", "precision", "recall", "fbeta_score", "f1_score",
@@ -796,28 +798,38 @@ def pearson_corrcoef(y_pred: Tensor, y_true: Tensor) -> Tensor:
 #     y2 = libs_ml.test_time(lambda: pearson_corrcoef(preds, target))
 #     print(torch.allclose(y, y2))
 
-
 def calc_rank(x: Tensor) -> Tensor:
-    """
-    x: [N]
-    return: [N]
-    """
+    """faster"""
     N = x.shape[0]
-    sorted_x, idx = x.sort()
+    x, idx = x.sort()
     rank = torch.empty_like(x)
-    rank[idx] = torch.arange(1, N + 1, dtype=x.dtype, device=x.device)
-    #
-    repeat_value: Tensor = sorted_x[:-1][sorted_x.diff() == 0]
-    repeat_value = repeat_value.unique_consecutive()
-    for r in repeat_value:
-        cond = torch.nonzero(x == r, as_tuple=True)
-        rank[cond] = rank[cond].mean()
+    rank[idx] = torch.arange(1, N+1, dtype=x.dtype, device=x.device)
+    _calc_rank_loop(x.numpy(), rank.numpy(), idx.numpy())
     return rank
+
+
+# def calc_rank(x: Tensor) -> Tensor:
+#     """
+#     x: [N]
+#     return: [N]
+#     """
+#     N = x.shape[0]
+#     sorted_x, idx = x.sort()
+#     rank = torch.empty_like(x)
+#     rank[idx] = torch.arange(1, N + 1, dtype=x.dtype, device=x.device)
+#     #
+#     repeat_value: Tensor = sorted_x[:-1][sorted_x.diff() == 0]
+#     repeat_value = repeat_value.unique_consecutive()
+#     for r in repeat_value:
+#         cond = torch.nonzero(x == r, as_tuple=True)
+#         rank[cond] = rank[cond].mean()
+#     return rank
 
 
 # if __name__ == "__main__":
 #     from torchmetrics.functional.regression.spearman import _rank_data as rank_data
-#     x = torch.randint(0, 100, (10000,)).float()
+#     # x = torch.randint(0, 100, (10000,)).float()
+#     x = torch.tensor([5, 1, 4, 5.])
 #     y = libs_ml.test_time(lambda: rank_data(x), 10)
 #     y2 = libs_ml.test_time(lambda: calc_rank(x), 10)
 #     print(torch.allclose(y, y2))

@@ -1,8 +1,8 @@
 # distutils: language=c++
 from ._types cimport *
-import numpy as np
 
-cpdef int partition_cy(int_float[::1] nums, int lo, int hi):
+cdef int _partition_cy(int_float[::1] nums, int lo, int hi):
+    # [lo..hi]
     cdef int_float x = nums[lo]
     while lo < hi:
         while True:  # do while
@@ -24,34 +24,36 @@ cpdef int partition_cy(int_float[::1] nums, int lo, int hi):
     nums[lo] = x
     return lo
 
+def partition_cy(int_float[::1] nums) -> int:
+    return _partition_cy(nums, 0, <int>nums.shape[0] - 1)
 
 cdef void _quick_sort_cy(int_float[::1] nums, int lo, int hi):
+    # [lo..hi]
     if lo >= hi:
         return
     cdef int r = rand() % (hi-lo+1)+lo
     # cdef int r = (lo + hi) / 2
     nums[r], nums[lo] = nums[lo], nums[r]
-    cdef int idx = partition_cy(nums, lo, hi)
+    cdef int idx = _partition_cy(nums, lo, hi)
     _quick_sort_cy(nums, lo, idx - 1)
     _quick_sort_cy(nums, idx + 1, hi)
 
 
 
-def quick_sort_cy(_nums) -> None:
+def quick_sort_cy(int_float[::1] nums) -> None:
     srand(time(NULL))
-    cdef double[::1] nums = _nums
     _quick_sort_cy(nums, 0, len(nums) - 1)
 
 
 
-cpdef int merge_cy(int_float[::1] nums, int_float[::1] A_copy, int lo, int mid, int hi):
-    # nums[lo:mid + 1]
+cdef void _merge_cy(int_float[::1] nums, int_float[::1] helper, int lo, int mid, int hi):
+    # [lo..mid]; [mid+1..hi]
     cdef int n = mid+1-lo
-    A_copy[:n]=nums[lo:mid+1]
+    helper[:n]=nums[lo:mid+1]
     cdef int i = 0, j=mid+1, k = lo
     while i < n and j <= hi:  # 避免A, B为空
-        if A_copy[i] <= nums[j]:  # stable
-            nums[k] = A_copy[i]
+        if helper[i] <= nums[j]:  # stable
+            nums[k] = helper[i]
             i += 1
         else:
             nums[k] = nums[j]
@@ -59,26 +61,27 @@ cpdef int merge_cy(int_float[::1] nums, int_float[::1] A_copy, int lo, int mid, 
         k += 1
     #
     while i < n:
-        nums[k] = A_copy[i]
+        nums[k] = helper[i]
         i += 1
         k += 1
 
+def merge_cy(int_float[::1]nums, int_float[::1] helper, int lo, int mid, int hi) -> None:
+    # [lo..mid]; [mid+1..hi]
+    # helper.shape >= mid+1-lo
+    _merge_cy(nums, helper, lo, mid, hi)
 
-cdef void _merge_sort_cy(int_float[::1]nums, int_float[::1]A_copy, int lo, int hi):
-    """[lo..hi]左偏划分
-    """
+
+cdef void _merge_sort_cy(int_float[::1]nums, int_float[::1]helper, int lo, int hi):
+    """[lo..hi]左偏(多)划分"""
     if lo == hi:
         return
     #
     cdef int mid = (lo + hi) / 2
-    _merge_sort_cy(nums, A_copy, lo, mid)
-    _merge_sort_cy(nums, A_copy, mid+1, hi)
-    merge_cy(nums, A_copy, lo, mid, hi)
+    _merge_sort_cy(nums, helper, lo, mid)
+    _merge_sort_cy(nums, helper, mid+1, hi)
+    _merge_cy(nums, helper, lo, mid, hi)
 
 
-def merge_sort_cy(_nums) -> None:
-    mid = _nums.shape[0] // 2
-    _A_copy = np.empty((mid,), dtype=_nums.dtype)
-    cdef double[::1]A_copy = _A_copy, nums = _nums
-    _merge_sort_cy(nums, A_copy, 0, len(nums) - 1)
-
+def merge_sort_cy(int_float[::1] nums, int_float[::1] helper) -> None:
+    # helper.shape >= (nums.shape[0]-1)//2+1
+    _merge_sort_cy(nums, helper, 0, <int>nums.shape[0] - 1)

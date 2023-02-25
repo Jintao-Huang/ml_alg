@@ -24,5 +24,11 @@ trash/
 /libs/alg_fast/_algorithm
 /tools/
 /dist/
-/libs/alg_fast/test/
+/libs/alg_fast/test.py
+*.c
+*.html
+*.so
 *.cpp
+/libs/alg_fast/build/
+/libs/alg_fast/setup.py
+/libs/alg_fast/test/

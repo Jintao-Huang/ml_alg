@@ -1,4 +1,4 @@
-# # distutils: language=c++
+# distutils: language=c++
 from cython cimport (
 	void,
     int, long, float, double, 

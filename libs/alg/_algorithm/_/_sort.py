@@ -73,8 +73,6 @@ def merge(nums: List[Any], lo: int, mid: int, hi: int) -> None:
     # 
         如果有一个放完后, 我们将A_copy剩余的放入nums中.
     """
-    if hi - lo == 1:
-        return
     A_copy = deepcopy(nums[lo:mid + 1])
     i, j, k = 0, mid + 1, lo
     n = len(A_copy)
@@ -106,7 +104,7 @@ def merge(nums: List[Any], lo: int, mid: int, hi: int) -> None:
 
 
 def _merge_sort(nums: List[Any], lo: int, hi: int) -> None:
-    """[lo..hi]左偏划分
+    """[lo..hi]左偏(多)划分
     """
     if lo == hi:
         return
