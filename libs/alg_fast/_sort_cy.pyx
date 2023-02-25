@@ -1,13 +1,9 @@
-# cython: boundscheck=False
-# cython: wraparound=False
-# cython: cdivision=True
-# cython: language_level=3
-
-from _types cimport *
+# distutils: language=c++
+from ._types cimport *
 import numpy as np
 
-cpdef int partition_cy(double[::1] nums, int lo, int hi):
-    cdef double x = nums[lo]
+cpdef int partition_cy(int_float[::1] nums, int lo, int hi):
+    cdef int_float x = nums[lo]
     while lo < hi:
         while True:  # do while
             if nums[hi] < x:
@@ -29,7 +25,7 @@ cpdef int partition_cy(double[::1] nums, int lo, int hi):
     return lo
 
 
-cdef void _quick_sort_cy(double[::1] nums, int lo, int hi):
+cdef void _quick_sort_cy(int_float[::1] nums, int lo, int hi):
     if lo >= hi:
         return
     cdef int r = rand() % (hi-lo+1)+lo
@@ -48,7 +44,7 @@ def quick_sort_cy(_nums) -> None:
 
 
 
-cpdef int merge_cy(double[::1] nums, double[::1] A_copy, int lo, int mid, int hi):
+cpdef int merge_cy(int_float[::1] nums, int_float[::1] A_copy, int lo, int mid, int hi):
     # nums[lo:mid + 1]
     cdef int n = mid+1-lo
     A_copy[:n]=nums[lo:mid+1]
@@ -68,7 +64,7 @@ cpdef int merge_cy(double[::1] nums, double[::1] A_copy, int lo, int mid, int hi
         k += 1
 
 
-cdef void _merge_sort_cy(double[::1]nums, double[::1]A_copy, int lo, int hi):
+cdef void _merge_sort_cy(int_float[::1]nums, int_float[::1]A_copy, int lo, int hi):
     """[lo..hi]左偏划分
     """
     if lo == hi:

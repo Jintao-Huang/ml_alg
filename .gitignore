@@ -1,6 +1,6 @@
 /doc/
 /ml.md
-/test/
+/_test/
 /.vscode/
 /runs/
 /_pre.py
@@ -25,3 +25,4 @@ trash/
 /tools/
 /dist/
 /libs/alg_fast/test/
+*.cpp

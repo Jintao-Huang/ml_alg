@@ -21,7 +21,8 @@ import datetime as dt
 
 
 __all__ = ["download_files", "calculate_hash", "xml_to_dict", "mywalk",
-           "test_unit", "ProgramQueue", "config_to_dict", "xpath_get_text", "dict_head"]
+           "test_unit", "ProgramQueue", "config_to_dict", "xpath_get_text", "dict_head",
+           "set_pyximport_to_cpp", "reset_pyximport"]
 #
 logger = ml.logger
 
@@ -285,3 +286,23 @@ def dict_head(data: Dict[Any, Any],
 #     print(dict_head(d, shuffle=True))
 #     d = {i: -i for i in range(5)}
 #     print(dict_head(d))
+
+def set_pyximport_to_cpp(pyximport):
+    """输入module, 返回module
+    ref: https://stackoverflow.com/questions/7620003/how-do-you-tell-pyximport-to-use-the-cython-cplus-option
+    """
+    old_get_distutils_extension = pyximport.pyximport.get_distutils_extension
+
+    def new_get_distutils_extension(modname, pyxfilename, language_level=None):
+        extension_mod, setup_args = old_get_distutils_extension(modname, pyxfilename, language_level)
+        extension_mod.language = 'c++'
+        return extension_mod, setup_args
+    pyximport.pyximport.get_distutils_extension = new_get_distutils_extension
+    return pyximport
+
+
+def reset_pyximport(pyximport):
+    """输入module, 返回module"""
+    del pyximport
+    import pyximport
+    return pyximport

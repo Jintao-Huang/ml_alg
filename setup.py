@@ -1,10 +1,12 @@
 from setuptools import setup, find_packages
+from Cython.Build import cythonize
 
 
 def read_file(path: str) -> str:
     with open(path, "r") as f:
         res = f.read()
     return res
+
 
 description = "Jintao的算法集成库"
 long_description = read_file("README.md")
@@ -31,5 +33,16 @@ setup(
     packages=[p for p in find_packages() if p.startswith("libs")],
     install_requires=install_requires,
     classifiers=classifiers,
-    python_requires=">=3.8"
+    python_requires=">=3.8",
+    ext_modules=cythonize(
+        "libs/alg_fast/*.pyx",
+        compiler_directives={
+            "language_level": 3,
+            "boundscheck": False,
+            "wraparound": False,
+            "initializedcheck": False,
+            "nonecheck": False,
+            "cdivision":True,
+        }),
+    zip_safe=False,
 )

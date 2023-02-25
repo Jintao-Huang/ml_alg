@@ -39,7 +39,7 @@ from typing_extensions import TypeAlias
 from contextlib import contextmanager
 from numbers import Number
 from fractions import Fraction
-from pyximport import install
+import pyximport
 #
 import yaml
 from sortedcontainers import SortedList, SortedDict, SortedSet
@@ -164,6 +164,7 @@ from gym import Env
 from . import utils as libs_utils
 from . import ml as libs_ml
 from . import alg as libs_alg
+from . import alg_fast as libs_algf
 from . import _plt as libs_plt
 from ._env import *
 #

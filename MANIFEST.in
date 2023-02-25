@@ -1,1 +1,4 @@
 include requirements.txt
+recursive-include libs/alg_fast *.pyx *.pxd
+recursive-exclude libs/alg_fast *.c *.cpp
+recursive-exclude tests *
