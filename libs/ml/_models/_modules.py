@@ -1,4 +1,4 @@
-from torch.autograd import Function
+from torch.autograd.function import FunctionCtx, Function
 from torch import Tensor
 import torch
 import torch.distributed as dist
@@ -15,13 +15,13 @@ class GatherLayer(Function):
     """ref: https://github.com/Spijkervet/SimCLR/blob/master/simclr/modules/gather.py"""
 
     @staticmethod
-    def forward(ctx, x: Tensor) -> Tuple[Tensor]:
+    def forward(ctx: FunctionCtx, x: Tensor) -> Tuple[Tensor]:
         res = [torch.zeros_like(x) for _ in range(dist.get_world_size())]
         dist.all_gather(res, x)
         return tuple(res)
 
     @staticmethod
-    def backward(ctx, *grads: Tensor) -> Tensor:
+    def backward(ctx: FunctionCtx, *grads: Tensor) -> Tensor:
         res = grads[dist.get_rank()]
         res *= dist.get_world_size()  # for same grad with 2 * batch_size; mean operation in ddp across device.
         return res

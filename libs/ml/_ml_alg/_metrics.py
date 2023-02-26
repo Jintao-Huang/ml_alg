@@ -804,6 +804,7 @@ def calc_rank(x: Tensor) -> Tensor:
     x, idx = x.sort()
     rank = torch.empty_like(x)
     rank[idx] = torch.arange(1, N+1, dtype=x.dtype, device=x.device)
+    x, rank, idx = x.cpu(), rank.cpu(), idx.cpu()
     _calc_rank_loop(x.numpy(), rank.numpy(), idx.numpy())
     return rank
 

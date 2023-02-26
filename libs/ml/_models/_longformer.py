@@ -382,17 +382,18 @@ class LongformerModel(LongformerPreTrainedModel):
             self.pool = LongformerPool(hidden_size)
         self.post_init()
 
+    @staticmethod
     def _pad_to_window_size(
-        self,
         input_ids: Tensor,  # [N, L0]
         attn_mask: Tensor,  # [N, L0]
         pad_token_id: int,
+        max_attn_window: int,
     ) -> Tuple[int, Tensor, Tensor]:
         """
         return: P, input_ids: [N, L], attn_mask: [N, L]
         """
         L = input_ids.shape[1]
-        P = (self.max_attn_window - L % self.max_attn_window) % self.max_attn_window
+        P = (max_attn_window - L % max_attn_window) % max_attn_window
         if P > 0:
             input_ids = F.pad(input_ids, (0, P), value=pad_token_id)
             attn_mask = F.pad(attn_mask, (0, P), value=False)
@@ -419,7 +420,7 @@ class LongformerModel(LongformerPreTrainedModel):
         attn_mask: [N, L]
         return: output: [N, L, E], pool_output: [N, E], attn_dist: [NL, N, H, L, L]
         """
-        P, input_ids, attn_mask = self._pad_to_window_size(input_ids, attn_mask, self.pad_token_id)
+        P, input_ids, attn_mask = self._pad_to_window_size(input_ids, attn_mask, self.pad_token_id, self.max_attn_window)
         attn_mask[:, 0] = 0
         #
         res = {}

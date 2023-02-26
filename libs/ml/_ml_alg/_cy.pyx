@@ -1,10 +1,11 @@
 # distutils: language=c++
+
 from ...alg_fast._types cimport * 
 
 cdef void _assign_rank(floating[::1] rank, integral[::1] idx, int lo, int hi):
     cdef int i
     cdef floating x = (lo+hi+1) / 2.
-    for i in range(lo, hi):
+    for i in range(lo, hi):  # memory_bound
         rank[idx[i]]=x
 
 def calc_rank_loop(floating[::1] x, floating[::1] rank, integral[::1] idx) -> None:

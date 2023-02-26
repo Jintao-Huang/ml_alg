@@ -4,7 +4,7 @@ from cython cimport (
     int, long, float, double, 
     integral, floating, numeric,
 )
-from cython.parallel cimport prange
+# from cython.parallel cimport prange
 from cython cimport boundscheck, wraparound, cdivision
 from cython.operator cimport dereference as deref
 

@@ -107,7 +107,7 @@ import torch.cuda as cuda
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from torch.autograd import Function
+from torch.autograd.function import FunctionCtx, Function
 from torch.optim import lr_scheduler as lrs
 from torch.optim.lr_scheduler import _LRScheduler as LRScheduler
 import torch.nn.init as init

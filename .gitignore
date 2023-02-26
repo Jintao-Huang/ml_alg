@@ -20,7 +20,6 @@ trash/
 *.out2
 /_leetcode/
 /todo
-/examples
 /libs/alg_fast/_algorithm
 /tools/
 /dist/
