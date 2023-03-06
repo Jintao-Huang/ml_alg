@@ -27,7 +27,6 @@ from pprint import pprint
 from itertools import chain, accumulate
 from functools import partial, cache, lru_cache, cmp_to_key, reduce
 from types import SimpleNamespace
-from collections import deque, namedtuple, OrderedDict, defaultdict, Counter
 from copy import copy, deepcopy
 from argparse import ArgumentParser, Namespace
 from queue import Queue, SimpleQueue, PriorityQueue
@@ -38,7 +37,7 @@ from typing import (
     Sequence, Mapping, Iterable, Iterator, TypeVar, Generic
 )
 from typing_extensions import TypeAlias
-from collections import deque, namedtuple, OrderedDict, defaultdict, Counter  # use typing
+# from collections import deque, namedtuple, OrderedDict, defaultdict, Counter  # use typing
 from _collections_abc import dict_items, dict_keys, dict_values
 from contextlib import contextmanager
 from numbers import Number

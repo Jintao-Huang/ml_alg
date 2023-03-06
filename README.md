@@ -30,23 +30,24 @@
    9. `_rand.py`: (没啥实用性, 用于学习)
       1. 含normal, uniform, randperm, multivariate_normal
    10. `_pygnn_functional.py`: 图网络的实现. (开发中...)
+   11. `_class_impl/`: pytorch的常见base类: Module, Optimizer, _LRScheduler的简化版
 3. `libs/alg/*`: 传统算法库. 即将迁移: [https://github.com/Jintao-Huang/LeetCode-Py/](https://github.com/Jintao-Huang/LeetCode-Py/)
    1. `_data_structure`: 树状数组, 堆, 优先级队列, 可变的优先级队列, 红黑树, 有序数组, 链表, 线段树, Lazy线段树, 字符串哈希, 字典树, 并查集, Huffman树等.
    2. `_algorithm`: 图算法(dijkstra, kruskal, prim, dinic, 匈牙利算法, 拓扑排序), 背包问题, math, 单调栈/队列, 大数运算, 字符串匹配KMP算法, 二分搜索, a_star, 常见动态规划, 常见的其他算法等.
 4. `libs/alg_fast/*`: 传统算法库的numba/cython版本 (开发中...)
-5. `libs/_plt/*`, 可视化的库. 
+5. `examples/*`: 一些代表性的examples 
+6. `libs/_plt/*`, 可视化的库. 
    1. `_2d.py`: 
       1. 含plot, scatter, imshow, hist, bar, text, contour等.
       2. 含config_ax, config_plt, config_fig等.
    2. `_3d.py`
-6. `libs/ml/`
+7. `libs/ml/`
    1. `_pd/*`: torch pandas库. (开发中)
    2. `_models/*`: efficient Transformer等相关模型的库, 参考huggingface. (开发中)
       1. 含: roberta, longformer, NT_Xent_loss, GatherLayer等. 
-7. `libs/utils/*`: 一些工具函数的实现
-8. `tests/*`: 测试算法正确性. (其中部分测试写在源文件中)
+8. `libs/utils/*`: 一些工具函数的实现
+9. `tests/*`: 测试算法正确性. (其中部分测试写在源文件中)
    1. leetcode代码用于测试`alg`的实现正确性. 
-9.  `examples/*`: 一些代表性的examples. (开发中...) 
 
 ## Installation and Use
 ```bash

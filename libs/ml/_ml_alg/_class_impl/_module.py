@@ -5,8 +5,8 @@ _T = TypeVar("_T")
 
 class Module:
     training: bool
-    _parameters: Dict[str, Optional["Parameter"]]
-    _buffers: Dict[str, Optional["Tensor"]]
+    _parameters: Dict[str, Optional[Parameter]]
+    _buffers: Dict[str, Optional[Tensor]]
     _non_persistent_buffers_set: Set[str]
     _modules: Dict[str, Optional["Module"]]
 
@@ -225,7 +225,7 @@ class Module:
     def load_state_dict(self, state_dict: OrderedDict[str, Tensor], strict: bool = True) -> IncompatibleKeys:
         missing_keys: List[str] = []
         unexpected_keys: List[str] = []
-        state_dict = OrderedDict(state_dict)
+        state_dict = OrderedDict(state_dict)  # 浅复制
 
         def load(module: "Module", local_state_dict: Dict[str, Tensor], prefix: str = "") -> None:
             module._load_from_state_dict(
