@@ -21,7 +21,6 @@ trash/
 /_leetcode/
 /todo
 /libs/alg_fast/_algorithm
-/tools/
 /dist/
 /libs/alg_fast/test.py
 *.c
@@ -31,3 +30,5 @@ trash/
 /libs/alg_fast/build/
 /libs/alg_fast/setup.py
 /libs/alg_fast/test/
+/tools/
+/_alg_trash/

@@ -2,12 +2,7 @@
 # Email: huangjintao@mail.ustc.edu.cn
 # Date: 
 
-import cv2 as cv
-import numpy as np
-from numpy import ndarray
-from PIL import Image
-import torch
-from torch import Tensor
+from ..._types import *
 
 __all__ = ["imwrite", "imread", "pil_to_cv", "cv_to_pil",
            "ndarray_to_tensor", "tensor_to_ndarray"]

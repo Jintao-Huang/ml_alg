@@ -2,12 +2,7 @@
 # Email: huangjintao@mail.ustc.edu.cn
 # Date: 
 
-import cv2 as cv
-import numpy as np
-from numpy import ndarray
-from typing import Tuple, List, Union, Optional
-from matplotlib.colors import to_rgb
-
+from ..._types import *
 
 __all__ = ["Box", "Point", "Color", "draw_box",
            "draw_target_in_image", "voc_labels", "generate_color", "resize_max"]

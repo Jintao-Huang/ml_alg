@@ -3,8 +3,12 @@
 # Date:
 
 from typing import Generic, List, TypeVar, Optional, Dict, Any, Tuple
-from ._heapq import *
-from ._ import _parent, _lc
+try:
+    from ._heapq import *
+    from ._ import _parent, _lc
+except ImportError:
+    from libs.alg._data_structure._heapq import *
+    from libs.alg._data_structure._ import _parent, _lc
 __all__ = ["PriorityQueue", "MutablePQ"]
 
 
@@ -40,13 +44,13 @@ class PriorityQueue(Generic[T]):
         return len(self.heap)
 
 
-if __name__ == "__main__":
-    pq = PriorityQueue([1, 2, 3], max_heap=True)
-    pq.add(10)
-    pq.add(4)
-    print(pq.peek())
-    print(pq.pop())
-    print(pq.heap)
+# if __name__ == "__main__":
+#     pq = PriorityQueue([1, 2, 3], max_heap=True)
+#     pq.add(10)
+#     pq.add(4)
+#     print(pq.peek())
+#     print(pq.pop())
+#     print(pq.heap)
 
 
 K, V = TypeVar("K"), TypeVar("V")
@@ -160,6 +164,8 @@ class MutablePQ(Generic[K, V]):
 if __name__ == "__main__":
     mpq = MutablePQ()
     mpq.add(1, 5)
+    print(mpq.id_to_idx)
+    print(mpq.heap)
     mpq.add(2, 4)
     mpq.add(3, 4)
     mpq.add(4, 6)

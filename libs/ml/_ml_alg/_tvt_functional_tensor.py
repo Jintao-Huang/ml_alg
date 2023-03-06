@@ -2,15 +2,8 @@
 # Email: huangjintao@mail.ustc.edu.cn
 # Date:
 
-from torchvision.transforms.functional_tensor import _rgb2hsv, _hsv2rgb
-from typing import Union, List, Literal, Tuple, Optional
-from torch import Tensor
-import torch
-from numpy import ndarray
-from PIL import Image
-import numpy as np
-import torch.nn.functional as F
-import torchvision.transforms.functional as tvtF
+from ..._types import *
+
 __all__ = []
 
 
@@ -460,9 +453,9 @@ def adjust_hue(x: Tensor, hue_factor: float) -> Tensor:
     if C == 1:
         return x
     #
-    x = _rgb2hsv(x)
+    x = tvtF_t._rgb2hsv(x)
     x[:, 0] = x[:, 0].add_(hue_factor).remainder_(1)
-    res = _hsv2rgb(x)
+    res = tvtF_t._hsv2rgb(x)
     return res
 
 

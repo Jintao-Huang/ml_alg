@@ -2,10 +2,7 @@
 # Email: huangjintao@mail.ustc.edu.cn
 # Date:
 
-import math
-import torch.nn.functional as F
-from torch import Tensor
-from typing import List, Tuple, Optional, Literal
+from ..._types import *
 
 __all__ = []
 
@@ -66,13 +63,13 @@ def relu(x: Tensor, inplace=False) -> Tensor:
 # if __name__ == "__main__":
 #     x = torch.randn(1000, 1000)
 #     x1 = x.clone()
-#     y = libs_ml.test_time(lambda: relu(x1))
+#     y = ml.test_time(lambda: relu(x1))
 #     x2 = x.clone()
-#     y2 = libs_ml.test_time(lambda: relu(x2, inplace=True))
+#     y2 = ml.test_time(lambda: relu(x2, inplace=True))
 #     x3 = x.clone()
-#     y3 = libs_ml.test_time(lambda: F.relu(x3))
+#     y3 = ml.test_time(lambda: F.relu(x3))
 #     x4 = x.clone()
-#     y4 = libs_ml.test_time(lambda: F.relu(x4, inplace=True))
+#     y4 = ml.test_time(lambda: F.relu(x4, inplace=True))
 #     print(torch.allclose(y, y3))
 #     print(torch.allclose(y2, y3))
 #     print(torch.allclose(y3, y4))
@@ -101,9 +98,9 @@ def one_hot(x: Tensor, n_classes: int = -1) -> Tensor:
 
 # if __name__ == "__main__":
 #     x = torch.randint(0, 10, (1000,))  # long
-#     # y = libs_ml.test_time(lambda: _one_hot(x), number=10)
-#     y2 = libs_ml.test_time(lambda: one_hot(x), number=10)
-#     y3 = libs_ml.test_time(lambda: F.one_hot(x), number=10)
+#     # y = ml.test_time(lambda: _one_hot(x), number=10)
+#     y2 = ml.test_time(lambda: one_hot(x), number=10)
+#     y3 = ml.test_time(lambda: F.one_hot(x), number=10)
 #     # print(torch.allclose(y, y2))
 #     print(torch.allclose(y2, y3))
 
@@ -123,8 +120,8 @@ def nll_loss(pred: Tensor, target: Tensor) -> Tensor:
 # if __name__ == "__main__":
 #     x = torch.randn((1000, 10))
 #     x2 = torch.randint(0, 10, (1000,))
-#     y = libs_ml.test_time(lambda: nll_loss(x, x2))
-#     y2 = libs_ml.test_time(lambda: F.nll_loss(x, x2))
+#     y = ml.test_time(lambda: nll_loss(x, x2))
+#     y2 = ml.test_time(lambda: F.nll_loss(x, x2))
 #     print(y, y2)
 #     print(torch.allclose(y, y2))
 
@@ -141,8 +138,8 @@ def cross_entropy(pred: Tensor, target: Tensor) -> Tensor:
 # if __name__ == "__main__":
 #     x = torch.randn((1000, 10))
 #     x2 = torch.randint(0, 10, (1000,))
-#     y = libs_ml.test_time(lambda: cross_entropy(x, x2))
-#     y2 = libs_ml.test_time(lambda: F.cross_entropy(x, x2))
+#     y = ml.test_time(lambda: cross_entropy(x, x2))
+#     y2 = ml.test_time(lambda: F.cross_entropy(x, x2))
 #     print(torch.allclose(y, y2))
 
 
@@ -169,9 +166,9 @@ def label_smoothing_cross_entropy(pred: Tensor, target: Tensor,
 # if __name__ == "__main__":
 #     x = torch.randn((1000, 100))
 #     x2 = torch.randint(0, 100, (1000,))
-#     y = libs_ml.test_time(lambda: F.cross_entropy(x, x2), number=10)
-#     y1 = libs_ml.test_time(lambda: F.cross_entropy(x, x2, label_smoothing=0.9), number=10)
-#     y2 = libs_ml.test_time(lambda: label_smoothing_cross_entropy(x, x2, smoothing=0.9), number=10)
+#     y = ml.test_time(lambda: F.cross_entropy(x, x2), number=10)
+#     y1 = ml.test_time(lambda: F.cross_entropy(x, x2, label_smoothing=0.9), number=10)
+#     y2 = ml.test_time(lambda: label_smoothing_cross_entropy(x, x2, smoothing=0.9), number=10)
 #     print(y, y1, y2)
 
 
@@ -194,9 +191,9 @@ def binary_cross_entropy_with_logits(pred: Tensor, target: Tensor) -> Tensor:
 # if __name__ == "__main__":
 #     x = torch.randn((1000,))
 #     x2 = torch.randint(0, 2, (1000,), dtype=torch.float)
-#     y = libs_ml.test_time(
+#     y = ml.test_time(
 #         lambda: binary_cross_entropy_with_logits(x, x2), number=100)
-#     y2 = libs_ml.test_time(
+#     y2 = ml.test_time(
 #         lambda: F.binary_cross_entropy_with_logits(x, x2), number=100)
 #     print(torch.allclose(y, y2))
 
@@ -215,8 +212,8 @@ def mse_loss(pred: Tensor, target: Tensor) -> Tensor:
 # if __name__ == "__main__":
 #     x = torch.randn((10000, 1000))
 #     x2 = torch.randn((10000, 1000))
-#     y = libs_ml.test_time(lambda: mse_loss(x, x2), number=10)
-#     y2 = libs_ml.test_time(lambda: F.mse_loss(x, x2), number=10)
+#     y = ml.test_time(lambda: mse_loss(x, x2), number=10)
+#     y2 = ml.test_time(lambda: F.mse_loss(x, x2), number=10)
 #     print(torch.allclose(y, y2))
 
 
@@ -233,9 +230,9 @@ def smooth_l1_loss(pred: Tensor, target: Tensor, beta: float = 1.) -> Tensor:
 # if __name__ == "__main__":
 #     x = torch.randn(100000)
 #     y = torch.randn(100000)
-#     y1 = libs_ml.test_time(lambda: F.smooth_l1_loss(
-#         x, y, beta=2), number=10, warm_up=1)
-#     y2 = libs_ml.test_time(lambda: smooth_l1_loss(x, y, beta=2), number=10)
+#     y1 = ml.test_time(lambda: F.smooth_l1_loss(
+#         x, y, beta=2), number=10, warmup=1)
+#     y2 = ml.test_time(lambda: smooth_l1_loss(x, y, beta=2), number=10)
 #     print(y1, y2)
 
 
@@ -345,24 +342,24 @@ def batch_norm(
 
 
 # if __name__ == "__main__":
-#     libs_ml.seed_everything(42)
+#     ml.seed_everything(42)
 #     x = torch.randn(1000, 100)
 #     running_mean = torch.randn(100)
 #     running_var = torch.randn(100).abs_()
 #     weight = torch.randn(100)
 #     bias = torch.randn(100)
-#     y1 = libs_ml.test_time(lambda:
+#     y1 = ml.test_time(lambda:
 #                               F.batch_norm(x, running_mean, running_var, weight, bias, True, 0.1, 1e-5), number=2)
 #     rm1 = running_mean
 #     rv1 = running_var
 #     x1 = x
-#     libs_ml.seed_everything(42)
+#     ml.seed_everything(42)
 #     x = torch.randn(1000, 100)
 #     running_mean = torch.randn(100)
 #     running_var = torch.randn(100).abs_()
 #     weight = torch.randn(100)
 #     bias = torch.randn(100)
-#     y2 = libs_ml.test_time(lambda:
+#     y2 = ml.test_time(lambda:
 #                               batch_norm(x, running_mean, running_var, weight, bias, True, 0.1, 1e-5), number=2)
 #     print(torch.allclose(y1, y2, atol=1e-6))
 #     print(torch.allclose(rm1, running_mean, atol=1e-6))
@@ -371,24 +368,24 @@ def batch_norm(
 #     #
 
 #     #
-#     libs_ml.seed_everything(42)
+#     ml.seed_everything(42)
 #     x = torch.randn(1000, 100, 10, 10)
 #     running_mean = torch.randn(100)
 #     running_var = torch.randn(100).abs_()
 #     weight = torch.randn(100)
 #     bias = torch.randn(100)
-#     y1 = libs_ml.test_time(lambda:
+#     y1 = ml.test_time(lambda:
 #                               F.batch_norm(x, running_mean, running_var, weight, bias, True, 0.1, 1e-5), number=2)
 #     rm1 = running_mean
 #     rv1 = running_var
 #     x1 = x
-#     libs_ml.seed_everything(42)
+#     ml.seed_everything(42)
 #     x = torch.randn(1000, 100, 10, 10)
 #     running_mean = torch.randn(100)
 #     running_var = torch.randn(100).abs_()
 #     weight = torch.randn(100)
 #     bias = torch.randn(100)
-#     y2 = libs_ml.test_time(lambda:
+#     y2 = ml.test_time(lambda:
 #                               batch_norm(x, running_mean, running_var, weight, bias, True, 0.1, 1e-5), number=2)
 #     print(torch.allclose(y1, y2, atol=1e-6))
 #     print(torch.allclose(rm1, running_mean, atol=1e-6))
@@ -398,12 +395,12 @@ def batch_norm(
 #     x = torch.randn(1000, 100)
 #     running_mean = torch.randn(100)
 #     running_var = torch.randn(100).abs_()
-#     y1 = libs_ml.test_time(lambda:
+#     y1 = ml.test_time(lambda:
 #                               F.batch_norm(x, running_mean, running_var, None, None, False, 0.1, 1e-5), number=2)
 #     x1 = x
 #     rm1 = running_mean
 #     rv1 = running_var
-#     y2 = libs_ml.test_time(lambda:
+#     y2 = ml.test_time(lambda:
 #                               batch_norm(x, running_mean, running_var, None, None, False, 0.1, 1e-5), number=2)
 #     print(torch.allclose(x, x1, atol=1e-6))
 #     print(torch.allclose(y1, y2, atol=1e-6))
@@ -412,12 +409,12 @@ def batch_norm(
 #     x = torch.randn(1000, 100, 10, 10)
 #     running_mean = torch.randn(100)
 #     running_var = torch.randn(100).abs_()
-#     y1 = libs_ml.test_time(lambda:
+#     y1 = ml.test_time(lambda:
 #                               F.batch_norm(x, running_mean, running_var, None, None, False, 0.1, 1e-5), number=2)
 #     x1 = x
 #     rm1 = running_mean
 #     rv1 = running_var
-#     y2 = libs_ml.test_time(lambda:
+#     y2 = ml.test_time(lambda:
 #                               batch_norm(x, running_mean, running_var, None, None, False, 0.1, 1e-5), number=2)
 #     print(torch.allclose(x, x1, atol=1e-6))
 #     print(torch.allclose(y1, y2, atol=1e-6))
@@ -443,9 +440,8 @@ def layer_norm(
     """
     # check normalized_shape
     _dim = []
-    for ns, i in zip(reversed(normalized_shape), reversed(range(x.ndim))):
-        if ns != x.shape[i]:
-            raise ValueError(f"x.shape[{i}]: {x.shape[i]}")
+    for i, ns in enumerate(normalized_shape, start=x.ndim-len(normalized_shape)):
+        assert ns == x.shape[i]
         _dim.append(i)
     if weight is not None:
         assert list(weight.shape) == normalized_shape
@@ -463,17 +459,17 @@ def layer_norm(
 
 
 # if __name__ == "__main__":
-#     libs_ml.seed_everything(42)
+#     ml.seed_everything(42)
 #     x = torch.randn(10, 50, 100)
 #     w = torch.randn(100)
 #     b = torch.randn(100)
-#     y1 = libs_ml.test_time(lambda: F.layer_norm(x, [100], w, b))
-#     y2 = libs_ml.test_time(lambda: layer_norm(x, [100], w, b))
+#     y1 = ml.test_time(lambda: F.layer_norm(x, [100], w, b))
+#     y2 = ml.test_time(lambda: layer_norm(x, [100], w, b))
 #     print(torch.allclose(y1, y2, atol=1e-6))
 #     w = torch.randn(50, 100)
 #     b = torch.randn(50, 100)
-#     y1 = libs_ml.test_time(lambda: F.layer_norm(x, [50, 100], w, b))
-#     y2 = libs_ml.test_time(lambda: layer_norm(x, [50, 100], w, b))
+#     y1 = ml.test_time(lambda: F.layer_norm(x, [50, 100], w, b))
+#     y2 = ml.test_time(lambda: layer_norm(x, [50, 100], w, b))
 #     print(torch.allclose(y1, y2, atol=1e-6))
 
 def dropout(
@@ -482,26 +478,80 @@ def dropout(
     training: bool = True,
     inplace: bool = False
 ) -> Tensor:
+    # 和F.dropout的结果不同
     if not training or p == 0.:
         return x  # 同F.dropout
-    keep_p = 1 - p
-    keep_tensors = torch.bernoulli(torch.full_like(x, keep_p))
     if not inplace:
         x = x.clone()
-    x.mul_(keep_tensors)
-    x.div_(keep_p)
+    x.mul_(torch.rand_like(x) > p)
+    x.div_(1-p)
     return x
 
 
 # if __name__ == "__main__":
-#     x = torch.randn(100, 100, device='cuda')
-#     libs_ml.seed_everything(42)
-#     y1: Tensor = libs_ml.test_time(lambda: F.dropout(x, 0.9), warm_up=2)
-#     libs_ml.seed_everything(42)
-#     y2: Tensor = libs_ml.test_time(lambda: dropout(x, 0.9), warm_up=2)
-#     print(torch.allclose(y1, y2))  # True
+#     x = torch.ones(100, 100, device='cuda')
+#     ml.seed_everything(42)
+#     y1: Tensor = ml.test_time(lambda: F.dropout(x, 0.9), warmup=2)
+#     ml.seed_everything(42)
+#     y2: Tensor = ml.test_time(lambda: dropout(x, 0.9), warmup=2)
+#     print(torch.allclose(y1, y2))  # False
 #     print(y1.count_nonzero(), y2.count_nonzero())
 
+
+def dropout1d(
+    x: Tensor,
+    p: float = 0.5,  # drop_p
+    training: bool = True,
+    inplace: bool = False
+) -> Tensor:
+    # dropout1d, 与dropout使用相同的随机方法, 这里使用dropout实现.
+    if not training or p == 0.:
+        return x
+    if not inplace:
+        x = x.clone()
+    mask_shape = x.shape[:-1]
+    mask = torch.full(mask_shape, (1-p), dtype=x.dtype, device=x.device)
+    F.dropout(mask, p, True, inplace=True)
+    x.mul_(mask[..., None])
+    x.div_(1-p)
+    return x
+
+
+# if __name__ == "__main__":
+#     x = torch.ones((100, 100), device='cuda')
+#     ml.seed_everything(42)
+#     y1: Tensor = ml.test_time(lambda: F.dropout1d(x, 0.9), warmup=2)
+#     ml.seed_everything(42)
+#     y2: Tensor = ml.test_time(lambda: dropout1d(x, 0.9), warmup=2)
+#     print(torch.allclose(y1, y2))
+
+
+def dropout2d(
+    x: Tensor,
+    p: float = 0.5,  # drop_p
+    training: bool = True,
+    inplace: bool = False
+) -> Tensor:
+    # dropout2d, 与dropout使用相同的随机方法, 这里使用dropout实现.
+    if not training or p == 0.:
+        return x
+    if not inplace:
+        x = x.clone()
+    mask_shape = x.shape[:-2]
+    mask = torch.full(mask_shape, (1-p), dtype=x.dtype, device=x.device)
+    F.dropout(mask, p, True, inplace=True)
+    x.mul_(mask[..., None, None])
+    x.div_(1-p)
+    return x
+
+
+# if __name__ == "__main__":
+#     x = torch.ones((100, 100, 100, 100), device='cuda')
+#     ml.seed_everything(42)
+#     y1: Tensor = ml.test_time(lambda: F.dropout2d(x, 0.9), warmup=2)
+#     ml.seed_everything(42)
+#     y2: Tensor = ml.test_time(lambda: dropout2d(x, 0.9), warmup=2)
+#     print(torch.allclose(y1, y2))
 
 def conv2d(
     x: Tensor,
@@ -595,28 +645,28 @@ def conv2d_2(
 
 
 # if __name__ == "__main__":
-#     libs_ml.seed_everything(42, gpu_dtm=True)
+#     ml.seed_everything(42, gpu_dtm=True)
 #     x = torch.randn(16, 128, 112, 112, device="cuda")
 #     w = torch.randn(256, 128, 3, 3, device="cuda")
 #     b = torch.randn(256, device="cuda")
-#     y1 = libs_ml.test_time(lambda: F.conv2d(
-#         x, w, b, (1, 1), (1, 1), (2, 2), 1), 10, timer=libs_ml.time_synchronize)
-#     y2 = libs_ml.test_time(lambda: conv2d(
-#         x, w, b, (1, 1), (1, 1), (2, 2), 1), 10, timer=libs_ml.time_synchronize)
-#     y3 = libs_ml.test_time(lambda: conv2d_2(
-#         x, w, b, (1, 1), (1, 1), (2, 2), 1), 10, timer=libs_ml.time_synchronize)
+#     y1 = ml.test_time(lambda: F.conv2d(
+#         x, w, b, (1, 1), (1, 1), (2, 2), 1), 10, timer=ml.time_synchronize)
+#     y2 = ml.test_time(lambda: conv2d(
+#         x, w, b, (1, 1), (1, 1), (2, 2), 1), 10, timer=ml.time_synchronize)
+#     y3 = ml.test_time(lambda: conv2d_2(
+#         x, w, b, (1, 1), (1, 1), (2, 2), 1), 10, timer=ml.time_synchronize)
 #     print(torch.allclose(y1, y2, atol=1e-3))
 #     print(torch.allclose(y2, y3, atol=1e-3))
 
 #     x = torch.randn(16, 128, 112, 112, device="cuda")
 #     w = torch.randn(256, 1, 3, 3, device="cuda")
 #     b = torch.randn(256, device="cuda")
-#     y1 = libs_ml.test_time(lambda: F.conv2d(
-#         x, w, b, (1, 1), (1, 1), (2, 2), 128), 10, timer=libs_ml.time_synchronize)
-#     y2 = libs_ml.test_time(lambda: conv2d(
-#         x, w, b, (1, 1), (1, 1), (2, 2), 128), 10, timer=libs_ml.time_synchronize)
-#     y3 = libs_ml.test_time(lambda: conv2d_2(
-#         x, w, b, (1, 1), (1, 1), (2, 2), 128), 10, timer=libs_ml.time_synchronize)
+#     y1 = ml.test_time(lambda: F.conv2d(
+#         x, w, b, (1, 1), (1, 1), (2, 2), 128), 10, timer=ml.time_synchronize)
+#     y2 = ml.test_time(lambda: conv2d(
+#         x, w, b, (1, 1), (1, 1), (2, 2), 128), 10, timer=ml.time_synchronize)
+#     y3 = ml.test_time(lambda: conv2d_2(
+#         x, w, b, (1, 1), (1, 1), (2, 2), 128), 10, timer=ml.time_synchronize)
 #     print(torch.allclose(y1, y2, atol=1e-3))
 #     print(torch.allclose(y1, y3, atol=1e-3))
 
@@ -672,15 +722,15 @@ def conv_transpose2d(
 #     x = torch.randn(128, 32, 112, 112)
 #     w = torch.randn(32, 16, 3, 3)
 #     b = torch.randn(16)
-#     y1 = libs_ml.test_time(lambda: F.conv_transpose2d(x, w, b))
-#     y2 = libs_ml.test_time(lambda: conv_transpose2d(x, w, b))
+#     y1 = ml.test_time(lambda: F.conv_transpose2d(x, w, b))
+#     y2 = ml.test_time(lambda: conv_transpose2d(x, w, b))
 #     print(torch.allclose(y1, y2))
 #     #
 #     x = torch.randn(128, 32, 112, 112)
 #     w = torch.randn(32, 4, 3, 3)
 #     b = torch.randn(16)
-#     y1 = libs_ml.test_time(lambda: F.conv_transpose2d(x, w, b, (2, 2), (1, 1), (1, 1), 4, (2, 2)))
-#     y2 = libs_ml.test_time(lambda: conv_transpose2d(x, w, b, (2, 2), (1, 1), (1, 1), 4, (2, 2)))
+#     y1 = ml.test_time(lambda: F.conv_transpose2d(x, w, b, (2, 2), (1, 1), (1, 1), 4, (2, 2)))
+#     y2 = ml.test_time(lambda: conv_transpose2d(x, w, b, (2, 2), (1, 1), (1, 1), 4, (2, 2)))
 #     print(torch.allclose(y1, y2))
 
 
@@ -742,15 +792,15 @@ def conv_transpose2d_2(
 #     x = torch.randn(128, 32, 112, 112)
 #     w = torch.randn(32, 16, 3, 3)
 #     b = torch.randn(16)
-#     y1 = libs_ml.test_time(lambda: F.conv_transpose2d(x, w, b))
-#     y2 = libs_ml.test_time(lambda: conv_transpose2d_2(x, w, b))
+#     y1 = ml.test_time(lambda: F.conv_transpose2d(x, w, b))
+#     y2 = ml.test_time(lambda: conv_transpose2d_2(x, w, b))
 #     print(torch.allclose(y1, y2, atol=1e-5))
 
 #     x = torch.randn(128, 32, 112, 112)
 #     w = torch.randn(32, 4, 7, 7)
 #     b = torch.zeros(16)
-#     y1 = libs_ml.test_time(lambda: F.conv_transpose2d(x, w, b, (5, 5), (1, 1), (3, 4), 4, (1, 1)))
-#     y2 = libs_ml.test_time(lambda: conv_transpose2d_2(x, w, b, (5, 5), (1, 1), (3, 4), 4, (1, 1)))
+#     y1 = ml.test_time(lambda: F.conv_transpose2d(x, w, b, (5, 5), (1, 1), (3, 4), 4, (1, 1)))
+#     y2 = ml.test_time(lambda: conv_transpose2d_2(x, w, b, (5, 5), (1, 1), (3, 4), 4, (1, 1)))
 #     print(torch.allclose(y1, y2, atol=1e-5))
 
 
@@ -830,18 +880,18 @@ def conv1d_2(
 #     x = torch.randn(32, 128, 32*32)
 #     w = torch.randn(256, 128, 8)
 #     b = torch.randn(256)
-#     y1 = libs_ml.test_time(lambda: F.conv1d(x, w, b, 1, 1))
-#     y2 = libs_ml.test_time(lambda: conv1d(x, w, b, 1, 1))
-#     y3 = libs_ml.test_time(lambda: conv1d_2(x, w, b, 1, 1))
+#     y1 = ml.test_time(lambda: F.conv1d(x, w, b, 1, 1))
+#     y2 = ml.test_time(lambda: conv1d(x, w, b, 1, 1))
+#     y3 = ml.test_time(lambda: conv1d_2(x, w, b, 1, 1))
 #     print(torch.allclose(y1, y2, atol=1e-4))
 #     print(torch.allclose(y1, y3, atol=1e-4))
 #     #
 #     x = torch.randn(32, 128, 32*32)
 #     w = torch.randn(256, 1, 7)
 #     b = torch.randn(256)
-#     y1 = libs_ml.test_time(lambda: F.conv1d(x, w, b, 1, 1, 2, 128))
-#     y2 = libs_ml.test_time(lambda: conv1d(x, w, b, 1, 1, 2, 128))
-#     y3 = libs_ml.test_time(lambda: conv1d_2(x, w, b, 1, 1, 2, 128))
+#     y1 = ml.test_time(lambda: F.conv1d(x, w, b, 1, 1, 2, 128))
+#     y2 = ml.test_time(lambda: conv1d(x, w, b, 1, 1, 2, 128))
+#     y3 = ml.test_time(lambda: conv1d_2(x, w, b, 1, 1, 2, 128))
 #     print(torch.allclose(y1, y2, atol=1e-4))
 #     print(torch.allclose(y1, y3, atol=1e-4))
 
@@ -982,16 +1032,16 @@ def max_pool2d_2(
 
 # if __name__ == "__main__":
 #     x = torch.randn(128, 32, 224, 224)
-#     y = libs_ml.test_time(lambda: F.avg_pool2d(x, (2, 2), (3, 3), (1, 1)), 3)
-#     y2 = libs_ml.test_time(lambda: avg_pool2d(x, (2, 2), (3, 3), (1, 1)), 3)
-#     y3 = libs_ml.test_time(lambda: avg_pool2d_2(x, (2, 2), (3, 3), (1, 1)), 3)
+#     y = ml.test_time(lambda: F.avg_pool2d(x, (2, 2), (3, 3), (1, 1)), 3)
+#     y2 = ml.test_time(lambda: avg_pool2d(x, (2, 2), (3, 3), (1, 1)), 3)
+#     y3 = ml.test_time(lambda: avg_pool2d_2(x, (2, 2), (3, 3), (1, 1)), 3)
 #     print(torch.allclose(y, y2))
 #     print(torch.allclose(y, y3, atol=1e-6))
 #     #
 #     x = torch.randn(128, 32, 224, 224)
-#     y = libs_ml.test_time(lambda: F.max_pool2d(x, (2, 2), (3, 3), (1, 1), (2, 2)), 3)
-#     y2 = libs_ml.test_time(lambda: max_pool2d(x, (2, 2), (3, 3), (1, 1), (2, 2)), 3)
-#     y3 = libs_ml.test_time(lambda: max_pool2d_2(x, (2, 2), (3, 3), (1, 1), (2, 2)), 3)
+#     y = ml.test_time(lambda: F.max_pool2d(x, (2, 2), (3, 3), (1, 1), (2, 2)), 3)
+#     y2 = ml.test_time(lambda: max_pool2d(x, (2, 2), (3, 3), (1, 1), (2, 2)), 3)
+#     y3 = ml.test_time(lambda: max_pool2d_2(x, (2, 2), (3, 3), (1, 1), (2, 2)), 3)
 #     print(torch.allclose(y, y2))
 #     print(torch.allclose(y, y3, atol=1e-6))
 #     #
@@ -1016,8 +1066,8 @@ def linear(x: Tensor, weight: Tensor, bias: Optional[Tensor] = None) -> Tensor:
 #     x = torch.randn(100, 128)
 #     w = torch.randn(256, 128)
 #     b = torch.randn(256)
-#     libs_ml.test_time(lambda: linear(x, w, b), number=10)
-#     libs_ml.test_time(lambda: F.linear(x, w, b), number=10)
+#     ml.test_time(lambda: linear(x, w, b), number=10)
+#     ml.test_time(lambda: F.linear(x, w, b), number=10)
 
 
 def rnn_relu_cell(
@@ -1053,11 +1103,11 @@ def rnn_tanh_cell(
 #     b_ih = torch.randn(64)
 #     b_hh = torch.randn(64)
 #     #
-#     y = libs_ml.test_time(lambda: rnn_relu_cell(x, hx, w_ih, w_hh, b_ih, b_hh))
-#     y2 = libs_ml.test_time(lambda:torch.rnn_relu_cell(x, hx, w_ih, w_hh, b_ih, b_hh))
+#     y = ml.test_time(lambda: rnn_relu_cell(x, hx, w_ih, w_hh, b_ih, b_hh))
+#     y2 = ml.test_time(lambda:torch.rnn_relu_cell(x, hx, w_ih, w_hh, b_ih, b_hh))
 #     print(torch.allclose(y, y2))
-#     y = libs_ml.test_time(lambda: rnn_tanh_cell(x, hx, w_ih, w_hh, b_ih, b_hh))
-#     y2 = libs_ml.test_time(lambda:torch.rnn_tanh_cell(x, hx, w_ih, w_hh, b_ih, b_hh))
+#     y = ml.test_time(lambda: rnn_tanh_cell(x, hx, w_ih, w_hh, b_ih, b_hh))
+#     y2 = ml.test_time(lambda:torch.rnn_tanh_cell(x, hx, w_ih, w_hh, b_ih, b_hh))
 #     print(torch.allclose(y, y2))
 
 
@@ -1111,9 +1161,9 @@ def lstm_cell(
 #     w_hh = torch.randn(4 * 256, 256)
 #     b_ih = torch.randn(4 * 256)
 #     b_hh = torch.randn(4 * 256)
-#     y1 = libs_ml.test_time(lambda: torch.lstm_cell(
+#     y1 = ml.test_time(lambda: torch.lstm_cell(
 #         x, xh, w_ih, w_hh, b_ih, b_hh), number=10)
-#     y2 = libs_ml.test_time(lambda: lstm_cell(
+#     y2 = ml.test_time(lambda: lstm_cell(
 #         x, xh, w_ih, w_hh, b_ih, b_hh), number=10)
 #     print(torch.allclose(y1[0],  y2[0], atol=1e-6))
 #     print(torch.allclose(y1[1],  y2[1], atol=1e-6))
@@ -1122,9 +1172,9 @@ def lstm_cell(
 #     xh = torch.randn(100, 256), torch.randn(100, 256)
 #     w_ih = torch.randn(4 * 256, 128)
 #     w_hh = torch.randn(4 * 256, 256)
-#     y1 = libs_ml.test_time(lambda: torch.lstm_cell(
+#     y1 = ml.test_time(lambda: torch.lstm_cell(
 #         x, xh, w_ih, w_hh, None, None), number=10)
-#     y2 = libs_ml.test_time(lambda: lstm_cell(
+#     y2 = ml.test_time(lambda: lstm_cell(
 #         x, xh, w_ih, w_hh, None, None), number=10)
 #     print(torch.allclose(y1[0],  y2[0], atol=1e-6))
 #     print(torch.allclose(y1[1],  y2[1], atol=1e-6))
@@ -1175,9 +1225,9 @@ def gru_cell(
 #     w_hh = torch.randn(3 * 256, 256)
 #     b_ih = torch.randn(3 * 256)
 #     b_hh = torch.randn(3 * 256)
-#     y1 = libs_ml.test_time(lambda: torch.gru_cell(
+#     y1 = ml.test_time(lambda: torch.gru_cell(
 #         x, xh, w_ih, w_hh, b_ih, b_hh), number=10)
-#     y2 = libs_ml.test_time(lambda: gru_cell(
+#     y2 = ml.test_time(lambda: gru_cell(
 #         x, xh, w_ih, w_hh, b_ih, b_hh), number=10)
 #     print(torch.allclose(y1[0],  y2[0], atol=1e-6))
 #     print(torch.allclose(y1[1],  y2[1], atol=1e-6))
@@ -1186,9 +1236,9 @@ def gru_cell(
 #     xh = torch.randn(100, 256)
 #     w_ih = torch.randn(3 * 256, 128)
 #     w_hh = torch.randn(3 * 256, 256)
-#     y1 = libs_ml.test_time(lambda: torch.gru_cell(
+#     y1 = ml.test_time(lambda: torch.gru_cell(
 #         x, xh, w_ih, w_hh, None, None), number=10)
-#     y2 = libs_ml.test_time(lambda: gru_cell(
+#     y2 = ml.test_time(lambda: gru_cell(
 #         x, xh, w_ih, w_hh, None, None), number=10)
 #     print(torch.allclose(y1[0],  y2[0], atol=1e-6))
 #     print(torch.allclose(y1[1],  y2[1], atol=1e-6))
@@ -1313,7 +1363,7 @@ def multi_head_attention_forward(
 # if __name__ == "__main__":
 #     T, N, E = 512, 16, 512
 #     S = 256
-#     libs_ml.seed_everything(42)
+#     ml.seed_everything(42)
 #     query = torch.randn(T, N, E)
 #     key = torch.randn(S, N, E)
 #     value = torch.randn(S, N, E)
@@ -1326,18 +1376,18 @@ def multi_head_attention_forward(
 #     attn_mask = torch.randint(0, 2, (T, S), dtype=torch.bool)
 #     num_heads = 8
 
-#     libs_ml.seed_everything(42)
-#     y1 = libs_ml.test_time(lambda: multi_head_attention_forward(
+#     ml.seed_everything(42)
+#     y1 = ml.test_time(lambda: multi_head_attention_forward(
 #         query, key, value, num_heads,
 #         in_proj_weight, in_proj_bias, 0.1,
 #         out_proj_weight, out_proj_bias, True,
-#         key_padding_mask, True, attn_mask), number=10, warm_up=1)
-#     libs_ml.seed_everything(42)
-#     y2 = libs_ml.test_time(lambda: F.multi_head_attention_forward(
+#         key_padding_mask, True, attn_mask), number=10, warmup=1)
+#     ml.seed_everything(42)
+#     y2 = ml.test_time(lambda: F.multi_head_attention_forward(
 #         query, key, value, embed_dim_to_check, num_heads,
 #         in_proj_weight, in_proj_bias, None, None, False, 0.1,
 #         out_proj_weight, out_proj_bias, True,
-#         key_padding_mask, True, attn_mask), number=10, warm_up=1)
+#         key_padding_mask, True, attn_mask), number=10, warmup=1)
 #     print(torch.allclose(y1[0], y2[0], atol=1e-6))
 #     print(torch.allclose(y1[1], y2[1], atol=1e-6))
 
@@ -1359,8 +1409,8 @@ def _nearest_interpolate(x: Tensor, size: Tuple[int, int]) -> Tensor:
 
 # if __name__ == "__main__":
 #     x = torch.randn(16, 3, 124, 125)
-#     y = libs_ml.test_time(lambda: _nearest_interpolate(x, (101, 102)))
-#     y2 = libs_ml.test_time(lambda: F.interpolate(x, (101, 102)))
+#     y = ml.test_time(lambda: _nearest_interpolate(x, (101, 102)))
+#     y2 = ml.test_time(lambda: F.interpolate(x, (101, 102)))
 #     print(torch.allclose(y, y2), y.shape)
 
 
@@ -1402,13 +1452,13 @@ def _bilinear_interpolate(x: Tensor, size: Tuple[int, int], align_corners: bool 
 
 # if __name__ == "__main__":
 #     x = torch.randn(16, 3, 124, 125)
-#     y = libs_ml.test_time(lambda: _bilinear_interpolate(x, (101, 102), align_corners=True))
-#     y2 = libs_ml.test_time(lambda: F.interpolate(x, (101, 102), mode="bilinear", align_corners=True))
+#     y = ml.test_time(lambda: _bilinear_interpolate(x, (101, 102), align_corners=True))
+#     y2 = ml.test_time(lambda: F.interpolate(x, (101, 102), mode="bilinear", align_corners=True))
 #     print(torch.allclose(y, y2, atol=1e-4))
 #     #
 #     x = torch.randn(16, 3, 124, 125)
-#     y = libs_ml.test_time(lambda: _bilinear_interpolate(x, (101, 102), align_corners=False))
-#     y2 = libs_ml.test_time(lambda: F.interpolate(x, (101, 102), mode="bilinear", align_corners=False))
+#     y = ml.test_time(lambda: _bilinear_interpolate(x, (101, 102), align_corners=False))
+#     y2 = ml.test_time(lambda: F.interpolate(x, (101, 102), mode="bilinear", align_corners=False))
 #     print(torch.allclose(y, y2, atol=1e-4))
 
 
@@ -1436,9 +1486,9 @@ def interpolate(
 
 # if __name__ == "__main__":
 #     x = torch.randn(16, 3, 124, 125)
-#     # y = libs_ml.test_time(lambda: _nearest_interpolate(x, (101, 102), ))
-#     y = libs_ml.test_time(lambda: interpolate(x, (101, 102), mode="area"))
-#     y2 = libs_ml.test_time(lambda: F.interpolate(x, (101, 102), mode="area"))
+#     # y = ml.test_time(lambda: _nearest_interpolate(x, (101, 102), ))
+#     y = ml.test_time(lambda: interpolate(x, (101, 102), mode="area"))
+#     y2 = ml.test_time(lambda: F.interpolate(x, (101, 102), mode="area"))
 #     print(torch.allclose(y, y2))
 
 
@@ -1466,8 +1516,8 @@ def adaptive_avg_pool2d(x: Tensor, output_size: Tuple[int, int]) -> Tensor:
 
 # if __name__ == "__main__":
 #     x = torch.randn(16, 3, 124, 125)
-#     y = libs_ml.test_time(lambda: adaptive_avg_pool2d(x, (101, 102)))
-#     y2 = libs_ml.test_time(lambda: F.adaptive_avg_pool2d(x, (101, 102)))
+#     y = ml.test_time(lambda: adaptive_avg_pool2d(x, (101, 102)))
+#     y2 = ml.test_time(lambda: F.adaptive_avg_pool2d(x, (101, 102)))
 #     print(torch.allclose(y, y2, atol=1e-6))
 
 
@@ -1494,8 +1544,8 @@ def adaptive_max_pool2d(x: Tensor, output_size: Tuple[int, int]) -> Tensor:
 
 # if __name__ == "__main__":
 #     x = torch.randn(16, 3, 124, 125)
-#     y = libs_ml.test_time(lambda: adaptive_max_pool2d(x, (101, 102)))
-#     y2 = libs_ml.test_time(lambda: F.adaptive_max_pool2d(x, (101, 102)))
+#     y = ml.test_time(lambda: adaptive_max_pool2d(x, (101, 102)))
+#     y2 = ml.test_time(lambda: F.adaptive_max_pool2d(x, (101, 102)))
 #     print(torch.allclose(y, y2))
 
 

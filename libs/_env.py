@@ -4,3 +4,10 @@ TORCH_HOME = os.environ.get("TORCH_HOME", None)
 DATASETS_PATH = os.environ.get("DATASETS_PATH", "./.dataset")
 HF_HOME = os.environ.get("HF_HOME", None)
 CACHE_HOME = os.environ.get("CACHE_HOME", "./.cache")
+PROXIES = {
+    'http': '127.0.0.1:7890',
+    'https': '127.0.0.1:7890'
+}
+HEADERS = {
+    "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36",
+}

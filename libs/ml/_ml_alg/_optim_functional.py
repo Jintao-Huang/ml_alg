@@ -4,9 +4,7 @@
 
 __all__ = []
 
-from typing import List, Optional
-import torch
-from torch import Tensor
+from ..._types import *
 
 
 @torch.no_grad()

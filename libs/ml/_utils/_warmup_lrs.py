@@ -2,11 +2,7 @@
 # Email: huangjintao@mail.ustc.edu.cn
 # Date:
 
-from typing import List, Tuple
-from mini_lightning import cosine_annealing_lr, warmup_decorator
-from torch.optim.lr_scheduler import _LRScheduler as LRScheduler, CosineAnnealingLR
-from torch.optim import Optimizer
-
+from ..._types import *
 
 class _CosineAnnealingLR(LRScheduler):
     """
@@ -22,7 +18,7 @@ class _CosineAnnealingLR(LRScheduler):
     def get_lr(self, last_epoch=None) -> List[float]:
         if last_epoch is None:
             last_epoch = self.last_epoch
-        return cosine_annealing_lr(last_epoch, self.T_max, self.eta_min, self.base_lrs)
+        return ml.cosine_annealing_lr(last_epoch, self.T_max, self.eta_min, self.base_lrs)
 
 
 #
@@ -89,7 +85,7 @@ if __name__ == "__main__":
                 elif i == warmup - 2:
                     self.assertTrue(lr != initial_lr)
                 elif i >= warmup - 1:
-                    lr2 = cosine_annealing_lr(i + 1 - warmup, T_max, eta_min, [initial_lr])[0]
+                    lr2 = ml.cosine_annealing_lr(i + 1 - warmup, T_max, eta_min, [initial_lr])[0]
                     b, atol = allclose(lr, lr2)
                     self.assertTrue(b, msg=f"atol: {atol}")
                     if i == warmup - 1:

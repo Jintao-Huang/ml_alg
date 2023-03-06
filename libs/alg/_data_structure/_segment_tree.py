@@ -14,7 +14,7 @@ __all__ = ["SegmentTree", "LazySegmentTree"]
 class SegmentTree:
     """线段树(左偏树): 不支持区间更新. 区间更新可以使用lazy线段树. 
         只支持diff. 若要支持value. 可以用存储nums, 从value计算出diff.
-    -: 使用数组存储树. 树根为0.
+    -: 使用数组存储树. 树根为0. (类似于堆)
         self.tree[0]: 存储整个段的: 树根. (与树状数组不同)
     Test Ref: https://leetcode.cn/problems/range-sum-query-mutable/
     """

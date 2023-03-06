@@ -3,20 +3,14 @@
 # Date:
 
 """
-only support tvtFt
+only support tvtF_t
 """
 
-from numpy import ndarray
-from PIL import Image
-import torch
-from typing import List, Union, Any, Callable, Optional, Tuple, Literal
-from torch import Tensor
-import torchvision.transforms as tvt
-from torchvision.transforms.functional import to_tensor as _to_tensor, InterpolationMode
-import torchvision.transforms.functional as tvtF
-import torchvision.transforms.functional_tensor as tvtFt
+from ..._types import *
+
 
 __all__ = []
+
 
 def compose(x: Any, transforms: List[Callable[[Any], Tensor]]) -> Tensor:
     for transform in transforms:
@@ -30,7 +24,7 @@ def random_horizontal_flip(x: Tensor, p: float = 0.5) -> Tensor:
     p: flip的概率
     """
     if torch.rand(()) < p:
-        x = tvtFt.hflip(x)
+        x = tvtF_t.hflip(x)
     return x
 
 
@@ -109,8 +103,8 @@ def random_resized_crop(
     img_size = x.shape[-2:]
     i, j, h, w = _get_ijhw(img_size, scale, ratio)
     #
-    img = tvtFt.crop(x, i, j, h, w)
-    img = tvtFt.resize(img, size, interpolation.value, antialias=antialias)
+    img = tvtF_t.crop(x, i, j, h, w)
+    img = tvtF_t.resize(img, size, interpolation.value, antialias=antialias)
     return img
 
 
@@ -146,7 +140,7 @@ def to_tensor(x: Union[ndarray, Image.Image]) -> Tensor:
         若为float64, 则输出float64. 所以一般传入uint8. 会进行除以255处理
     return: [C, H, W] or [1, H, W]
     """
-    return _to_tensor(x)
+    return tvtF.to_tensor(x)
 
 
 # if __name__ == "__main__":
@@ -163,7 +157,7 @@ def normalize(x: Tensor, mean: List[float], std: List[float], inplace: bool = Fa
     mean, std: len=C or 1(广播)
     return: [..., C, H, W]
     """
-    return tvtFt.normalize(x, mean, std, inplace)
+    return tvtF_t.normalize(x, mean, std, inplace)
 
 
 # if __name__ == "__main__":

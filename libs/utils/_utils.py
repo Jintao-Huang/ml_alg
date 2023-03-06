@@ -2,23 +2,7 @@
 # Email: huangjintao@mail.ustc.edu.cn
 # Date:
 
-import time
-import numpy as np
-from typing import Callable, Any, Optional, List, Dict, Union, Tuple, Iterator, Set
-import os
-from urllib.parse import urljoin
-from urllib.error import HTTPError
-from urllib.request import urlretrieve
-import hashlib
-from xml.etree.ElementTree import ElementTree as ET, Element
-from lxml.etree import _Element as Element2
-from lxml import etree
-from collections import deque
-import logging
-import unittest as ut
-import mini_lightning as ml
-import datetime as dt
-
+from .._types import *
 
 __all__ = ["download_files", "calculate_hash", "xml_to_dict", "mywalk",
            "test_unit", "ProgramQueue", "config_to_dict", "xpath_get_text", "dict_head",
@@ -55,8 +39,8 @@ if __name__ == "__main__":
 #     def func(x, y):
 #         return x @ y
 #     x = np.random.randn(1000, 1000)
-#     libs_ml.test_time(lambda: func(x, x), 100)
-#     libs_ml.test_time(lambda: func(x, x), 100, timer=libs_ml.time_synchronize)
+#     ml.test_time(lambda: func(x, x), 100)
+#     ml.test_time(lambda: func(x, x), 100, timer=ml.time_synchronize)
 #     print(timeit(lambda: func(x, x), number=100))
 
 # if __name__ == "__main__":
@@ -70,21 +54,21 @@ if __name__ == "__main__":
 #     def f2():
 #         cv.cvtColor(x, cv.COLOR_BGR2RGB, x)
 #         return x
-#     libs_ml.test_time(f, 10)
-#     libs_ml.test_time(f, 10)
+#     ml.test_time(f, 10)
+#     ml.test_time(f, 10)
 
 
 def calculate_hash(fpath: str) -> str:
     """计算文件的hash. 一般用于作为文件名的后缀. e.g. resnet34-b627a593.pth"""
     n = 1024
-    sha256 = hashlib.sha256()
+    s256 = sha256()
     with open(fpath, "rb") as f:
         while True:
             buffer = f.read(n)  # bytes
             if len(buffer) == 0:  # ""
                 break
-            sha256.update(buffer)
-    digest = sha256.hexdigest()
+            s256.update(buffer)
+    digest = s256.hexdigest()
     return digest[:8]
 
 # if __name__ == "__main__":
@@ -108,14 +92,14 @@ def _xml_to_dict(node: Element) -> Node:
 def xml_to_dict(fpath: str) -> Node:
     # 不处理node中的attribute
     """每个xml node是一个dict, 标题是key, 里面的内容是List. XML_NODE=Dict[str, List[XML_NODE]]"""
-    tree = ET.parse(fpath)
+    tree = ET(file=fpath)
     root: Element = tree.getroot()
     return _xml_to_dict(root)
 
 
-# if __name__ == "__main__":
-#     fpath = "asset/1.xml"
-#     print(xml_to_dict(fpath))
+if __name__ == "__main__":
+    fpath = "asset/1.xml"
+    print(xml_to_dict(fpath))
 
 
 def _get_folders_fnames(curr_dir: str) -> Tuple[List[str], List[str]]:

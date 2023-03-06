@@ -2,10 +2,7 @@
 # Email: huangjintao@mail.ustc.edu.cn
 # Date:
 
-import torch
-from typing import Tuple, Union, Literal
-from torch import Tensor
-from torch import dtype as Dtype
+from ..._types import *
 
 __all__ = []
 

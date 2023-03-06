@@ -432,7 +432,7 @@ class RobertaForMLM(RobertaPreTrainedModel):
 
 if __name__ == "__main__":
     from libs import *
-    libs_ml.select_device([0])
+    ml.select_device([0])
     model_id = "roberta-base"
     from transformers.models.roberta.modeling_roberta import RobertaPreTrainedModel as _RobertaPreTrainedModel
     config = _RobertaPreTrainedModel.config_class.from_pretrained(model_id)
@@ -445,7 +445,7 @@ if __name__ == "__main__":
     text2 = "Replace non-padding symbols with their position numbers. "
     t = AutoTokenizer.from_pretrained(model_id)
     batch = t([text, text2], padding=True, return_tensors="pt")
-    libs_ml.seed_everything(42)
+    ml.seed_everything(42)
     for i in range(1):
         y: Dict[str, Tensor] = model(batch["input_ids"].cuda(), batch["attention_mask"].cuda(), output_attn=True)
         print(torch.allclose(y["output"], libs_ml.test_tensor_allclose(idx=2302171555), atol=1e-6))

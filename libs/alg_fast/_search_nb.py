@@ -2,12 +2,7 @@
 # Email: huangjintao@mail.ustc.edu.cn
 # Date:
 
-from typing import Dict, List
-from numba import njit, jit
-from numba.typed.typedlist import List as TypedList
-from numba.typed.typeddict import Dict as TypedDict
-from numpy import ndarray
-from numba.core.types import ListType, int64, boolean
+from .._types import *
 
 
 # 实现1, 很慢. 请使用实现2.
@@ -96,6 +91,6 @@ if __name__ == "__main__":
     print(n_queens2_nb(4))
     print(libs_alg.n_queens(4))
     n = 12
-    libs_ml.test_time(lambda: n_queens_nb(n), warm_up=1)
-    libs_ml.test_time(lambda: n_queens2_nb(n), warm_up=1)
-    libs_ml.test_time(lambda: libs_alg.n_queens(n), warm_up=1)
+    ml.test_time(lambda: n_queens_nb(n), warmup=1)
+    ml.test_time(lambda: n_queens2_nb(n), warmup=1)
+    ml.test_time(lambda: libs_alg.n_queens(n), warmup=1)

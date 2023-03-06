@@ -2,24 +2,12 @@
 """
 cls_token_id=0, pad_token_id=1
 """
-from torch.nn import Module
-from typing import Tuple, Dict, Union, List, Optional
-import math
-import torch
-from torch import Tensor
-import torch.nn as nn
-import torch.nn.functional as F
 
-try:
-    from .._ml_alg._metrics import accuracy
-    from ._roberta import (RobertaEmbeddings, RobertaAttention, RobertaIntermediate, RobertaOutput,
-                           RobertaPool, RobertaModel, RobertaLayer, RobertaSelfAttention,
-                           RobertaSelfOutput, RobertaLMHead, RobertaPreTrainedModel)
-except ImportError:
-    from libs.ml._ml_alg._metrics import accuracy
-    from libs.ml._models._roberta import (RobertaEmbeddings, RobertaAttention, RobertaIntermediate, RobertaOutput,
-                                          RobertaPool, RobertaModel, RobertaLayer, RobertaSelfAttention,
-                                          RobertaSelfOutput, RobertaLMHead, RobertaPreTrainedModel)
+from ..._types import *
+from .._ml_alg._metrics import accuracy
+from ._roberta import (RobertaEmbeddings, RobertaAttention, RobertaIntermediate, RobertaOutput,
+                        RobertaPool, RobertaModel, RobertaLayer, RobertaSelfAttention,
+                        RobertaSelfOutput, RobertaLMHead, RobertaPreTrainedModel)
 
 
 class LongformerEmbeddings(RobertaEmbeddings):
@@ -266,9 +254,9 @@ class LongformerSelfAttention(RobertaSelfAttention):
 
 
 # if __name__ == "__main__":
-#     libs_ml.seed_everything(42)
+#     ml.seed_everything(42)
 #     attn = LongformerSelfAttention(0, attn_window=[256])
-#     libs_ml.seed_everything(42)
+#     ml.seed_everything(42)
 #     x = torch.randn(2, 512, 768)
 #     attention_mask = libs_ml.test_tensor_allclose(idx=2302171828)
 #     attention_mask[:, 0] = attention_mask[0, -1]
@@ -471,13 +459,13 @@ class LongformerForMLM(LongformerPreTrainedModel):
             masked_id = torch.nonzero(labels != -100, as_tuple=True)
             y_pred = logits[masked_id].argmax(-1)
             y_label = labels[masked_id]
-            res["mlm_acc"] = libs_ml.accuracy(y_pred, y_label, "multiclass", -1)
+            res["mlm_acc"] = accuracy(y_pred, y_label, "multiclass", -1)
         return res
 
 
 if __name__ == "__main__":
     from libs import *
-    libs_ml.select_device([0])
+    ml.select_device([0])
     from transformers.models.longformer.modeling_longformer import LongformerPreTrainedModel as _LongformerPreTrainedModel
     model_id = "allenai/longformer-base-4096"
     config = _LongformerPreTrainedModel.config_class.from_pretrained(model_id)
@@ -492,9 +480,9 @@ if __name__ == "__main__":
     text2 = "Replace non-padding symbols with their position numbers. "
     t = AutoTokenizer.from_pretrained(model_id)
     batch = t([text, text2], padding=True, return_tensors="pt")
-    libs_ml.seed_everything(42, True)
+    ml.seed_everything(42, True)
     for i in range(1):
-        y: Dict[str, Tensor] = libs_ml.test_time(lambda: model(
+        y: Dict[str, Tensor] = ml.test_time(lambda: model(
             batch["input_ids"].cuda(), batch["attention_mask"].cuda(), output_attn=True))
         ########
         # print(torch.allclose(y["output"], libs_ml.test_tensor_allclose(idx=2302172126), atol=1e-5))

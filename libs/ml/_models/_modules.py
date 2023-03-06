@@ -1,12 +1,6 @@
-from torch.autograd.function import FunctionCtx, Function
-from torch import Tensor
-import torch
-import torch.distributed as dist
-from typing import Tuple
-try:
-    from .._ml_alg._metrics import pairwise_cosine_similarity
-except ImportError:
-    from libs.ml._ml_alg._metrics import pairwise_cosine_similarity
+from ..._types import *
+from .._ml_alg._metrics import pairwise_cosine_similarity
+
 
 __all__ = ["GatherLayer", "NT_Xent_loss"]
 

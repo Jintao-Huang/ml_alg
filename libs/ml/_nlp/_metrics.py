@@ -2,12 +2,7 @@
 # Email: huangjintao@mail.ustc.edu.cn
 # Date:
 
-from typing import List, Literal, Dict, Tuple, Union
-from torch import Tensor
-import torch
-from collections import Counter
-import re
-import math
+from ..._types import *
 
 """ROUTE, BLEU, PPL, BPW, BPC
 ROUTE: 翻译和摘要的metric.

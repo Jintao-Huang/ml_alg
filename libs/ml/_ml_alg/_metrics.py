@@ -2,13 +2,7 @@
 # Email: huangjintao@mail.ustc.edu.cn
 # Date:
 
-from numba import njit
-from numpy import ndarray
-from typing import Optional, Tuple, Literal
-from torch import Tensor
-import torch.nn.functional as F
-from torch import dtype as Dtype
-import torch
+from ..._types import *
 from ._cy import calc_rank_loop as _calc_rank_loop
 
 __all__ = [
@@ -88,8 +82,8 @@ def accuracy(
 #     from torchmetrics.functional.classification.accuracy import accuracy as _accuracy
 #     preds = torch.randint(0, 10, (1000,))
 #     target = torch.randint(0, 10, (1000,))
-#     y = libs_ml.test_time(lambda: accuracy(preds, target, "multiclass", num_classes=10), 10)
-#     y2 = libs_ml.test_time(lambda: _accuracy(preds, target, "multiclass", num_classes=10), 10)
+#     y = ml.test_time(lambda: accuracy(preds, target, "multiclass", num_classes=10), 10)
+#     y2 = ml.test_time(lambda: _accuracy(preds, target, "multiclass", num_classes=10), 10)
 #     print(y, y2)
 #     #
 #     from torchmetrics.classification.accuracy import Accuracy
@@ -102,15 +96,15 @@ def accuracy(
 #     from torchmetrics.functional.classification.accuracy import accuracy as _accuracy
 #     target = torch.tensor([0, 2, 2, 1, 1])
 #     preds = torch.tensor([[0.9, 0.01, 0.09], [0.5, 0.2, 0.3], [0.4, 0.25, 0.15], [0.3, 0.4, 0.3], [0.1, 0.8, 0.1]])
-#     print(libs_ml.test_time(lambda: _accuracy(preds, target, "multiclass", num_classes=3)))
-#     print(libs_ml.test_time(lambda: _accuracy(preds, target, "multiclass", num_classes=3, top_k=2)))
-#     print(libs_ml.test_time(lambda: accuracy(preds, target, "multiclass", num_classes=3)))
-#     print(libs_ml.test_time(lambda: accuracy(preds, target, "multiclass", num_classes=3, top_k=2)))
+#     print(ml.test_time(lambda: _accuracy(preds, target, "multiclass", num_classes=3)))
+#     print(ml.test_time(lambda: _accuracy(preds, target, "multiclass", num_classes=3, top_k=2)))
+#     print(ml.test_time(lambda: accuracy(preds, target, "multiclass", num_classes=3)))
+#     print(ml.test_time(lambda: accuracy(preds, target, "multiclass", num_classes=3, top_k=2)))
 
 #     target = torch.tensor([0, 0, 1, 1, 1])
 #     preds = torch.tensor([0.1, 0.1, 0.5, 0.9, 0.9])
-#     print(libs_ml.test_time(lambda: _accuracy(preds, target, "binary")))
-#     print(libs_ml.test_time(lambda: accuracy(preds, target, "binary")))
+#     print(ml.test_time(lambda: _accuracy(preds, target, "binary")))
+#     print(ml.test_time(lambda: accuracy(preds, target, "binary")))
 
 
 def confusion_matrix(
@@ -160,15 +154,15 @@ def confusion_matrix(
 #     from torchmetrics.functional.classification.confusion_matrix import confusion_matrix as _confusion_matrix
 #     preds = torch.randint(0, 10, (100,))
 #     target = torch.randint(0, 10, (100,))
-#     y = libs_ml.test_time(lambda: confusion_matrix(preds, target, "multiclass", num_classes=-1, normalize="true"), 10)
-#     y2 = libs_ml.test_time(lambda: _confusion_matrix(
+#     y = ml.test_time(lambda: confusion_matrix(preds, target, "multiclass", num_classes=-1, normalize="true"), 10)
+#     y2 = ml.test_time(lambda: _confusion_matrix(
 #         preds, target, "multiclass", num_classes=int(target.max().item()) + 1, normalize="true"), 10)
 #     print(torch.allclose(y, y2))
 #     #
 #     preds = torch.randint(0, 2, (100,))
 #     target = torch.randint(0, 2, (100,))
-#     y = libs_ml.test_time(lambda: confusion_matrix(preds, target, "binary", normalize="true"), 10)
-#     y2 = libs_ml.test_time(lambda: _confusion_matrix(preds, target, "binary", normalize="true"), 10)
+#     y = ml.test_time(lambda: confusion_matrix(preds, target, "binary", normalize="true"), 10)
+#     y2 = ml.test_time(lambda: _confusion_matrix(preds, target, "binary", normalize="true"), 10)
 #     print(torch.allclose(y, y2))
 
 
@@ -285,11 +279,11 @@ def f1_score(
 #     preds = torch.randint(0, 2, (1000,))
 #     target = torch.randint(0, 1, (1000,))
 #     target[:10] = 1
-#     print(libs_ml.test_time(lambda: _f1_score(preds, target, "binary")))
-#     print(libs_ml.test_time(lambda: _fbeta_score(preds, target, "binary", 1.)))
-#     print(libs_ml.test_time(lambda: __precision(preds, target, "binary")))
-#     print(libs_ml.test_time(lambda: __recall(preds, target, "binary")))
-#     print(libs_ml.test_time(lambda: precision_recall_fbeta(preds, target, "binary", 1)))
+#     print(ml.test_time(lambda: _f1_score(preds, target, "binary")))
+#     print(ml.test_time(lambda: _fbeta_score(preds, target, "binary", 1.)))
+#     print(ml.test_time(lambda: __precision(preds, target, "binary")))
+#     print(ml.test_time(lambda: __recall(preds, target, "binary")))
+#     print(ml.test_time(lambda: precision_recall_fbeta(preds, target, "binary", 1)))
 #     #
 #     from torchmetrics.classification.f_beta import F1Score
 #     from torchmetrics.classification.precision_recall import Precision, Recall
@@ -388,9 +382,9 @@ def average_precision(y_score: Tensor, y_true: Tensor) -> Tensor:
 #     from torchmetrics.functional import average_precision as _average_precision, precision_recall_curve as _precision_recall_curve
 #     y_score = torch.rand(1000)
 #     y_true = torch.randint(0, 2, (1000,)).long()
-#     b = libs_ml.test_time(
+#     b = ml.test_time(
 #         lambda: average_precision(y_score, y_true), number=10)
-#     b2 = libs_ml.test_time(
+#     b2 = ml.test_time(
 #         lambda: _average_precision(y_score, y_true, "binary"), number=10)
 #     print(torch.allclose(b, b2), b)
 #     from torchmetrics.classification.average_precision import AveragePrecision
@@ -401,11 +395,11 @@ def average_precision(y_score: Tensor, y_true: Tensor) -> Tensor:
 #     from sklearn.metrics import precision_recall_curve as __precision_recall_curve
 #     y_score = torch.tensor([0.1, 0.2, 0.2, 0.5, 0.5, 0.5, 0.7, 0.8, 0.9, 0.97])
 #     y_true = torch.randint(0, 2, (10,))
-#     a = libs_ml.test_time(
+#     a = ml.test_time(
 #         lambda: precision_recall_curve(y_score, y_true), number=10)
-#     a2 = libs_ml.test_time(
+#     a2 = ml.test_time(
 #         lambda: _precision_recall_curve(y_score, y_true, "binary"), number=10)
-#     a3 = libs_ml.test_time(
+#     a3 = ml.test_time(
 #         lambda: __precision_recall_curve(y_true, y_score), number=10)
 #     print(a)
 #     print(a2)
@@ -466,8 +460,8 @@ def auroc(y_score: Tensor, y_true: Tensor) -> Tensor:
 #     from torchmetrics.functional import auroc as _auroc
 #     y_score = torch.rand(1000)
 #     y_true = torch.randint(0, 2, (1000,)).long()
-#     print(libs_ml.test_time(lambda:auroc(y_score, y_true)))
-#     print(libs_ml.test_time(lambda:_auroc(y_score, y_true, "binary")))
+#     print(ml.test_time(lambda:auroc(y_score, y_true)))
+#     print(ml.test_time(lambda:_auroc(y_score, y_true, "binary")))
 #     print()
 #     from torchmetrics.classification.auroc import AUROC
 #     auroc_metric = AUROC("binary")
@@ -475,16 +469,16 @@ def auroc(y_score: Tensor, y_true: Tensor) -> Tensor:
 #     #
 #     y_score = torch.rand(1000, 10)
 #     y_true = torch.randint(0, 2, (1000, 10)).long()
-#     print(libs_ml.test_time(lambda:auroc(y_score.flatten(), y_true.flatten())))
-#     print(libs_ml.test_time(lambda:_auroc(y_score, y_true, "binary")))
+#     print(ml.test_time(lambda:auroc(y_score.flatten(), y_true.flatten())))
+#     print(ml.test_time(lambda:_auroc(y_score, y_true, "binary")))
 
 # if __name__ == "__main__":
 #     from sklearn.metrics import roc_auc_score as _roc_auc_score, roc_curve as _roc_curve
 #     y_score = torch.rand(1000)
 #     y_true = torch.randint(0, 2, (1000,)).long()
-#     a = libs_ml.test_time(
+#     a = ml.test_time(
 #         lambda: auroc(y_score, y_true), number=10)
-#     a2 = libs_ml.test_time(
+#     a2 = ml.test_time(
 #         lambda: _roc_auc_score(y_true, y_score), number=10)
 #     print(torch.allclose(a, torch.tensor(a2, dtype=torch.float)))
 
@@ -492,9 +486,9 @@ def auroc(y_score: Tensor, y_true: Tensor) -> Tensor:
 #     y_score = torch.tensor([0.1, 0.2, 0.2, 0.5, 0.5, 0.5, 0.7, 0.8, 0.9, 0.97])
 #     y_true = torch.randint(0, 2, (10,))
 
-#     b = libs_ml.test_time(
+#     b = ml.test_time(
 #         lambda: roc_curve(y_score, y_true), number=10)
-#     b2 = libs_ml.test_time(
+#     b2 = ml.test_time(
 #         lambda: _roc_curve(y_true, y_score), number=10)
 #     print(b)
 #     print(b2)
@@ -536,13 +530,13 @@ def r2_score(y_pred: Tensor, y_true: Tensor, reduction: Literal["mean", "none"] 
 #     print()
 #     y_pred = torch.randn(10000)
 #     y_true = torch.randn(10000)
-#     print(libs_ml.test_time(lambda: r2_score(y_pred, y_true)))
-#     print(libs_ml.test_time(lambda: _r2_score(y_pred, y_true)))
+#     print(ml.test_time(lambda: r2_score(y_pred, y_true)))
+#     print(ml.test_time(lambda: _r2_score(y_pred, y_true)))
 #     #
 #     y_pred = torch.randn(10000, 1000)
 #     y_true = torch.randn(10000, 1000)
-#     print(libs_ml.test_time(lambda: r2_score(y_pred, y_true)))
-#     print(libs_ml.test_time(lambda: _r2_score(y_pred, y_true)))
+#     print(ml.test_time(lambda: r2_score(y_pred, y_true)))
+#     print(ml.test_time(lambda: _r2_score(y_pred, y_true)))
 
 
 def batched_cosine_similarity(X: Tensor, Y: Tensor) -> Tensor:
@@ -574,15 +568,15 @@ def pairwise_cosine_similarity(X: Tensor, Y: Tensor) -> Tensor:
 #     from torchmetrics.functional.pairwise.cosine import pairwise_cosine_similarity as _pairwise_cosine_similarity
 #     x = torch.rand(1000, 1000)
 #     y = torch.rand(1000, 1000)
-#     z = libs_ml.test_time(lambda: pairwise_cosine_similarity(x, y), 5)
-#     z2 = libs_ml.test_time(lambda: _pairwise_cosine_similarity(x, y), 5)
+#     z = ml.test_time(lambda: pairwise_cosine_similarity(x, y), 5)
+#     z2 = ml.test_time(lambda: _pairwise_cosine_similarity(x, y), 5)
 #     print(torch.allclose(z, z2, atol=1e-6))
-#     z3 = libs_ml.test_time(lambda: batched_cosine_similarity(x, y), 5)
+#     z3 = ml.test_time(lambda: batched_cosine_similarity(x, y), 5)
 #     print(torch.allclose(z.ravel()[::1000+1], z3, atol=1e-6))
 #     #
-#     z4 = libs_ml.test_time(lambda: F.cosine_similarity(x, y), 5)
+#     z4 = ml.test_time(lambda: F.cosine_similarity(x, y), 5)
 #     print(torch.allclose(z3, z4, atol=1e-6))
-#     z5 = libs_ml.test_time(lambda: F.cosine_similarity(x[:, None], y[None, :], dim=2), 1)
+#     z5 = ml.test_time(lambda: F.cosine_similarity(x[:, None], y[None, :], dim=2), 1)
 #     print(torch.allclose(z, z5, atol=1e-6))
 
 
@@ -641,12 +635,12 @@ def pairwise_euclidean_distance(
 #     from torchmetrics.functional.pairwise.euclidean import pairwise_euclidean_distance as _pairwise_euclidean_distance
 #     x = torch.randn(10000, 1000)
 #     x2 = torch.randn(10000, 1000)
-#     y1 = libs_ml.test_time(lambda: pairwise_euclidean_distance(x, x2), 5)
-#     y2 = libs_ml.test_time(lambda: _pairwise_euclidean_distance(x, x2), 5)
-#     y3 = libs_ml.test_time(lambda: F.pairwise_distance(x, x2), 5)
+#     y1 = ml.test_time(lambda: pairwise_euclidean_distance(x, x2), 5)
+#     y2 = ml.test_time(lambda: _pairwise_euclidean_distance(x, x2), 5)
+#     y3 = ml.test_time(lambda: F.pairwise_distance(x, x2), 5)
 #     print(torch.allclose(y1, y2))  # True
 #     print(torch.allclose(y2.ravel()[::10000+1], y3, atol=1e-6))  # True
-#     y4 = libs_ml.test_time(lambda: batched_euclidean_distance(x, x2), 5)
+#     y4 = ml.test_time(lambda: batched_euclidean_distance(x, x2), 5)
 #     print(torch.allclose(y4, y3, atol=1e-6))  # True
 
 
@@ -683,9 +677,9 @@ def pairwise_mse(y_pred: Tensor, y_true: Tensor, reduction: Literal["mean", "sum
 # if __name__ == "__main__":
 #     x = torch.randn((2000, 1000))
 #     x2 = torch.randn((2000, 1000))
-#     y = libs_ml.test_time(lambda: batched_mse(x, x2), number=10)
-#     y2 = libs_ml.test_time(lambda: F.mse_loss(x, x2, reduction="none").mean(dim=1), number=10)
-#     y3 = libs_ml.test_time(lambda: pairwise_mse(x, x2), number=10)
+#     y = ml.test_time(lambda: batched_mse(x, x2), number=10)
+#     y2 = ml.test_time(lambda: F.mse_loss(x, x2, reduction="none").mean(dim=1), number=10)
+#     y3 = ml.test_time(lambda: pairwise_mse(x, x2), number=10)
 #     print(torch.allclose(y, y2))
 #     print(torch.allclose(y, y3.diag()))
 
@@ -700,44 +694,44 @@ def pairwise_equal(X: Tensor, Y: Tensor) -> Tensor:
 # if __name__ == '__main__':
 #     x = torch.arange(1000)
 #     x2 = torch.arange(5, 1005)
-#     y = libs_ml.test_time(lambda: pairwise_equal(x, x2), number=10)
+#     y = ml.test_time(lambda: pairwise_equal(x, x2), number=10)
 #     print(y)
 
 # if __name__ == "__main__":
 #     # test einsum 的speed
 #     X = torch.randn(2000, 2000)
 #     Y = X.T.contiguous()
-#     a = libs_ml.test_time(lambda: X@Y)
-#     a = libs_ml.test_time(lambda: X@X.T)
+#     a = ml.test_time(lambda: X@Y)
+#     a = ml.test_time(lambda: X@X.T)
 #     Y = X.T.contiguous()
-#     b = libs_ml.test_time(lambda: torch.einsum("ij,ij->i", X, Y))
-#     c = libs_ml.test_time(lambda: torch.einsum("ij,ji->i", X, X))  # 慢!
+#     b = ml.test_time(lambda: torch.einsum("ij,ij->i", X, Y))
+#     c = ml.test_time(lambda: torch.einsum("ij,ji->i", X, X))  # 慢!
 #     print(torch.allclose(b, c, rtol=1e-4, atol=1e-4))
 #     #
 #     print()
-#     libs_ml.test_time(lambda: torch.einsum("ij,ij->ij", X, Y))
-#     libs_ml.test_time(lambda: X ** 2)  # 慢!
-#     libs_ml.test_time(lambda: X * X)
+#     ml.test_time(lambda: torch.einsum("ij,ij->ij", X, Y))
+#     ml.test_time(lambda: X ** 2)  # 慢!
+#     ml.test_time(lambda: X * X)
 
 # if __name__ == "__main__":
 #     # test inplace. 速度类似. 见max
 #     X = torch.randn(2000, 2000)
-#     libs_ml.test_time(lambda: torch.sqrt(X), number=1)
-#     libs_ml.test_time(lambda: torch.sqrt_(X), number=1)
+#     ml.test_time(lambda: torch.sqrt(X), number=1)
+#     ml.test_time(lambda: torch.sqrt_(X), number=1)
 
 
 # if __name__ == "__main__":
-#     # a = libs_ml.test_time(lambda:  torch.randn(1000, 2000))
-#     # a = libs_ml.test_time(lambda:  torch.zeros(1000, 2000))  # 慢20倍
-#     # a = libs_ml.test_time(lambda:  torch.empty(1000, 2000))
+#     # a = ml.test_time(lambda:  torch.randn(1000, 2000))
+#     # a = ml.test_time(lambda:  torch.zeros(1000, 2000))  # 慢20倍
+#     # a = ml.test_time(lambda:  torch.empty(1000, 2000))
 #     a = torch.zeros(1000, 2000)
-#     # libs_ml.test_time(lambda:  a.add_(100))
-#     # libs_ml.test_time(lambda:  a + 100)  # 慢2倍
-#     x = libs_ml.test_time(lambda:  torch.empty(1000, 2000))
-#     libs_ml.test_time(lambda:  x.zero_())
-#     libs_ml.test_time(lambda:  x.add_(10.2))
-#     libs_ml.test_time(lambda:  x.mul_(10.2))
-#     libs_ml.test_time(lambda:  x.div_(10.123))
+#     # ml.test_time(lambda:  a.add_(100))
+#     # ml.test_time(lambda:  a + 100)  # 慢2倍
+#     x = ml.test_time(lambda:  torch.empty(1000, 2000))
+#     ml.test_time(lambda:  x.zero_())
+#     ml.test_time(lambda:  x.add_(10.2))
+#     ml.test_time(lambda:  x.mul_(10.2))
+#     ml.test_time(lambda:  x.div_(10.123))
 
 """
 1. 信息量 Info: [F]->[F]: -log(X)
@@ -762,8 +756,8 @@ def kl_divergence(p: Tensor, q: Tensor) -> Tensor:
 #     Y = torch.rand(1000, 100)
 #     X = torch.softmax(X, dim=1)
 #     Y = torch.softmax(Y, dim=1)
-#     print(libs_ml.test_time(lambda: _kl_divergence(X, Y)))
-#     print(libs_ml.test_time(lambda: kl_divergence(X, Y)))
+#     print(ml.test_time(lambda: _kl_divergence(X, Y)))
+#     print(ml.test_time(lambda: kl_divergence(X, Y)))
 
 
 def pearson_corrcoef(y_pred: Tensor, y_true: Tensor) -> Tensor:
@@ -787,15 +781,15 @@ def pearson_corrcoef(y_pred: Tensor, y_true: Tensor) -> Tensor:
 #     from torchmetrics.functional import pearson_corrcoef as _pearson_corrcoef
 #     target = torch.randn(10000)
 #     preds = torch.randn(10000)
-#     y = libs_ml.test_time(lambda: _pearson_corrcoef(preds, target))
-#     y2 = libs_ml.test_time(lambda: pearson_corrcoef(preds, target))
-#     y3 = libs_ml.test_time(lambda: torch.corrcoef(torch.stack([preds, target])))
+#     y = ml.test_time(lambda: _pearson_corrcoef(preds, target))
+#     y2 = ml.test_time(lambda: pearson_corrcoef(preds, target))
+#     y3 = ml.test_time(lambda: torch.corrcoef(torch.stack([preds, target])))
 #     print(torch.allclose(y, y2))
 #     print(torch.allclose(y, y3[0, 1]))
 #     target = torch.randn(10000, 1000)
 #     preds = torch.randn(10000, 1000)
-#     y = libs_ml.test_time(lambda: _pearson_corrcoef(preds, target))
-#     y2 = libs_ml.test_time(lambda: pearson_corrcoef(preds, target))
+#     y = ml.test_time(lambda: _pearson_corrcoef(preds, target))
+#     y2 = ml.test_time(lambda: pearson_corrcoef(preds, target))
 #     print(torch.allclose(y, y2))
 
 def calc_rank(x: Tensor) -> Tensor:
@@ -831,8 +825,8 @@ def calc_rank(x: Tensor) -> Tensor:
 #     from torchmetrics.functional.regression.spearman import _rank_data as rank_data
 #     # x = torch.randint(0, 100, (10000,)).float()
 #     x = torch.tensor([5, 1, 4, 5.])
-#     y = libs_ml.test_time(lambda: rank_data(x), 10)
-#     y2 = libs_ml.test_time(lambda: calc_rank(x), 10)
+#     y = ml.test_time(lambda: rank_data(x), 10)
+#     y2 = ml.test_time(lambda: calc_rank(x), 10)
 #     print(torch.allclose(y, y2))
 
 
@@ -861,17 +855,17 @@ def spearman_corrcoef(y_pred: Tensor, y_true: Tensor) -> Tensor:
 #     from torchmetrics.functional import spearman_corrcoef as _spearman_corrcoef
 #     target = torch.randn(10000)
 #     preds = torch.randn(10000)
-#     y = libs_ml.test_time(lambda: _spearman_corrcoef(preds, target))
-#     y2 = libs_ml.test_time(lambda: spearman_corrcoef(preds, target))
+#     y = ml.test_time(lambda: _spearman_corrcoef(preds, target))
+#     y2 = ml.test_time(lambda: spearman_corrcoef(preds, target))
 #     print(torch.allclose(y, y2))
 #     target = torch.randn(10000, 1000)
 #     preds = torch.randn(10000, 1000)
-#     y = libs_ml.test_time(lambda: _spearman_corrcoef(preds, target))
-#     y2 = libs_ml.test_time(lambda: spearman_corrcoef(preds, target))
+#     y = ml.test_time(lambda: _spearman_corrcoef(preds, target))
+#     y2 = ml.test_time(lambda: spearman_corrcoef(preds, target))
 #     print(torch.allclose(y, y2))
 #     #
 #     target = torch.randn(2000 * 1000)
 #     preds = torch.randn(2000 * 1000)
-#     y = libs_ml.test_time(lambda: _spearman_corrcoef(preds, target))
-#     y2 = libs_ml.test_time(lambda: spearman_corrcoef(preds, target))
+#     y = ml.test_time(lambda: _spearman_corrcoef(preds, target))
+#     y2 = ml.test_time(lambda: spearman_corrcoef(preds, target))
 #     print(torch.allclose(y, y2))

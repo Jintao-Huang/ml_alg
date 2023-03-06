@@ -2,16 +2,7 @@
 # Email: huangjintao@mail.ustc.edu.cn
 # Date:
 
-from typing import Optional, Tuple, Dict, Callable
-from hashlib import sha256
-import os
-import requests
-from torch import Tensor
-from torch.nn import Module
-import torch
-from torch.nn.modules.module import _IncompatibleKeys as IncompatibleKeys
-from transformers.configuration_utils import PretrainedConfig
-import mini_lightning as ml
+from ..._types import *
 
 __all__ = ["hf_get_state_dict"]
 logger = ml.logger

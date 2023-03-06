@@ -104,7 +104,7 @@ def merge(nums: List[Any], lo: int, mid: int, hi: int) -> None:
 
 
 def _merge_sort(nums: List[Any], lo: int, hi: int) -> None:
-    """[lo..hi]左偏(多)划分
+    """[lo..hi]mid偏左; 但[lo..mid](左边多) {定义为左偏}
     """
     if lo == hi:
         return

@@ -1,14 +1,13 @@
 
-from torch.autograd import Function
 import torch
 import matplotlib.pyplot as plt
 from torch.optim.optimizer import Optimizer
-from torch.autograd.function import FunctionCtx
+from torch.autograd.function import Function, FunctionCtx
 from torch import Tensor
 from typing import Tuple, List
 
 
-class Linear(Function):
+class _Linear(Function):
     @staticmethod
     def forward(ctx: FunctionCtx, x: Tensor, w: Tensor, b: Tensor) -> Tensor:
         ctx.save_for_backward(x, w)
@@ -23,7 +22,7 @@ class Linear(Function):
         return x_grad, w_grad, b_grad
 
 
-class ReLU(Function):
+class _ReLU(Function):
     @staticmethod
     def forward(ctx: FunctionCtx, z: Tensor) ->Tensor:
         z_greater_0 = (z > 0).float()
@@ -36,7 +35,7 @@ class ReLU(Function):
         return a_grad * z_greater_0
 
 
-class MSELoss(Function):
+class _MSELoss(Function):
     @staticmethod
     def forward(ctx, y_pred: Tensor, target: Tensor) -> Tensor:
         ctx.save_for_backward(y_pred, target)
@@ -87,11 +86,11 @@ def main():
     optim = _SGD([w1, w2, b1, b2], lr)
     for i in range(501):
         # 1.forward
-        z = Linear().apply(x, w1, b1)
-        a = ReLU().apply(z)
-        y_pred = Linear().apply(a, w2, b2)
+        z = _Linear().apply(x, w1, b1)
+        a = _ReLU().apply(z)
+        y_pred = _Linear().apply(a, w2, b2)
         # 2. loss
-        loss = MSELoss().apply(y_pred, y_true)
+        loss = _MSELoss().apply(y_pred, y_true)
         # 3. backward
         optim.zero_grad()
         loss.backward()

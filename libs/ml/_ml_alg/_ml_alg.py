@@ -2,15 +2,9 @@
 # Email: huangjintao@mail.ustc.edu.cn
 # Date:
 
-import torch
-import torch.linalg as tl
-from torch import Tensor
-from typing import Tuple, Optional, Literal
-import torch.nn.functional as F
-try:
-    from ._metrics import pairwise_euclidean_distance, batched_euclidean_distance
-except ImportError:
-    from libs.ml._ml_alg._metrics import pairwise_euclidean_distance, batched_euclidean_distance
+from ..._types import *
+from ._metrics import pairwise_euclidean_distance, batched_euclidean_distance
+
 
 __all__ = [
     "StandardScaler", "MinMaxScaler",
@@ -661,12 +655,12 @@ class NearestNeighbors:
 
 #     X = torch.randn(5000, 500).to(torch.float64)
 #     Q = torch.randn(100, 500).to(torch.float64)
-#     z = ml.test_time(lambda: _NearestNeighbors(algorithm="kd_tree").fit(X).kneighbors(Q, 100), warm_up=1)
-#     z2 = ml.test_time(lambda: NearestNeighbors(alg="naive").fit(X).kneighbors(Q, 100), warm_up=1)
+#     z = ml.test_time(lambda: _NearestNeighbors(algorithm="kd_tree").fit(X).kneighbors(Q, 100), warmup=1)
+#     z2 = ml.test_time(lambda: NearestNeighbors(alg="naive").fit(X).kneighbors(Q, 100), warmup=1)
 #     print(torch.allclose(torch.from_numpy(z[0]), z2[0]))
 #     print(torch.allclose(torch.from_numpy(z[1]), z2[1]))
 #     X = X.cuda()
 #     Q = Q.cuda()
-#     z2 = ml.test_time(lambda: NearestNeighbors(alg="naive").fit(X).kneighbors(Q, 100), warm_up=1, timer=ml.time_synchronize)
+#     z2 = ml.test_time(lambda: NearestNeighbors(alg="naive").fit(X).kneighbors(Q, 100), warmup=1, timer=ml.time_synchronize)
 #     print(torch.allclose(torch.from_numpy(z[0]), z2[0].cpu()))
 #     print(torch.allclose(torch.from_numpy(z[1]), z2[1].cpu()))

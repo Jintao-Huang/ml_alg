@@ -68,7 +68,7 @@ def mse_loss_backward(y_true: ndarray, y_pred: ndarray) -> ndarray:
     return 2 * (y_pred - y_true) / N
 
 
-def sgd(params: List[ndarray], grads: List[ndarray], lr: float = 1e-2) -> None:
+def sgd(params: List[ndarray], grads: List[ndarray], lr: float) -> None:
     for i in range(len(params)):
         params[i] -= lr * grads[i]
 

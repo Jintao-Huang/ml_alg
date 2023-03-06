@@ -2,11 +2,7 @@
 # Email: huangjintao@mail.ustc.edu.cn
 # Date:
 
-from numba import njit, guvectorize
-from numba.typed.typedlist import List as TypedList
-from numba.core.types import void, int64, float64, ListType, List as ReflectList, Array
-from numba import typeof
-import random
+from .._types import *
 
 __all__ = ["partition_nb", "quick_sort_nb", "merge_nb", "merge_sort_nb"]
 
@@ -117,7 +113,7 @@ if __name__ == "__main__":
 # void(ListType(int64), int64, int64)
 @njit()
 def _merge_sort_nb(nums, lo, hi):
-    """[lo..hi]左偏划分
+    """[lo..hi]左偏划分(左边多)
     """
     if lo == hi:
         return
@@ -152,21 +148,21 @@ if __name__ == "__main__":
     from libs import *
     x = np.random.randn(1000000)
     print()
-    x_l = libs_ml.test_time(lambda: x.tolist())
-    x_tl = libs_ml.test_time(lambda: TypedList(x))  # very slow
-    libs_ml.test_time(lambda: np.sort(x), 1)  # fast
-    libs_ml.test_time(lambda: x_l.sort(), 1)
-    libs_ml.test_time(lambda: quick_sort_nb(x.copy()), 1, warm_up=1)  # fast
-    libs_ml.test_time(lambda: merge_sort_nb(x.copy()), 1, warm_up=1)  # fast
-    # libs_ml.test_time(lambda: quick_sort_nb(x_tl), 1, warm_up=1)
-    # # libs_ml.test_time(lambda: quick_sort(x_l), 1)  # warning
-    # libs_ml.test_time(lambda: libs_alg.quick_sort(x_l), 1)  # very slow
+    x_l = ml.test_time(lambda: x.tolist())
+    x_tl = ml.test_time(lambda: TypedList(x))  # very slow
+    ml.test_time(lambda: np.sort(x), 1)  # fast
+    ml.test_time(lambda: x_l.sort(), 1)
+    ml.test_time(lambda: quick_sort_nb(x.copy()), 1, warmup=1)  # fast
+    ml.test_time(lambda: merge_sort_nb(x.copy()), 1, warmup=1)  # fast
+    # ml.test_time(lambda: quick_sort_nb(x_tl), 1, warmup=1)
+    # # ml.test_time(lambda: quick_sort(x_l), 1)  # warning
+    # ml.test_time(lambda: libs_alg.quick_sort(x_l), 1)  # very slow
     # print()
     # res = np.empty_like(x)
-    # libs_ml.test_time(lambda: quick_sort_np_nb(x, res), 1, warm_up=1)  # fast
+    # ml.test_time(lambda: quick_sort_np_nb(x, res), 1, warmup=1)  # fast
     # x_2d = x.reshape(10, 100000)
     # res = np.empty_like(x_2d)
-    # libs_ml.test_time(lambda: quick_sort_np_nb(x_2d, res), 1, warm_up=1)  # fast
+    # ml.test_time(lambda: quick_sort_np_nb(x_2d, res), 1, warmup=1)  # fast
     # print()
 
 

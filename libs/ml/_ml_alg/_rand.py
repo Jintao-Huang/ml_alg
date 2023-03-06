@@ -2,9 +2,7 @@
 # Email: huangjintao@mail.ustc.edu.cn
 # Date:
 
-import torch
-from typing import Tuple, Union, Optional
-from torch import Tensor, dtype as Dtype, device as Device, Generator
+from ..._types import *
 __all__ = ["normal", "uniform"]
 
 Size = Union[Tuple[int, ...], int]
@@ -43,11 +41,11 @@ def uniform(
 #     x = _normal(10, 4, 1000)
 #     print(x.mean(), x.std())
 #     #
-#     libs_ml.seed_everything(42)
+#     ml.seed_everything(42)
 #     x = _normal(10, 4, 1)
-#     libs_ml.seed_everything(42)
+#     ml.seed_everything(42)
 #     x2 = torch.normal(10, 4, (1,))
-#     libs_ml.seed_everything(42)
+#     ml.seed_everything(42)
 #     x3 = torch.distributions.Normal(10, 4).sample()
 #     print(x, x2, x3)
 #     #
@@ -108,14 +106,14 @@ def multivariate_normal(mean: Tensor, cov: Tensor, N: int = 1) -> Tensor:
 #         [1, 2],
 #     ])
 #     m = MultivariateNormal(mu, sigma)
-#     libs_ml.seed_everything(42)
+#     ml.seed_everything(42)
 #     print(m.sample())
 #     #
 #     m = MultivariateNormal(mu, scale_tril=torch.linalg.cholesky(sigma))
-#     libs_ml.seed_everything(42)
+#     ml.seed_everything(42)
 #     print(m.sample())
 #     #
-#     libs_ml.seed_everything(42)
+#     ml.seed_everything(42)
 #     x = multivariate_normal(mu, sigma)[0]
 #     print(x)
 #     x = multivariate_normal(mu, sigma, 10000)

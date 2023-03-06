@@ -17,6 +17,8 @@ class BinaryIndexedTree:
     tree[4]=nums[4]
     tree[7]=nums[0..7]
     Test Ref: https://leetcode.cn/problems/range-sum-query-mutable/
+    query: 10110=10110([10101..10110]的sum)+10100([10001..10100])+10000([00001..10000])
+    update: 10110=10110([10101..10110])+11000([10001..11000])
     """
 
     def __init__(self, nums: Union[List[int], int]) -> None:
@@ -74,7 +76,7 @@ class BinaryIndexedTree:
 
     def sum_range(self, lo: int, hi: int) -> int:
         """Ot(logn). [lo..hi]"""
-        assert 0 <= lo < hi <= len(self.tree)
+        assert 0 <= lo <= hi < len(self.tree)
         res = self.prefix_sum(hi)
         if lo > 0:
             res -= self.prefix_sum(lo - 1)
