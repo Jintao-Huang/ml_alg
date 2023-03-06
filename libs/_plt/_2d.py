@@ -4,16 +4,7 @@
 
 # Ref: https://matplotlib.org/stable/gallery/index.html
 
-import matplotlib
-import matplotlib.pyplot as plt
-import numpy as np
-from numpy import ndarray
-from typing import List, Tuple, Literal, Optional, Union
-from matplotlib.axes import Axes
-from matplotlib.figure import Figure
-from mpl_toolkits.mplot3d import Axes3D
-from torch import Tensor
-import seaborn as sns
+from .._types import *
 sns.reset_orig()
 # sns.set()
 #
