@@ -9,7 +9,10 @@
 ## 文件功能介绍
 1. mini_lightning部分, 现已移置: [https://github.com/ustcml/mini-lightning](https://github.com/ustcml/mini-lightning)
    1. 含Examples: cv, nlp, dqn, gan, contrastive_learning, gnn, ae, vae; ddp等.
-2. `libs/ml/_ml_alg/*`: 机器学习中的算法实现
+2. `libs/alg/*`: leetcode-alg库即将移置: [https://github.com/Jintao-Huang/LeetCode-Py](https://github.com/Jintao-Huang/LeetCode-Py)
+   1. `_data_structure`: 树状数组, 堆, 优先级队列, 可变的优先级队列, 红黑树, 有序数组, 链表, 线段树, Lazy线段树, 字符串哈希, 字典树, 并查集, Huffman树等.
+   2. `_algorithm`: 图算法(dijkstra, kruskal, prim, dinic, 匈牙利算法, 拓扑排序), 背包问题, math, 单调栈/队列, 大数运算, 字符串匹配KMP算法, 二分搜索, a_star, 常见动态规划, 常见的其他算法等.
+3. `libs/ml/_ml_alg/*`: 机器学习中的算法实现
    1. `_metrics.py`: ml中的metrics的torch实现. (faster than `torchmetrics.functional`, `sklearn`, 使用torch实现, 支持cuda加速)
       1. 含accuracy, confusion_matrix, precision, recall, f1_score, fbeta_score, PR_curve, AP, roc_curve, AUC, r2_score, cosine_similarity, euclidean_distance, kl_divergence, pearson_corrcoef, spearman_corrcoef.
    2. `_nn_functional.py`: 实现torch.nn.functional包中的算法. (没啥实用性, 用于学习)
@@ -31,9 +34,6 @@
       1. 含normal, uniform, randperm, multivariate_normal
    10. `_pygnn_functional.py`: 图网络的实现. (开发中...)
    11. `_class_impl/`: pytorch的常见base类: Module, Optimizer, _LRScheduler的简化版
-3. `libs/alg/*`: 传统算法库. 即将迁移: [https://github.com/Jintao-Huang/LeetCode-Py/](https://github.com/Jintao-Huang/LeetCode-Py/)
-   1. `_data_structure`: 树状数组, 堆, 优先级队列, 可变的优先级队列, 红黑树, 有序数组, 链表, 线段树, Lazy线段树, 字符串哈希, 字典树, 并查集, Huffman树等.
-   2. `_algorithm`: 图算法(dijkstra, kruskal, prim, dinic, 匈牙利算法, 拓扑排序), 背包问题, math, 单调栈/队列, 大数运算, 字符串匹配KMP算法, 二分搜索, a_star, 常见动态规划, 常见的其他算法等.
 4. `libs/alg_fast/*`: 传统算法库的numba/cython版本 (开发中...)
 5. `examples/*`: 一些代表性的examples 
 6. `libs/_plt/*`, 可视化的库. 
