@@ -100,6 +100,7 @@ if __name__ == "__main__":
     print(_build_nextval("aabaab"))
     print(kmp("aabaaabaab", "aabaab"))
     print(kmp2("aabaaabaab", "aabaab"))
+    print(kmp2("aaaaaaa", "aaa"))
 
 
 def is_palindromic(s: Union[str, List[int]]) -> bool:

@@ -1,9 +1,8 @@
 # Author: Jintao Huang
 # Email: huangjintao@mail.ustc.edu.cn
 # Date:
-
 from ..._types import *
-
+# from libs._types import *
 
 __all__ = []
 
@@ -142,31 +141,31 @@ def lstsq(X: Tensor, y: Tensor, driver: Literal["qr", "svd"] = "qr") -> Tensor:
 #     print(torch.allclose(z1, z2, atol=1e-6))
 
 
-if __name__ == "__main__":
-    x = torch.randn(1000, 1000)
-    x = x @ x.T
-    # c >(快) lf > ci > lu > qr > svd > eigh > eig
-    ml.test_time(lambda: tl.qr(x), 10)
-    ml.test_time(lambda: tl.svd(x), 10)
-    ml.test_time(lambda: tl.cholesky(x), 10)
-    ml.test_time(lambda: tl.lu(x), 10)
-    ml.test_time(lambda: tl.lu_factor(x), 10)
-    ml.test_time(lambda: tl.eig(x), 10)
-    ml.test_time(lambda: tl.eigh(x), 10)
-    ml.test_time(lambda: tl.eigvals(x), 10)
-    ml.test_time(lambda: tl.eigvalsh(x), 10)
+# if __name__ == "__main__":
+#     x = torch.randn(1000, 1000)
+#     x = x @ x.T
+#     # cho(快) > lu_f > lu > qr > eigh > svd > eig
+#     ml.test_time(lambda: tl.qr(x), 10)
+#     ml.test_time(lambda: tl.svd(x), 10)
+#     ml.test_time(lambda: tl.cholesky(x), 10)
+#     ml.test_time(lambda: tl.lu(x), 10)
+#     ml.test_time(lambda: tl.lu_factor(x), 10)
+#     ml.test_time(lambda: tl.eig(x), 10)
+#     ml.test_time(lambda: tl.eigh(x), 10)
+#     ml.test_time(lambda: tl.eigvals(x), 10)
+#     ml.test_time(lambda: tl.eigvalsh(x), 10)
 
-    # st > cs >(快) s > l
-    print()
-    b = torch.randn(1000, 100)
-    ml.test_time(lambda: torch.cholesky_solve(b, x), 10)
-    ml.test_time(lambda: tl.solve(x, b), 10)
-    ml.test_time(lambda: tl.lstsq(x, b), 10)
-    ml.test_time(lambda: tl.solve_triangular(x, b, upper=False), 10)
-    ml.test_time(lambda: tl.pinv(x), 10)
-    ml.test_time(lambda: tl.pinv(x, hermitian=True), 10)
-    ml.test_time(lambda: tl.inv(x), 10)
-    ml.test_time(lambda: torch.cholesky_inverse(x), 10)
+#     # solve_triangular(快) > cho_solve > solve > lstsq
+#     print()
+#     b = torch.randn(1000, 100)
+#     ml.test_time(lambda: torch.cholesky_solve(b, x), 10)
+#     ml.test_time(lambda: tl.solve(x, b), 10)
+#     ml.test_time(lambda: tl.lstsq(x, b), 10)
+#     ml.test_time(lambda: tl.solve_triangular(x, b, upper=False), 10)
+#     ml.test_time(lambda: tl.pinv(x), 10)
+#     ml.test_time(lambda: tl.pinv(x, hermitian=True), 10)
+#     ml.test_time(lambda: tl.inv(x), 10)
+#     ml.test_time(lambda: torch.cholesky_inverse(x), 10)
 
 
 def cholesky_solve(b: Tensor, L: Tensor) -> Tensor:
@@ -197,3 +196,31 @@ def lu_solve(b: Tensor, LU_data: Tensor) -> Tensor:
 #     z1 = ml.test_time(lambda: torch.lu_solve(y, LU_data, LU_pivots), 10)
 #     z2 = ml.test_time(lambda: lu_solve(y, LU_data), 10)
 #     print(torch.allclose(z1, z2, atol=1e-6))
+
+
+def cond(A: Tensor, ord: Literal["fro", 2, -2, 1, -1, float("inf"), float("-inf")] = 2) -> Tensor:
+    if ord in {2, -2}:
+        if ord == 2:
+            idx = 0
+        else:
+            idx = -1
+        # 当然用else计算也可以, 只不过这个支持非方阵.
+        # return tl.matrix_norm(A, ord) * tl.matrix_norm(tl.pinv(A), ord)
+        return tl.svdvals(A)[idx] * tl.svdvals(tl.pinv(A))[idx]
+
+    return tl.matrix_norm(A, ord) * tl.matrix_norm(tl.inv(A), ord)
+
+# if __name__ == "__main__":
+#     ml.seed_everything(42)
+#     X = torch.randn(10, 10).cuda()
+#     for _ord in ["fro", 2, -2, 1, -1, float("inf"), float("-inf")]:
+#         y = ml.test_time(lambda: cond(X, _ord), 10)
+#         y2 = ml.test_time(lambda: tl.cond(X, _ord), 10)
+#         print(torch.allclose(y, y2, atol=1e-5))
+#     print()
+#     ml.seed_everything(42)
+#     X = torch.randn(10, 20).cuda()
+#     for _ord in [2, -2]:
+#         y = ml.test_time(lambda: cond(X, _ord), 10)
+#         y2 = ml.test_time(lambda: tl.cond(X, _ord), 10)
+#         print(torch.allclose(y, y2, atol=1e-5))

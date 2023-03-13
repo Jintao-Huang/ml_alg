@@ -10,7 +10,7 @@ from ..._types import *
 @torch.no_grad()
 def sgd(
     params: List[Tensor],  # inplace
-    grads: List[Tensor],  # not inplace
+    grads: List[Tensor],  # const
     momentum_buffers: List[Tensor],  # inplace
     *,
     lr: float,
@@ -78,7 +78,7 @@ if __name__ == "__main__":
 
 @torch.no_grad()
 def adam(params: List[Tensor],  # inplace
-         grads: List[Tensor],  # not inplace
+         grads: List[Tensor],  # const
          exp_avgs: List[Tensor],  # inplace
          exp_avg_sqs: List[Tensor],  # inplace
          state_steps: List[int],  # inplace
@@ -160,7 +160,7 @@ if __name__ == "__main__":
 
 @torch.no_grad()
 def adamw(params: List[Tensor],  # inplace
-          grads: List[Tensor],  # copy
+          grads: List[Tensor],  # const
           exp_avgs: List[Tensor],  # inplace
           exp_avg_sqs: List[Tensor],  # inplace
           state_steps: List[int],  # inplace
