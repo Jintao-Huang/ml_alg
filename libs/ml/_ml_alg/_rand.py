@@ -93,7 +93,7 @@ def multivariate_normal(mean: Tensor, cov: Tensor, N: int = 1) -> Tensor:
     """
     F = mean.shape[0]
     std_norm = torch.randn(N, F)
-    L = torch.linalg.cholesky(cov)  # [F, F]
+    L = tl.cholesky(cov)  # [F, F]
     return (std_norm @ L).add_(mean)
 
 
@@ -109,7 +109,7 @@ def multivariate_normal(mean: Tensor, cov: Tensor, N: int = 1) -> Tensor:
 #     ml.seed_everything(42)
 #     print(m.sample())
 #     #
-#     m = MultivariateNormal(mu, scale_tril=torch.linalg.cholesky(sigma))
+#     m = MultivariateNormal(mu, scale_tril=tl.cholesky(sigma))
 #     ml.seed_everything(42)
 #     print(m.sample())
 #     #

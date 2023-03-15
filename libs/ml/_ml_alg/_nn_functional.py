@@ -40,7 +40,7 @@ note: 这里写的是forward. 在backward时可能会报错(因为inplace关系)
 """
 relu: x=>0保持, x<0变为=0
 leaky_relu: x>=0保持, x<0进行线性压缩(*negative_slope=0.01(默认)). 
-sigmoid: 1/(1+e^x)
+sigmoid: 1/(1+e^{-x})
 tanh: (e^x-e^{-x})/(e^x+e^{-x})
 softmax: e^x/{归一化}
 silu: x*sigmoid(x)

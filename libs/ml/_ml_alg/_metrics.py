@@ -4,6 +4,7 @@
 
 from ..._types import *
 from ._cy import calc_rank_loop as _calc_rank_loop
+# from libs import *
 
 __all__ = [
     "accuracy", "confusion_matrix",
@@ -546,7 +547,7 @@ def batched_cosine_similarity(X: Tensor, Y: Tensor) -> Tensor:
     return: [N]. float
     """
     res = torch.einsum("ij,ij->i", X, Y)
-    res.div_(torch.norm(X, dim=1)).div_(torch.norm(Y, dim=1))
+    res.div_(tl.vector_norm(X, dim=1)).div_(tl.vector_norm(Y, dim=1))
     return res
 
 
@@ -558,8 +559,8 @@ def pairwise_cosine_similarity(X: Tensor, Y: Tensor) -> Tensor:
     """
     # <X, Y> / (|X| |Y|)
     res = X @ Y.T
-    X_norm = torch.norm(X, dim=1)  # [N1]
-    Y_norm = torch.norm(Y, dim=1)  # [N2]
+    X_norm = tl.vector_norm(X, dim=1)  # [N1]
+    Y_norm = tl.vector_norm(Y, dim=1)  # [N2]
     res.div_(X_norm[:, None]).div_(Y_norm)
     return res
 
@@ -735,9 +736,9 @@ def pairwise_equal(X: Tensor, Y: Tensor) -> Tensor:
 
 """
 1. 信息量 Info: [F]->[F]: -log(X)
-2. 熵 Entropy: [F]->[F]: (X*Info(X)).sum()
-3. 交叉熵 Cross_Entropy: [F],[F]->[F]: (T*Info(P)).sum()
-4. 相对熵/KL散度: [F],[F]->[F]: (T*(Info(P)-INFO(T))).sum()=Cross_Entropy(T,P)-Entropy(T)
+2. 熵 Entropy: [F]->[]: (X*Info(X)).sum()
+3. 交叉熵 Cross_Entropy: [F],[F]->[]: (T*Info(P)).sum()
+4. 相对熵/KL散度: [F],[F]->[]: (T*(Info(P)-INFO(T))).sum()=Cross_Entropy(T,P)-Entropy(T)
 """
 
 
@@ -773,6 +774,8 @@ def pearson_corrcoef(y_pred: Tensor, y_true: Tensor) -> Tensor:
     p_std = y_pred.std(dim=0)  # N-1
     t_std = y_true.std(dim=0)
     res = (y_pred - p_mean).mul_(y_true - t_mean).sum(dim=0).div_(N - 1)
+    # batched另一形式, 与batched_cosine_similarity对比
+    # res = torch.einsum("ij,ij->j", y_pred - p_mean, y_true - t_mean).div_(N - 1)  
     res.div_(p_std).div_(t_std)
     return res
 

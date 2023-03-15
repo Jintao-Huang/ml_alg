@@ -69,7 +69,7 @@ def pinv(
 
 
 def dist(x: Tensor, y: Tensor, p: int = 2) -> Tensor:
-    return torch.norm(x - y, p=p)
+    return tl.vector_norm(x - y, ord=p)
 
 
 # if __name__ == "__main__":
@@ -90,7 +90,7 @@ def solve(A: Tensor, B: Tensor, *, driver: Literal["lu", "cholesky", "naive"]) -
         LU, P = tl.lu_factor(A)
         return torch.lu_solve(B, LU, P)
     elif driver == "cholesky":
-        # 需保证A为正定的.
+        # 需保证A为Hermitian+正定.
         L = tl.cholesky(A)
         return torch.cholesky_solve(B, L)
 
@@ -162,6 +162,7 @@ def lstsq(X: Tensor, y: Tensor, driver: Literal["qr", "svd"] = "qr") -> Tensor:
 #     ml.test_time(lambda: tl.solve(x, b), 10)
 #     ml.test_time(lambda: tl.lstsq(x, b), 10)
 #     ml.test_time(lambda: tl.solve_triangular(x, b, upper=False), 10)
+#     # cholesky_inverse(快) > inv > pinv(hermitian) > pinv
 #     ml.test_time(lambda: tl.pinv(x), 10)
 #     ml.test_time(lambda: tl.pinv(x, hermitian=True), 10)
 #     ml.test_time(lambda: tl.inv(x), 10)
