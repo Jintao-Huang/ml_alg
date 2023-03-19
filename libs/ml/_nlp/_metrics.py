@@ -3,7 +3,7 @@
 # Date:
 
 from ..._types import *
-
+# from libs import *
 """ROUTE, BLEU, PPL, BPW, BPC
 ROUTE: 翻译和摘要的metric.
     1,2,L的precision, recall, fmeasure都在0-1之间. 越高越好.
@@ -68,7 +68,7 @@ def _rouge_n_score(
     target_ngrams = _create_ngrams(target, n_gram)
     tp = 0
     p1 = sum(pred_ngrams.values())
-    t1 = len(target_ngrams.values())
+    t1 = sum(target_ngrams.values())
     #
     tp = sum((pred_ngrams & target_ngrams).values())
     tp = torch.tensor(tp, dtype=torch.float32)
@@ -194,6 +194,7 @@ def _bleu_score(
     # 为什么使用log: 让其更关注低分. (同交叉熵损失)
     res = bp * (prec_n.log_().mean().exp_())
     return res
+
 # if __name__ == "__main__":
 #     preds = "my name is John"
 #     targets = ["is your name John", "is my name John hahaha"]

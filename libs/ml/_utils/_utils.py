@@ -347,7 +347,7 @@ def multi_runs(collect_res: Callable[[int], Dict[str, float]], n: int, seed: Opt
     if seed_list is None:
         seed_list = _gen_seed_list(n, seed)
     n = len(seed_list)
-    result: Dict[str, List] = defaultdict(list)
+    result = DefaultDict[str, List](list)
     for _seed in seed_list:
         _res = collect_res(_seed)
         if rank in {-1, 0}:

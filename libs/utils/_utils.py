@@ -123,7 +123,7 @@ def mywalk(dir_: str, ignore_dirs: Optional[List[str]] = None) -> Iterator[Item]
     # 将每一个文件夹存入队列.
     # return: level, curr_dir, folder_list, fname_list
     ignore_dirs: Set[str] = set(ignore_dirs) if ignore_dirs is not None else set()
-    dq = deque([dir_])
+    dq = Deque[str]([dir_])
     level = 0
     while len(dq) > 0:
         dq_len = len(dq)

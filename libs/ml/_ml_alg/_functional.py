@@ -3,7 +3,7 @@
 # Date:
 
 from ..._types import *
-
+# from libs import *
 __all__ = []
 
 
@@ -23,10 +23,14 @@ def logsumexp_bad(x: Tensor, dim: Union[Tuple[int, ...], int], keepdim: bool = F
 
 
 # if __name__ == "__main__":
-#     x = torch.tensor([1, 2, 3, 500.])
+#     x = torch.tensor([1, 2, 3, 1000.])
 #     print(torch.logsumexp(x, -1))
 #     print(logsumexp(x, -1))
 #     print(logsumexp_bad(x, -1))
+#     x = torch.tensor([0.01, 0.9, 1])
+#     print(x.log().mean().exp())
+
+
 
 def softmax(x: Tensor, dim: Union[Tuple[int, ...], int]):
     """e^x/{归一化}. exp, sumexp是数值不稳定的, 会产生inf, nan. 因softmax为分式, 可以通过上下同除以e^{max(x)}解决"""
