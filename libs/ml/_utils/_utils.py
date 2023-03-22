@@ -7,14 +7,6 @@ from ...utils._io import write_to_pickle, read_from_pickle
 from ..._env import CACHE_HOME
 
 
-
-__all__ = ["load_state_dict", "save_state_dict",
-           "split_dataset", "extract_dataset", "smart_load_state_dict",
-           "fuse_conv_bn", "fuse_linear_bn", "test_metric",
-           "reserve_memory", "test_nan",
-           "load_state_dict_with_mapper", "test_tensor_allclose", "multi_runs",
-           "parse_device_ids"]
-
 logger = ml.logger
 #
 
@@ -193,7 +185,7 @@ def reserve_memory(device_ids: List[int], max_G: int = 9) -> None:
     ml.select_device(device_ids)
     for d in range(len(device_ids)):
         device = Device(d)
-        model = resnet152().to(device)
+        model = tvm.resnet152().to(device)
         for i in tqdm(range(128)):
             image = torch.randn(i, 3, 224, 224).to(device)
             try:
@@ -238,18 +230,19 @@ if __name__ == "__main__":
     print(test_nan(x))
 
 
-def load_state_dict_with_mapper(model: Module, state_dict: Dict[str, Tensor], m_fpath: str = "m.txt", s_fpath="s.txt") -> IncompatibleKeys:
+def load_state_dict_with_mapper(model: Module, state_dict: Dict[str, Tensor], m_fpath: str = "m.txt", s_fpath="s.txt",
+                                strict: bool = False) -> IncompatibleKeys:
     m_fpath = os.path.abspath(m_fpath)
     s_fpath = os.path.abspath(s_fpath)
     os.makedirs(os.path.dirname(m_fpath), exist_ok=True)
     os.makedirs(os.path.dirname(s_fpath), exist_ok=True)
-    # 
+    #
     if not os.path.exists(m_fpath) and not os.path.exists(s_fpath):
         m_keys = list(model.state_dict().keys())
-        with open(m_fpath, "w") as f:
+        with open(m_fpath, "w", encoding="utf-8") as f:
             for k in m_keys:
                 f.write(k + "\n")
-        with open(s_fpath, "w") as f:
+        with open(s_fpath, "w", encoding="utf-8") as f:
             for k in state_dict.keys():
                 f.write(k + "\n")
         #
@@ -257,17 +250,17 @@ def load_state_dict_with_mapper(model: Module, state_dict: Dict[str, Tensor], m_
     #
     m_keys = []
     s_keys = []
-    with open(m_fpath, "r") as f:
+    with open(m_fpath, "r", encoding="utf-8") as f:
         for k in f:
             m_keys.append(k.rstrip())
-    with open(s_fpath, "r") as f:
+    with open(s_fpath, "r", encoding="utf-8") as f:
         for k in f:
             s_keys.append(k.rstrip())
     #
     new_state_dict = {}
     for mk, sk in zip(m_keys, s_keys):
         new_state_dict[mk] = state_dict[sk]
-    return model.load_state_dict(new_state_dict)
+    return model.load_state_dict(new_state_dict, strict=strict)
 
 
 def smart_load_state_dict(model: Module, state_dict: Dict[str, Tensor], s_prefix_key: str = "", s_start_key: int = 0,
@@ -394,3 +387,30 @@ def parse_device_ids() -> List[int]:
 
 # if __name__ == "__main__":
 #     print(parse_device_ids())
+
+
+def smart_freeze_layers(model: Module,
+                        layer_prefix_names: Optional[List[str]] = None,
+                        exclude_suffix_names: Optional[List[str]] = None,
+                        verbose: bool = True) -> None:
+    """
+    layer_prefix_names: e.g. ["roberta.embeddings."] + [f"roberta.encoder.layer.{i}." for i in range(2)]
+    exclude_suffix_names: e.g. ["key2.weight", "key2.bias", "value2.weight", "value2.bias"]
+    """
+    if layer_prefix_names is None:
+        layer_prefix_names = []
+    if exclude_suffix_names is None:
+        exclude_suffix_names = []
+    lpns = set(layer_prefix_names)
+    esns = set(exclude_suffix_names)
+    for n, p in model.named_parameters():
+        requires_grad = True
+        for lpn in lpns:
+            if n.startswith(lpn):
+                fail = any([n.endswith(esn) for esn in esns])
+                if not fail:
+                    requires_grad = False
+                    break
+        if verbose:
+            logger.info(f"Setting {n}.requires_grad: {requires_grad}")
+        p.requires_grad_(requires_grad)

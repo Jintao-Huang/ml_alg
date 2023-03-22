@@ -3,7 +3,7 @@ from Cython.Build import cythonize
 
 
 def read_file(path: str) -> str:
-    with open(path, "r") as f:
+    with open(path, "r", encoding="utf-8") as f:
         res = f.read()
     return res
 

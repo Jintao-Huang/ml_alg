@@ -16,7 +16,7 @@ __all__ = [
     #
     "plot", "scatter", "imshow", "hist"
 ]
-ArrayLike = Union[Tensor, ndarray, List[float]]
+
 Color = Literal[
     "r", "g", "b", "w", "k", "y", "grey",
     "C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9",
@@ -53,12 +53,13 @@ def get_figure_2d(
     dpi: int = 200,
     #
     squeeze: bool = True,
-) -> Tuple[Figure, Union[Axes, ndarray]]:
+) -> Tuple[Figure, Axes]:
     """
     figsize: W,H
     nrows: 行数
     ncols: 列数
     return: 对axes会自动压缩(if squeeze=True). 
+        Tuple[Figure, Union[Axes, ndarray[Axes]]]
     """
     if figsize is None:
         figsize = (8, 5)
@@ -183,8 +184,8 @@ def save_and_show(
 
 def plot(
     ax: Axes,
-    x: Optional[ArrayLike],
-    y: ArrayLike,
+    x: Optional[ndarray],
+    y: ndarray,
     #
     color: Color = None,
     marker: Marker = None,
@@ -207,11 +208,11 @@ def plot(
     if x is None:
         N = len(y) if isinstance(y, list) else y.shape[0]
         x = np.arange(N)
-    ax.plot(  # sns.lineplot
+    sns.lineplot(  # sns.lineplot
         x=x, y=y, marker=marker, linestyle=linestyle, color=color,
         markersize=markersize, markeredgecolor=markeredgecolor,
         markerfacecolor=markerfacecolor, linewidth=linewidth,
-        alpha=alpha, zorder=zorder, label=label,  # ax=ax
+        alpha=alpha, zorder=zorder, label=label, ax=ax
     )
 
 
@@ -327,9 +328,9 @@ def scatter(
     x: [N]
     y: [N]
     """
-    ax.scatter(
-        x=x, y=y, s=s, color=color, edgecolor=edgecolor, label=label,  # ax=ax
-    )  # or sns.scatterplot
+    sns.scatterplot(
+        x=x, y=y, s=s, color=color, edgecolor=edgecolor, label=label, ax=ax
+    )  # or 
 
 
 # if __name__ == "__main__":

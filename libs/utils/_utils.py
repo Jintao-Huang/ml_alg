@@ -3,10 +3,8 @@
 # Date:
 
 from .._types import *
+from .._plt import get_figure_2d, plot
 
-__all__ = ["download_files", "calculate_hash", "xml_to_dict", "mywalk",
-           "test_unit", "ProgramQueue", "config_to_dict", "xpath_get_text", "dict_head",
-           "set_pyximport_to_cpp", "reset_pyximport"]
 #
 logger = ml.logger
 
@@ -170,25 +168,25 @@ class ProgramQueue:
         logger.info("Program Waiting...")
         p_start = False
         if not os.path.exists(self.lock_fpath):
-            with open(self.lock_fpath, "w") as f:
+            with open(self.lock_fpath, "w", encoding="utf-8") as f:
                 f.write(self.cur_id)
             p_start = True
         else:
-            with open(self.lock_fpath, "r+") as f:
+            with open(self.lock_fpath, "r+", encoding="utf-8") as f:
                 if f.read() == "":
                     f.write(self.cur_id)
                     p_start = True
         #
         while not p_start:
             time.sleep(1)
-            with open(self.lock_fpath, "r") as f:
+            with open(self.lock_fpath, "r", encoding="utf-8") as f:
                 if f.read() == self.cur_id:
                     p_start = True
         #
         logger.info("Program Start...")
 
     def end(self):
-        with open(self.lock_fpath, "w") as f:
+        with open(self.lock_fpath, "w", encoding="utf-8") as f:
             f.write(self.next_id)
         logger.info("Program End...")
 
@@ -272,7 +270,7 @@ def dict_head(data: Dict[Any, Any],
 #     print(dict_head(d))
 
 def set_pyximport_to_cpp(pyximport):
-    """输入module, 返回module
+    """输入module(模块), 返回module
     ref: https://stackoverflow.com/questions/7620003/how-do-you-tell-pyximport-to-use-the-cython-cplus-option
     """
     old_get_distutils_extension = pyximport.pyximport.get_distutils_extension
@@ -286,7 +284,14 @@ def set_pyximport_to_cpp(pyximport):
 
 
 def reset_pyximport(pyximport):
-    """输入module, 返回module"""
     del pyximport
     import pyximport
     return pyximport
+
+
+def test_function(func: Callable[[ndarray], ndarray], _range: Tuple[int, int] = (-5, 5)) -> None:
+    _, ax = get_figure_2d()
+    x = np.arange(*_range)
+    y = func(x)
+    plot(ax, x, y)
+    plt.show()

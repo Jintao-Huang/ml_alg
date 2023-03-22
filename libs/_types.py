@@ -24,7 +24,7 @@ from inspect import getmembers, isfunction, ismethod
 from warnings import filterwarnings
 from operator import itemgetter
 from pprint import pprint
-from itertools import chain, accumulate
+from itertools import chain, accumulate, product, permutations, combinations, combinations_with_replacement
 from functools import partial, cache, lru_cache, cmp_to_key, reduce
 from types import SimpleNamespace
 from copy import copy, deepcopy
@@ -50,6 +50,7 @@ from tqdm import tqdm
 import numpy as np
 from numpy import ndarray
 from numpy.random import RandomState
+from numpy.typing import NDArray, ArrayLike
 import pandas as pd
 from pandas import DataFrame, Series
 # 
@@ -159,6 +160,6 @@ from torchmetrics.classification.average_precision import AveragePrecision
 #
 import gym
 from gym import Env
-#
+# 
 import mini_lightning as ml
 # _remove_keys, _key_add_suffix

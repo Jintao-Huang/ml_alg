@@ -17,13 +17,13 @@ __all__ = [
 
 
 def read_from_file(fpath: str, mode: str = "r") -> Union[str, bytes]:
-    with open(fpath, mode) as f:
+    with open(fpath, mode, encoding="utf-8") as f:
         text = f.read()
     return text
 
 
 def write_to_file(text: Union[str, bytes], fpath: str, mode: str = "w") -> None:
-    with open(fpath, mode) as f:
+    with open(fpath, mode, encoding="utf-8") as f:
         f.write(text)
 
 
@@ -65,13 +65,13 @@ def write_to_csv_df(df: DataFrame, fpath: str, *, sep: str = ",", index: bool = 
     df.to_csv(fpath, sep=sep, index=index)
 
 
-def read_from_csv(fpath: str, nrows: int = -1, *, sep: str = ",") -> List[List[str]]:
+def read_from_csv(fpath: str, nrows: int = -1, *, sep: str = ",", encoding="utf-8") -> List[List[str]]:
     res = []
     n = 0
     if nrows == 0:
         return res
     #
-    with open(fpath, "r", newline="") as f:
+    with open(fpath, "r", newline="", encoding=encoding) as f:
         reader = csv.reader(f, delimiter=sep)
         for l in reader:
             res.append(l)
