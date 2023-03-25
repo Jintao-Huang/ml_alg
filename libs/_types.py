@@ -22,11 +22,14 @@ from enum import Enum
 from inspect import getmembers, isfunction, ismethod
 #
 from warnings import filterwarnings
-from operator import itemgetter
+from operator import itemgetter, attrgetter
 from pprint import pprint
-from itertools import chain, accumulate, product, permutations, combinations, combinations_with_replacement
+from itertools import (
+    chain, accumulate, product, permutations, combinations, combinations_with_replacement, 
+    compress, starmap
+
+)
 from functools import partial, cache, lru_cache, cmp_to_key, reduce
-from types import SimpleNamespace
 from copy import copy, deepcopy
 from argparse import ArgumentParser, Namespace
 from queue import Queue, SimpleQueue, PriorityQueue
@@ -34,9 +37,10 @@ from hashlib import sha256
 from typing import (
     Literal, List, Tuple, Dict, Set, Callable, Optional, Union, Any,
     Deque, NamedTuple, DefaultDict, Counter, OrderedDict,
-    Sequence, Mapping, Iterable, Iterator, TypeVar, Generic
+    Sequence, Mapping, Iterable, Iterator, TypeVar, Generic, Generator
 )
-from typing_extensions import TypeAlias
+from typing_extensions import TypeAlias, Self
+from types import SimpleNamespace
 # from collections import deque, namedtuple, OrderedDict, defaultdict, Counter  # use typing
 from _collections_abc import dict_items, dict_keys, dict_values
 from contextlib import contextmanager
@@ -98,7 +102,7 @@ from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.manifold import TSNE
 # 
 import torch
-from torch import Tensor, dtype as Dtype, device as Device, Generator
+from torch import Tensor, dtype as Dtype, device as Device, Generator as TGenerator
 from torch.nn import Module
 import torch.linalg as tl
 from torch.optim import Optimizer

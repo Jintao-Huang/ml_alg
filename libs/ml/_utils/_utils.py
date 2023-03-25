@@ -377,18 +377,6 @@ def multi_runs(collect_res: Callable[[int], Dict[str, float]], n: int, seed: Opt
     return res
 
 
-def parse_device_ids() -> List[int]:
-    parser = ArgumentParser()
-    parser.add_argument("--device_ids", nargs="*", type=int,
-                        default=[0], help="e.g. [], [0], [0, 1, 2]. --device_ids; --device_ids 0; --device_ids 0 1 2")
-    opt: Namespace = parser.parse_args()  # options
-    return opt.device_ids
-
-
-# if __name__ == "__main__":
-#     print(parse_device_ids())
-
-
 def smart_freeze_layers(model: Module,
                         layer_prefix_names: Optional[List[str]] = None,
                         exclude_suffix_names: Optional[List[str]] = None,

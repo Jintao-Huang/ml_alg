@@ -21,7 +21,7 @@ def normal(
     size: Size,
     dtype: Dtype = torch.float32,
     device: Device = Device("cpu"),
-    generator: Optional[Generator] = None,
+    generator: Optional[TGenerator] = None,
 ) -> Tensor:
     return torch.empty(size, dtype=dtype, device=device).normal_(mean, std, generator=generator)
 
@@ -31,7 +31,7 @@ def uniform(
     size: Size,
     dtype: Dtype = torch.float32,
     device: Device = Device("cpu"),
-    generator: Optional[Generator] = None,
+    generator: Optional[TGenerator] = None,
 ) -> Tensor:
     return torch.empty(size, dtype=dtype, device=device).uniform_(a, b, generator=generator)
 

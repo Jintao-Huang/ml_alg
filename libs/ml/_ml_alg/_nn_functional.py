@@ -3,6 +3,7 @@
 # Date:
 
 from ..._types import *
+# from libs import *
 
 __all__ = []
 
@@ -46,8 +47,6 @@ softmax: e^x/{归一化}
 silu: x*sigmoid(x)
 gelu: x*phi(x). phi(x)是高斯分布的CDF{近似于sigmoid(1.702x)}
 """
-if __name__ == "__main__":
-    from libs import *
 
 
 def relu(x: Tensor, inplace=False) -> Tensor:
@@ -167,8 +166,8 @@ def label_smoothing_cross_entropy(pred: Tensor, target: Tensor,
 #     x = torch.randn((1000, 100))
 #     x2 = torch.randint(0, 100, (1000,))
 #     y = ml.test_time(lambda: F.cross_entropy(x, x2), number=10)
-#     y1 = ml.test_time(lambda: F.cross_entropy(x, x2, label_smoothing=0.9), number=10)
-#     y2 = ml.test_time(lambda: label_smoothing_cross_entropy(x, x2, smoothing=0.9), number=10)
+#     y1 = ml.test_time(lambda: F.cross_entropy(x, x2, label_smoothing=0.1), number=10)
+#     y2 = ml.test_time(lambda: label_smoothing_cross_entropy(x, x2, smoothing=0.1), number=10)
 #     print(y, y1, y2)
 
 
