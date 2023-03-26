@@ -258,7 +258,11 @@ def load_state_dict_with_mapper(model: Module, state_dict: Dict[str, Tensor], m_
             s_keys.append(k.rstrip())
     #
     new_state_dict = {}
-    for mk, sk in zip(m_keys, s_keys):
+    for mk, sk in zip_longest(m_keys, s_keys):
+        if sk is None:
+            continue
+        if mk is None:
+            mk = sk
         new_state_dict[mk] = state_dict[sk]
     return model.load_state_dict(new_state_dict, strict=strict)
 
@@ -310,8 +314,7 @@ def test_tensor_allclose(t: Optional[Tensor] = None, idx: int = 0, remove_file: 
         t = read_from_pickle(fpath)
     else:
         write_to_pickle(t, fpath)
-    #
-    if remove_file and os.path.isfile(fpath):
+    # 
         os.remove(fpath)
     return t
 
@@ -378,27 +381,28 @@ def multi_runs(collect_res: Callable[[int], Dict[str, float]], n: int, seed: Opt
 
 
 def smart_freeze_layers(model: Module,
-                        layer_prefix_names: Optional[List[str]] = None,
-                        exclude_suffix_names: Optional[List[str]] = None,
+                        layer_names_reg: Optional[List[str]] = None,
                         verbose: bool = True) -> None:
+    r"""
+    layer_names_reg: [r"conv1\..+", r"bn1\..+", *[rf"layer{i+1}\..+" for i in range(2)]]
     """
-    layer_prefix_names: e.g. ["roberta.embeddings."] + [f"roberta.encoder.layer.{i}." for i in range(2)]
-    exclude_suffix_names: e.g. ["key2.weight", "key2.bias", "value2.weight", "value2.bias"]
-    """
-    if layer_prefix_names is None:
-        layer_prefix_names = []
-    if exclude_suffix_names is None:
-        exclude_suffix_names = []
-    lpns = set(layer_prefix_names)
-    esns = set(exclude_suffix_names)
+    if layer_names_reg is None:
+        layer_names_reg = []
+
+    lnrs = layer_names_reg
     for n, p in model.named_parameters():
         requires_grad = True
-        for lpn in lpns:
-            if n.startswith(lpn):
-                fail = any([n.endswith(esn) for esn in esns])
-                if not fail:
-                    requires_grad = False
-                    break
+        for lnr in lnrs:
+            m = re.match(lnr, n)
+            if m is not None:
+                requires_grad = False
+                break
         if verbose:
             logger.info(f"Setting {n}.requires_grad: {requires_grad}")
         p.requires_grad_(requires_grad)
+
+
+# if __name__ == "__main__":
+#     model = tvm.resnet50()
+#     print(model)
+#     smart_freeze_layers(model, [r"conv1\..+", r"bn1\..+", *[rf"layer{i+1}\..+" for i in range(2)]], verbose=True)

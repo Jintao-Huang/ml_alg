@@ -149,6 +149,7 @@ def label_smoothing_cross_entropy(pred: Tensor, target: Tensor,
     target: [N]. Tensor[long]
     smoothing: 若smoothing为0.1, 则target=4, n_labels=5, 对应:
         [0.02, 0.02, 0.02, 0.02, 0.92]
+        此时: pred为: [0.02, 0.02, 0.02, 0.02, 0.92]时损失最小. 可以通过求导=0得出. 
     return: []
     """
     n_labels = pred.shape[1]
@@ -612,6 +613,7 @@ def conv2d_2(
     stride: SH, SW
     padding: PH, PW
     return: [N, Cout, Hout, Wout]
+    计算复杂度: O(N Cout Cin Hout Wout KH KW // G)
     """
     if padding != (0, 0):
         x = F.pad(x, [padding[1], padding[1], padding[0], padding[0]])  # lrtb
@@ -751,6 +753,7 @@ def conv_transpose2d_2(
     padding: PH, PW
     output_padding: OPH, OPW. OPH只填充bottom, OPW只填充right(单边).
     return: [N, Cout, Hout, Wout]
+    计算复杂度: O(N Cout Cin Hin Win KH KW // G)
     """
     Hin, Win = x.shape[2:]
     DH, DW = dilation
@@ -847,6 +850,7 @@ def conv1d_2(
     stride: SL
     padding: PL
     return: [N, Cout, Lout]
+    计算复杂度: O(N Cout Cin Lout KL // G)
     """
     if padding != 0:
         x = F.pad(x, [padding, padding])  # lr
@@ -1054,6 +1058,7 @@ def linear(x: Tensor, weight: Tensor, bias: Optional[Tensor] = None) -> Tensor:
     weight: [F2, F]
     bias: [F2]
     return: [N, F2]
+    计算复杂度: O(N F F2)
     """
     res = x @ weight.T
     if bias is not None:

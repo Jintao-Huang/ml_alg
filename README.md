@@ -8,8 +8,9 @@
 
 ## 文件功能介绍
 1. mini_lightning部分, 现已移置: [https://github.com/ustcml/mini-lightning](https://github.com/ustcml/mini-lightning)
-   1. 含: Examples: cv, nlp, dqn, gan, contrastive_learning, gnn, ae, vae; ddp等.
-2. `libs/alg/*`: 现已移置: [https://github.com/Jintao-Huang/LeetCode-Py](https://github.com/Jintao-Huang/LeetCode-Py)
+   1. 含: `mini-lightning`轻量级的深度学习训练框架. 
+   2. 含: Examples: cv, nlp, dqn, gan, contrastive_learning, gnn, ae, vae; ddp等.
+2. leetcode-alg部分: 现已移置: [https://github.com/Jintao-Huang/LeetCode-Py](https://github.com/Jintao-Huang/LeetCode-Py)
    1. 含: `leetcode-alg`数据结构和算法库
    2. 含: 基于`leetcode-alg`的leetcode(python)题目的解答
 3. `libs/ml/_ml_alg/*`: 机器学习中的算法实现
@@ -43,6 +44,7 @@
    2. `_3d.py`
 7. `libs/ml/`
    1. `_pd/*`: torch pandas库. (开发中)
+   2. `_models`: 一些模型的实现. 
 8. `libs/utils/*`: 一些工具函数的实现
 9. `tests/*`: 测试算法正确性. (其中部分测试写在源文件中)
    1. leetcode代码用于测试`alg`的实现正确性. 

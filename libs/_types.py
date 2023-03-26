@@ -20,13 +20,14 @@ import platform
 import csv
 from enum import Enum
 from inspect import getmembers, isfunction, ismethod
+from pprint import pprint
 #
 from warnings import filterwarnings
 from operator import itemgetter, attrgetter
 from pprint import pprint
 from itertools import (
     chain, accumulate, product, permutations, combinations, combinations_with_replacement,
-    compress, starmap
+    compress, starmap, zip_longest
 
 )
 from functools import partial, cache, lru_cache, cmp_to_key, reduce
