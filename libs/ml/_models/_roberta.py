@@ -1,5 +1,6 @@
 from transformers import PreTrainedModel
-from libs import *
+# from libs import *
+from ..._types import *
 
 
 """
@@ -69,7 +70,7 @@ class RobertaConfig(PretrainedConfig):
         add_cross_attention: bool = False,
         add_pooling_layer: bool = False,
         attention_probs_dropout_prob: float = 0.1,
-        gradient_checkpoint: bool = False,
+        gradient_checkpointing: bool = False,
         hidden_act: Module = nn.GELU(),
         hidden_dropout_prob: float = 0.1,
         hidden_size: int = 768,
@@ -96,7 +97,7 @@ class RobertaConfig(PretrainedConfig):
         self.add_cross_attention = add_cross_attention
         self.add_pooling_layer = add_pooling_layer
         self.attention_probs_dropout_prob = attention_probs_dropout_prob
-        self.gradient_checkpoint = gradient_checkpoint
+        self.gradient_checkpointing = gradient_checkpointing
         self.hidden_act = hidden_act
         self.hidden_dropout_prob = hidden_dropout_prob
         self.hidden_size = hidden_size
@@ -275,7 +276,7 @@ class RobertaSelfAttention(Module):
             #
             distance_idx = position_ids_l[:, None] - position_ids_r[None, :] + config.max_position_embeddings - 1
             positional_embedding = self.distance_embedding(distance_idx)  # [L, L, E//H]
-            raise NotImplementedError  # TODO: head_mask, 相对位置编码
+            raise NotImplementedError  # TODO: 相对位置编码
         #
         attn_scores.add_(attention_mask)  # [N, 1, 1, Lkv]. for pad
         #
@@ -451,7 +452,7 @@ class RobertaEncoder(Module):
             pkv = None
             if past_key_values is not None:
                 pkv = past_key_values[i]
-            if config.gradient_checkpoint and self.training:
+            if config.gradient_checkpointing and self.training:
                 x, attn_dist, cross_attn_dist, pkv = checkpoint(layer_module, x, attention_mask, encoder_hidden_state,
                                                                 encoder_attention_mask, pkv, use_reentrant=False)
             else:
@@ -557,10 +558,11 @@ class RobertaModel(RobertaPreTrainedModel):
     ) -> RobertaResult:
         """
         input_ids: [N, L]
-        attention_mask: [N, L]
+        attention_mask: [N, L]. 1 not mask
         encoder_hidden_state: [N, Lkv, E]
-        encoder_attention_mask: [N, Lkv]
+        encoder_attention_mask: [N, Lkv]. 1 not mask
         past_key_values: [n_layers * [[K: [N, H, L, E//H], V] or [K, V, cross_K, cross_V]]]
+        head_masks: 
         """
         if encoder_hidden_state is not None:
             assert encoder_attention_mask is not None
@@ -635,6 +637,7 @@ class RobertaForMaskedLM(RobertaPreTrainedModel):
 
 
 if __name__ == "__main__":
+    from libs import *
     ml.select_device([0])
     model_id = "roberta-base"
     from transformers.models.roberta.modeling_roberta import RobertaPreTrainedModel as _RobertaPreTrainedModel
