@@ -453,8 +453,8 @@ class RobertaEncoder(Module):
             if past_key_values is not None:
                 pkv = past_key_values[i]
             if config.gradient_checkpointing and self.training:
-                x, attn_dist, cross_attn_dist, pkv = checkpoint(layer_module, x, attention_mask, encoder_hidden_state,
-                                                                encoder_attention_mask, pkv, use_reentrant=False)
+                x, attn_dist, cross_attn_dist, pkv = checkpoint(layer_module, x, attention_mask, 
+                                                                encoder_hidden_state, encoder_attention_mask, pkv, use_reentrant=False)
             else:
                 x, attn_dist, cross_attn_dist, pkv = layer_module(x, attention_mask, encoder_hidden_state,
                                                                   encoder_attention_mask, pkv)
@@ -644,7 +644,7 @@ if __name__ == "__main__":
     config = _RobertaPreTrainedModel.config_class.from_pretrained(model_id)
     # config.position_embedding_type = "relative_key_query"
     # print(config)
-    model = RobertaForMaskedLM(RobertaConfig(add_pooling_layer=True, output_attentions=True)).cuda()
+    model = RobertaForMaskedLM(RobertaConfig(add_pooling_layer=True, output_attentions=True, gradient_checkpointing=True)).cuda()
     state_dict = libs_ml.hf_get_state_dict(HF_HOME, model_id, config._commit_hash)
     print(libs_ml.load_state_dict_with_mapper(model, state_dict,
           "./.other/roberta_mask_m.txt", "./.other/roberta_mask_s.txt"))

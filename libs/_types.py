@@ -133,8 +133,8 @@ from torch.multiprocessing.spawn import spawn
 from torch.cuda.amp.grad_scaler import GradScaler
 from torch.amp.autocast_mode import autocast
 #
-import torchvision.transforms.functional_tensor as tvtF_t
-import torchvision.transforms.functional_pil as tvtF_pil
+import torchvision.transforms._functional_tensor as tvtF_t
+import torchvision.transforms._functional_pil as tvtF_pil
 import torchvision.transforms.functional as tvtF
 from torchvision.transforms.functional import InterpolationMode, pil_modes_mapping
 import torchvision as tv
@@ -153,7 +153,7 @@ from transformers.data.data_collator import DataCollatorForLanguageModeling, Dat
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 from transformers.modeling_utils import PreTrainedModel
 from transformers.configuration_utils import PretrainedConfig
-from datasets.load import load_dataset, load_metric
+from datasets.load import load_dataset
 #
 from torchmetrics import MeanMetric, Metric
 from torchmetrics.classification.accuracy import Accuracy

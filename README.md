@@ -1,9 +1,11 @@
 # ML-ALG
+![Python Version](https://img.shields.io/badge/python-%E2%89%A53.8-5be.svg)
+![Pytorch Version](https://img.shields.io/badge/pytorch-%E2%89%A51.12%20%7C%20%E2%89%A52.0-orange.svg)
+[![License](https://img.shields.io/badge/License-MIT-yellowgreen.svg)](https://github.com/Jintao-Huang/ml_alg/blob/main/LICENSE)
 
 
 ## Introduction
 1. 这个仓库是一个机器学习算法, 传统算法的集成库, 现在主要是自己在使用. 所在文件夹为`libs/`, 下面将会介绍各个文件的用途.
-
 
 
 ## 文件功能介绍
@@ -22,7 +24,7 @@
       1. 含归一化方法, LinearRegression, Ridge, LogisticRegression, PCA, KMeans, NearestNeighbors等
    4. `_optim_functional.py`: 优化器的实现. (没啥实用性, 用于学习)
       1. 含sgd, adam, adamw.
-   5. `_tvt_functional_tensor.py`: torchvision.transforms.functional_tensor的实现. (没啥实用性, 用于学习)
+   5. `_tvt_functional_tensor.py`: torchvision.transforms._functional_tensor的实现. (没啥实用性, 用于学习)
       1. 含: to_tensor, normalize, pad, hflip, vflip, rgb_to_grayscale, crop, center_crop, resize, resized_crop, adjust_brightness, adjust_contrast, adjust_saturation, adjust_hue, rotate, affine
    6. `_tvt_functional.py`: torchvision.transforms.functional; torchvision.transforms的实现. (没啥实用性, 用于学习)
       1. 含: random_horizontal_flip, random_resized_crop...
@@ -48,6 +50,7 @@
 8. `libs/utils/*`: 一些工具函数的实现
 9. `tests/*`: 测试算法正确性. (其中部分测试写在源文件中)
    1. leetcode代码用于测试`alg`的实现正确性. 
+
 
 ## Installation and Use
 ```bash
