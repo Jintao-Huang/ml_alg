@@ -315,6 +315,7 @@ def test_tensor_allclose(t: Optional[Tensor] = None, idx: int = 0, remove_file: 
     else:
         write_to_pickle(t, fpath)
     # 
+    if remove_file:
         os.remove(fpath)
     return t
 

@@ -48,8 +48,7 @@
    1. `_pd/*`: torch pandas库. (开发中)
    2. `_models`: 一些模型的实现. 
 8. `libs/utils/*`: 一些工具函数的实现
-9. `tests/*`: 测试算法正确性. (其中部分测试写在源文件中)
-   1. leetcode代码用于测试`alg`的实现正确性. 
+
 
 
 ## Installation and Use

@@ -1,7 +1,7 @@
 from transformers import PreTrainedModel
 # from libs import *
 from ..._types import *
-
+# from transformers.models.roberta.modeling_roberta import RobertaForMaskedLM
 
 """
 {'_commit_hash': None,
@@ -85,10 +85,9 @@ class RobertaConfig(PretrainedConfig):
         output_attentions: bool = False,
         output_hidden_states: bool = False,
         pad_token_id: int = 1,
-        position_embedding_type: Literal["absolute"] = "absolute",
+        position_embedding_type: Literal["absolute", "relative_key", "relative_key_query"] = "absolute",
         type_vocab_size: int = 1,
         vocab_size: int = 50265,
-
         #
         tie_word_embeddings: bool = True,
     ) -> None:
@@ -235,13 +234,15 @@ class RobertaSelfAttention(Module):
         attention_mask: Tensor,
         encoder_hidden_state: Optional[Tensor] = None,
         past_key_value: Optional[List[Tensor]] = None,
+        head_mask: Optional[Tensor] = None,
     ) -> Tuple[Tensor, Optional[Tensor], Optional[List[Tensor]]]:
         """
         x: hidden_states [N, L, E]
         attention_mask: [N, 1, 1, L], 0,-inf. 
             or encoder_attention_mask
         encoder_hidden_state: [N, Lkv, E]
-        past_key_value: Optional[[K:[N, H, L, E//H],V] or [cross_K:[N, H, Lkv, E//H], cross_V]] 
+        past_key_value: Optional[[K:[N, H, L, E//H],V] or [cross_K:[N, H, Lkv, E//H], cross_V]]
+        head_mask: [N, H, 1, 1]
         return: output: [N, L, E], attn_dist: [N, H, L, L] or None, 
             past_key_value: Optional[[K:[N, H, L, E//H],V] or [cross_K, cross_V]]
         """
@@ -266,7 +267,6 @@ class RobertaSelfAttention(Module):
         if config.is_decoder:  # decoder的第一个, past_key_value=None, 但返回的past_key_value is Tensor
             past_key_value = [K, V]
         Q = self._transpose_to_head(self.query(x), H)  # [N, H, L, E//H]
-        Q.div_(math.sqrt(E//H))
         attn_scores = Q @ K.transpose(-1, -2)  # [N, H, Lq, Lkv]
         #
         if config.position_embedding_type in {"relative_key", "relative_key_query"} and not is_cross_attention:
@@ -276,12 +276,19 @@ class RobertaSelfAttention(Module):
             #
             distance_idx = position_ids_l[:, None] - position_ids_r[None, :] + config.max_position_embeddings - 1
             positional_embedding = self.distance_embedding(distance_idx)  # [L, L, E//H]
-            raise NotImplementedError  # TODO: 相对位置编码
+            relative_position_scores_Q = torch.einsum("bhld,lrd->bhlr", Q, positional_embedding)
+            attn_scores.add_(relative_position_scores_Q)
+            if config.position_embedding_type == "relative_key_query":
+                relative_position_scores_K = torch.einsum("bhrd,lrd->bhlr", K, positional_embedding)
+                attn_scores.add_(relative_position_scores_K)
         #
+        attn_scores.div_(math.sqrt(E//H))
         attn_scores.add_(attention_mask)  # [N, 1, 1, Lkv]. for pad
         #
         attn_dist = F.softmax(attn_scores, dim=-1)  # 分布
         attn_dist = self.dropout(attn_dist)  # [N, H, L, L]
+        if head_mask is not None:
+            attn_dist.mul_(head_mask)
         output: Tensor = attn_dist @ V  # [N, H, Lq, E//H]
         #
         output = self._transpose_from_head(output)  # [N, L, H, E//H] -> [N, L, E]
@@ -338,10 +345,11 @@ class RobertaAttention(Module):
         attention_mask: Tensor,
         encoder_hidden_state: Optional[Tensor] = None,
         past_key_value: Optional[List[Tensor]] = None,
+        head_mask: Optional[Tensor] = None,
     ) -> Tuple[Tensor, Optional[Tensor], Optional[List[Tensor]]]:
         x0 = x
         x, attn_dist, past_key_value = self.attn(
-            x, attention_mask, encoder_hidden_state, past_key_value)
+            x, attention_mask, encoder_hidden_state, past_key_value, head_mask)
         x = self.output(x, x0)
         return x, attn_dist, past_key_value
 
@@ -391,6 +399,7 @@ class RobertaLayer(Module):
         encoder_hidden_state: Optional[Tensor] = None,
         encoder_attention_mask: Optional[Tensor] = None,
         past_key_value: Optional[List[Tensor]] = None,  # [K, V] or [K, V, cross_K, cross_V]
+        head_mask: Optional[Tensor] = None,
     ) -> Tuple[Tensor, Optional[Tensor], Optional[Tensor], Optional[List[Tensor]]]:
         """
         return: 
@@ -403,7 +412,7 @@ class RobertaLayer(Module):
         pkv = None
         if past_key_value is not None:
             pkv = past_key_value[:2]
-        x, attn_dist, pkv = self.attn(x, attention_mask, None, pkv)
+        x, attn_dist, pkv = self.attn(x, attention_mask, None, pkv, head_mask)
         cross_attn_dist = None
         if encoder_hidden_state is not None:
             assert config.add_cross_attention and encoder_attention_mask is not None
@@ -411,7 +420,7 @@ class RobertaLayer(Module):
             if past_key_value is not None:
                 cross_pkv = past_key_value[2:]
             x, cross_attn_dist, cross_pkv = self.cross_attn(
-                x, encoder_attention_mask, encoder_hidden_state, cross_pkv)
+                x, encoder_attention_mask, encoder_hidden_state, cross_pkv, head_mask)
             if pkv is not None:
                 assert cross_pkv is not None
                 pkv += cross_pkv
@@ -436,6 +445,7 @@ class RobertaEncoder(Module):
         encoder_hidden_state: Optional[Tensor] = None,
         encoder_attention_mask: Optional[Tensor] = None,
         past_key_values: Optional[List[List[Tensor]]] = None,
+        head_masks: Optional[Tensor] = None,
     ) -> RobertaResult:
         config = self.config
         pkv_list: List[List[Tensor]] = []
@@ -450,14 +460,18 @@ class RobertaEncoder(Module):
         #
         for i, layer_module in enumerate(self.layer):
             pkv = None
+            head_mask = None
+
             if past_key_values is not None:
                 pkv = past_key_values[i]
+            if head_masks is not None:
+                head_mask = head_masks[i]
             if config.gradient_checkpointing and self.training:
-                x, attn_dist, cross_attn_dist, pkv = checkpoint(layer_module, x, attention_mask, 
-                                                                encoder_hidden_state, encoder_attention_mask, pkv, use_reentrant=False)
+                x, attn_dist, cross_attn_dist, pkv = checkpoint(layer_module, x, attention_mask, encoder_hidden_state,
+                                                                encoder_attention_mask, pkv, head_mask, use_reentrant=False)
             else:
                 x, attn_dist, cross_attn_dist, pkv = layer_module(x, attention_mask, encoder_hidden_state,
-                                                                  encoder_attention_mask, pkv)
+                                                                  encoder_attention_mask, pkv, head_mask)
             #
             if config.is_decoder:
                 pkv_list.append(pkv)
@@ -517,6 +531,9 @@ class RobertaLMHead(Module):
 
 
 class RobertaPreTrainedModel(PreTrainedModel):
+    config_class = RobertaConfig
+    base_model_prefix = "roberta"
+
     def __init__(self, config: RobertaConfig) -> None:
         self.config: RobertaConfig
         super().__init__(config)
@@ -555,23 +572,26 @@ class RobertaModel(RobertaPreTrainedModel):
         encoder_hidden_state: Optional[Tensor] = None,
         encoder_attention_mask: Optional[Tensor] = None,
         past_key_values: Optional[List[List[Tensor]]] = None,
+        head_masks: Optional[Tensor] = None,
     ) -> RobertaResult:
         """
-        input_ids: [N, L]
-        attention_mask: [N, L]. 1 not mask
+        input_ids: LongTensor[N, L]
+        attention_mask: LongTensor[N, L]. 1 not mask
         encoder_hidden_state: [N, Lkv, E]
         encoder_attention_mask: [N, Lkv]. 1 not mask
         past_key_values: [n_layers * [[K: [N, H, L, E//H], V] or [K, V, cross_K, cross_V]]]
-        head_masks: 
+        head_masks: FloatTensor/LongTensor. [H] or [n_layers, H]
         """
+        config = self.config
         if encoder_hidden_state is not None:
             assert encoder_attention_mask is not None
         dtype = self.embeddings.word_embeddings.weight.dtype
-        attention_mask = self._create_attn_mask(attention_mask, dtype, self.config.ninf)
-        attention_mask = attention_mask[:, None, None, :]
+        attention_mask = self._create_attn_mask(attention_mask, dtype, config.ninf)
+        if head_masks is not None:
+            head_masks = self._create_head_masks(head_masks, config.num_hidden_layers, dtype)
         x = self.embeddings(input_ids)
         res: RobertaResult = self.encoder(x, attention_mask, encoder_hidden_state,
-                                          encoder_attention_mask, past_key_values)
+                                          encoder_attention_mask, past_key_values, head_masks)
         x = res.last_hidden_state
         if self.pool is not None:
             pool_output = self.pool(x)
@@ -583,18 +603,31 @@ class RobertaModel(RobertaPreTrainedModel):
     def _create_attn_mask(attn_mask: Tensor, dtype: Dtype, ninf: float) -> Tensor:
         """
         attn_mask: [N, L], long
-        return: [N, L]. float
+        return: [N, 1, 1, L]. float
         """
         attn_mask = attn_mask.to(dtype)
         attn_mask = (1. - attn_mask) * ninf
-        return attn_mask
+        return attn_mask[:, None, None, :]
+
+    @staticmethod
+    def _create_head_masks(head_masks: Tensor, num_hidden_layers: int, dtype: Dtype) -> Tensor:
+        """
+        head_masks: [H] or [n_layers, H]. (1 keep, 0 mask)
+        return: [n_layers, N, H, 1, 1]
+        """
+        head_masks = head_masks.to(dtype)
+        head_masks = head_masks[..., None, :, None, None]
+        if head_masks.ndim == 4:
+            head_masks = head_masks[None]
+            head_masks = head_masks.broadcast_to((num_hidden_layers, *head_masks.shape[1:]))
+        assert head_masks.ndim == 5
+        return head_masks
 
     def get_input_embeddings(self) -> Module:
         return self.embeddings.word_embeddings
 
 
 class RobertaForMaskedLM(RobertaPreTrainedModel):
-    base_model_prefix = "roberta"
 
     def __init__(self, config: RobertaConfig) -> None:
         super().__init__(config)
@@ -611,10 +644,11 @@ class RobertaForMaskedLM(RobertaPreTrainedModel):
         encoder_hidden_state: Optional[Tensor] = None,
         encoder_attention_mask: Optional[Tensor] = None,
         past_key_values: Optional[List[List[Tensor]]] = None,
+        head_masks: Optional[Tensor] = None,
     ) -> RobertaResult:
         """labels: [N, L]"""
         res: RobertaResult = self.roberta(input_ids, attention_mask, encoder_hidden_state,
-                                          encoder_attention_mask, past_key_values)
+                                          encoder_attention_mask, past_key_values, head_masks)
         x = res.last_hidden_state
         logits: Tensor = self.lm_head(x)  # 未过softmax
 
@@ -637,14 +671,15 @@ class RobertaForMaskedLM(RobertaPreTrainedModel):
 
 
 if __name__ == "__main__":
-    from libs import *
+    # from libs import *
     ml.select_device([0])
     model_id = "roberta-base"
     from transformers.models.roberta.modeling_roberta import RobertaPreTrainedModel as _RobertaPreTrainedModel
     config = _RobertaPreTrainedModel.config_class.from_pretrained(model_id)
     # config.position_embedding_type = "relative_key_query"
     # print(config)
-    model = RobertaForMaskedLM(RobertaConfig(add_pooling_layer=True, output_attentions=True, gradient_checkpointing=True)).cuda()
+    model = RobertaForMaskedLM(RobertaConfig(add_pooling_layer=True,
+                               output_attentions=True, gradient_checkpointing=True, output_hidden_states=True)).cuda()
     state_dict = libs_ml.hf_get_state_dict(HF_HOME, model_id, config._commit_hash)
     print(libs_ml.load_state_dict_with_mapper(model, state_dict,
           "./.other/roberta_mask_m.txt", "./.other/roberta_mask_s.txt"))
@@ -653,11 +688,42 @@ if __name__ == "__main__":
     t = AutoTokenizer.from_pretrained(model_id)
     batch = t([text, text2], padding=True, return_tensors="pt")
     ml.seed_everything(42)
+    head_masks = torch.randint(0, 2, (12,)).cuda()
     for i in range(1):
-        y: RobertaResult = model(batch["input_ids"].cuda(), batch["attention_mask"].cuda())
+        y: RobertaResult = model(batch["input_ids"].cuda(), batch["attention_mask"].cuda(), head_masks=head_masks)
         print(torch.allclose(y.last_hidden_state, libs_ml.test_tensor_allclose(idx=2302171555), atol=1e-6))
         print(torch.allclose(y.pool_output, libs_ml.test_tensor_allclose(idx=2302171556), atol=1e-6))
         print(torch.allclose(torch.stack(y.attn_dist_list, 0), torch.stack(
             libs_ml.test_tensor_allclose(idx=2302171557), 0), atol=1e-6))
+        for k, v in y.__dict__.items():
+            print(k, v.shape if isinstance(v, Tensor) else None)
+
+
+
+if __name__ == "__main__":
+    from libs import *
+    ml.select_device([0])
+    model_id = "roberta-base"
+    from transformers.models.roberta.modeling_roberta import RobertaPreTrainedModel as _RobertaPreTrainedModel
+    config = _RobertaPreTrainedModel.config_class.from_pretrained(model_id)
+    # print(config)
+    model = RobertaForMaskedLM(RobertaConfig(add_pooling_layer=True,
+                               output_attentions=True, gradient_checkpointing=True, output_hidden_states=True, 
+                               position_embedding_type="relative_key_query")).cuda()
+    state_dict = libs_ml.hf_get_state_dict(HF_HOME, model_id, config._commit_hash)
+    print(libs_ml.load_state_dict_with_mapper(model, state_dict,
+          "./.other/roberta_mask_m.txt", "./.other/roberta_mask_s.txt"))
+    text = "Replace non-padding symbols with their position numbers. Position numbers begin at padding_idx+1. Padding symbols are ignored. This is modified from fairseq's `utils.make_positions`."
+    text2 = "Replace non-padding symbols with their position numbers. "
+    t = AutoTokenizer.from_pretrained(model_id)
+    batch = t([text, text2], padding=True, return_tensors="pt")
+    ml.seed_everything(42)
+    head_masks = torch.randint(0, 2, (12,)).cuda()
+    for i in range(1):
+        y: RobertaResult = model(batch["input_ids"].cuda(), batch["attention_mask"].cuda(), head_masks=head_masks)
+        print(torch.allclose(y.last_hidden_state, libs_ml.test_tensor_allclose(idx=2303302352), atol=1e-6))
+        print(torch.allclose(y.pool_output, libs_ml.test_tensor_allclose(idx=2303302353), atol=1e-6))
+        print(torch.allclose(torch.stack(y.attn_dist_list, 0), torch.stack(
+            libs_ml.test_tensor_allclose(idx=2303302354), 0), atol=1e-6))
         for k, v in y.__dict__.items():
             print(k, v.shape if isinstance(v, Tensor) else None)
