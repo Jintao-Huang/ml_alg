@@ -116,7 +116,8 @@ from torch.autograd.function import FunctionCtx, Function
 from torch.optim import lr_scheduler as lrs
 from torch.optim.lr_scheduler import _LRScheduler as LRScheduler
 import torch.nn.init as init
-from torch.nn.utils.clip_grad import clip_grad_norm_
+from torch.nn.utils.clip_grad import clip_grad_norm_, clip_grad_value_
+from torch.nn.utils.fusion import fuse_conv_bn_eval, fuse_linear_bn_eval
 from torch.nn.parallel import DataParallel as DP, DistributedDataParallel as DDP
 from torch.utils.data import (
     Dataset, IterableDataset, TensorDataset,

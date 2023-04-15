@@ -5,6 +5,7 @@
 from ..._types import *
 from ...utils._io import write_to_pickle, read_from_pickle
 from ..._env import CACHE_HOME
+# from libs import *
 
 
 logger = ml.logger
@@ -230,14 +231,15 @@ if __name__ == "__main__":
     print(test_nan(x))
 
 
-def load_state_dict_with_mapper(model: Module, state_dict: Dict[str, Tensor], m_fpath: str = "m.txt", s_fpath="s.txt",
-                                strict: bool = False) -> IncompatibleKeys:
+def state_dict_mapper(model: Optional[Module], state_dict: Dict[str, Tensor], 
+                      m_fpath: str = "m.txt", s_fpath="s.txt") -> Dict[str, Tensor]:
     m_fpath = os.path.abspath(m_fpath)
     s_fpath = os.path.abspath(s_fpath)
     os.makedirs(os.path.dirname(m_fpath), exist_ok=True)
     os.makedirs(os.path.dirname(s_fpath), exist_ok=True)
     #
     if not os.path.exists(m_fpath) and not os.path.exists(s_fpath):
+        assert model is not None
         m_keys = list(model.state_dict().keys())
         with open(m_fpath, "w", encoding="utf-8") as f:
             for k in m_keys:
@@ -264,7 +266,7 @@ def load_state_dict_with_mapper(model: Module, state_dict: Dict[str, Tensor], m_
         if mk is None:
             mk = sk
         new_state_dict[mk] = state_dict[sk]
-    return model.load_state_dict(new_state_dict, strict=strict)
+    return new_state_dict
 
 
 def smart_load_state_dict(model: Module, state_dict: Dict[str, Tensor], s_prefix_key: str = "", s_start_key: int = 0,
@@ -314,7 +316,7 @@ def test_tensor_allclose(t: Optional[Tensor] = None, idx: int = 0, remove_file: 
         t = read_from_pickle(fpath)
     else:
         write_to_pickle(t, fpath)
-    # 
+    #
     if remove_file:
         os.remove(fpath)
     return t
@@ -383,19 +385,39 @@ def multi_runs(collect_res: Callable[[int], Dict[str, float]], n: int, seed: Opt
 
 def smart_freeze_layers(model: Module,
                         layer_names_reg: Optional[List[str]] = None,
+                        exclude_layer_names_reg: Optional[List[str]] = None,
                         verbose: bool = True) -> None:
     r"""
     layer_names_reg: [r"conv1\..+", r"bn1\..+", *[rf"layer{i+1}\..+" for i in range(2)]]
     """
     if layer_names_reg is None:
         layer_names_reg = []
-
+    if exclude_layer_names_reg is None:
+        exclude_layer_names_reg = []
     lnrs = layer_names_reg
+    elnrs = exclude_layer_names_reg
     for n, p in model.named_parameters():
         requires_grad = True
         for lnr in lnrs:
             m = re.match(lnr, n)
             if m is not None:
+                if not any((re.match(elnr, n) for elnr in elnrs)):
+                    requires_grad = False
+                    break
+        if verbose:
+            logger.info(f"Setting {n}.requires_grad: {requires_grad}")
+        p.requires_grad_(requires_grad)
+
+
+def freeze_layers(model: Module, layers_name_prefix: Optional[List[str]] = None,
+                  verbose: bool = True):
+    if layers_name_prefix is None:
+        layers_name_prefix = []
+    lnps = layers_name_prefix
+    for n, p in model.named_parameters():
+        requires_grad = True
+        for lnp in lnps:
+            if n.startswith(lnp):
                 requires_grad = False
                 break
         if verbose:
@@ -406,4 +428,46 @@ def smart_freeze_layers(model: Module,
 # if __name__ == "__main__":
 #     model = tvm.resnet50()
 #     print(model)
-#     smart_freeze_layers(model, [r"conv1\..+", r"bn1\..+", *[rf"layer{i+1}\..+" for i in range(2)]], verbose=True)
+#     smart_freeze_layers(model, [r"conv1\..+", r"bn1\..+", *[rf"layer{i+1}\..+" for i in range(2)]], [r".*\.bias"],verbose=True)
+
+
+def test_lr_s(lr_s: LRScheduler, n: int) -> List[int]:
+    res = []
+    res.append(lr_s.get_last_lr())
+    optimizer = lr_s.optimizer
+    for _ in range(n):
+        optimizer.step()
+        lr_s.step()
+        res.append(lr_s.get_last_lr())
+    return res
+
+
+# if __name__ == "__main__":
+#     model = tvm.resnet50()
+#     optimizer = optim.SGD(model.parameters(), 0.01, 0.9)
+#     lr_s = ml.warmup_decorator(lrs.ConstantLR(optimizer, 1), 10)
+#     print(test_lr_s(lr_s, 100))
+
+
+@torch.no_grad()
+def weight_norm(parameters: Iterable[Tensor],
+                norm_type: float = 2.) -> Tensor:
+    if not isinstance(parameters, (list, tuple)):
+        parameters = list(parameters)
+    return tl.vector_norm(torch.stack(torch._foreach_norm(parameters, norm_type), dim=0))
+
+
+def grad_norm(parameters: Iterable[Tensor],
+              norm_type: float = 2.) -> Tensor:
+    grads = [p.grad for p in parameters if isinstance(p.grad, Tensor)]
+    return tl.vector_norm(torch.stack(torch._foreach_norm(grads, norm_type), dim=0))
+
+# if __name__ == "__main__":
+#     model = tvm.resnet18()
+#     ml.seed_everything(42)
+#     x = torch.randn(16, 3, 100, 100)
+#     y = model(x).mean()
+#     y.backward()
+#     print(grad_norm(model.parameters()))
+#     print(clip_grad_norm_(model.parameters(), 10))
+#     print(weight_norm(model.parameters(), 10))

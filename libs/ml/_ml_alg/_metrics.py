@@ -6,18 +6,6 @@ from ..._types import *
 from ._cy import calc_rank_loop as _calc_rank_loop
 # from libs import *
 
-__all__ = [
-    "accuracy", "confusion_matrix",
-    "precision_recall_fbeta", "precision", "recall", "fbeta_score", "f1_score",
-    "precision_recall_curve", "average_precision", "roc_curve", "auroc",
-    "r2_score",
-    "pairwise_cosine_similarity", "pairwise_euclidean_distance",
-    "batched_cosine_similarity", "batched_euclidean_distance",
-    "batched_mse", "pairwise_mse", "pairwise_equal",
-    "kl_divergence",
-    "pearson_corrcoef", "spearman_corrcoef", "calc_rank"
-]
-
 # y_pred在前, 保持与torch的loss一致
 
 """
@@ -581,6 +569,17 @@ def pairwise_cosine_similarity(X: Tensor, Y: Tensor) -> Tensor:
 #     print(torch.allclose(z, z5, atol=1e-6))
 
 
+def pairwise_dot_similarity(X: Tensor, Y: Tensor) -> Tensor:
+    """内积相似度
+    X: shape[N1, F]. Tensor[float]
+    Y: shape[N2, F]. Tensor[float]
+    return: shape[N1, N2]. Tensor[float]
+    """
+    # <X, Y>
+    res = X @ Y.T
+    return res
+
+
 def batched_euclidean_distance(
     X: Tensor,
     Y: Tensor,
@@ -611,7 +610,8 @@ def pairwise_euclidean_distance(
     Y: Tensor,
     XX: Optional[Tensor] = None,
     YY: Optional[Tensor] = None,
-    squared: bool = False
+    squared: bool = False,
+    dtype: Optional[Dtype] = None
 ) -> Tensor:
     """
     X: shape[N1, F]. Tensor[float]
@@ -621,15 +621,20 @@ def pairwise_euclidean_distance(
     return: shape[N1, N2]
     """
     # dist(x, y) = (x-y)^2 = sqrt(inner(x, x) - 2 * inner(x, y) + inner(y, y)). x, y: [F]
+    if dtype is None:
+        dtype = X.dtype
+    X = X.to(dtype)
+    Y = Y.to(dtype)
     if XX is None:
-        XX = torch.einsum("ij,ij->i", X, X)
+        XX = (X * X).sum(dim=1)
     if YY is None:
-        YY = torch.einsum("ij,ij->i", Y, Y)
+        YY = (Y * Y).sum(dim=1)
     # 减少分配空间导致的效率下降
-    res = X @ Y.T
-    res.mul_(-2).add_(XX[:, None]).add_(YY)
+    res = (XX[:, None] + YY).add_(torch.mm(X, Y.T).mul_(- 2))
     res.clamp_min_(0.)  # 避免sqrt{负数}, 浮点误差
-    return res if squared else res.sqrt_()
+    if not squared:
+        res.sqrt_()
+    return res
 
 
 # if __name__ == "__main__":
@@ -643,6 +648,13 @@ def pairwise_euclidean_distance(
 #     print(torch.allclose(y2.ravel()[::10000+1], y3, atol=1e-6))  # True
 #     y4 = ml.test_time(lambda: batched_euclidean_distance(x, x2), 5)
 #     print(torch.allclose(y4, y3, atol=1e-6))  # True
+
+# if __name__ == "__main__":
+#     from torchmetrics.functional.pairwise.euclidean import pairwise_euclidean_distance as _pairwise_euclidean_distance
+#     x = torch.randn(1000, 1000)
+#     y1 = ml.test_time(lambda: pairwise_euclidean_distance(x, x), 5)
+#     y2 = ml.test_time(lambda: _pairwise_euclidean_distance(x, x), 5)
+#     print(torch.allclose(y1, y2, atol=1e-5))  # True
 
 
 def batched_mse(y_pred: Tensor, y_true: Tensor, reduction: Literal["mean", "sum"] = "mean") -> Tensor:
@@ -775,7 +787,7 @@ def pearson_corrcoef(y_pred: Tensor, y_true: Tensor) -> Tensor:
     t_std = y_true.std(dim=0)
     res = (y_pred - p_mean).mul_(y_true - t_mean).sum(dim=0).div_(N - 1)
     # batched另一形式, 与batched_cosine_similarity对比
-    # res = torch.einsum("ij,ij->j", y_pred - p_mean, y_true - t_mean).div_(N - 1)  
+    # res = torch.einsum("ij,ij->j", y_pred - p_mean, y_true - t_mean).div_(N - 1)
     res.div_(p_std).div_(t_std)
     return res
 

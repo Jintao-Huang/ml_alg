@@ -1,4 +1,4 @@
-mini-lightning>=0.1.9
+mini-lightning>=0.2.0
 leetcode-alg>=0.1.0.1
 torch>=2.0
 threadpoolctl>=3.1
