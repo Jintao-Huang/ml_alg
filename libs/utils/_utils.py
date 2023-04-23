@@ -295,3 +295,34 @@ def test_function(func: Callable[[ndarray], ndarray], _range: Tuple[int, int] = 
     y = func(x)
     plot(ax, x, y)
     plt.show()
+
+
+def GPT_out(prompt: str, max_tokens: int, temperature: float = 0.,
+            model: Literal["davinci2", "davinci3", "gpt3.5"] = "gpt3.5") -> str:
+    kwargs = {  
+        "temperature" : temperature,
+        "max_tokens": max_tokens,
+        "top_p": 1.,
+        "frequency_penalty": 0.,
+        "presence_penalty": 0.,
+        "n": 1,
+    }
+    if model.startswith("davinci"):
+        if model == "davinci2":
+            model_id = "text-davinci-002"
+        else:
+            model_id = "text-davinci-003"
+        res = openai.Completion.create(
+            model=model_id,
+            prompt=prompt,
+            **kwargs
+        )
+        gen_text = res.choices[0].text
+    else:
+        res = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}],
+            **kwargs
+        )
+        gen_text = res.choices[0].message.content
+    return gen_text

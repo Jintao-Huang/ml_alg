@@ -1,0 +1,11 @@
+{
+	"files.exclude": {
+		"**/.git": true,
+		"**/__pycache__": true
+	},
+	"python.analysis.autoImportCompletions": false,
+	"python.analysis.typeCheckingMode": "basic",
+	"python.formatting.autopep8Args": [
+        "--max-line-length=120"
+	],
+}

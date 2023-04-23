@@ -5,17 +5,6 @@
 from .._types import *
 from mini_lightning import write_to_yaml, read_from_yaml, write_to_csv
 
-
-__all__ = [
-    "read_from_file", "write_to_file",
-    "read_from_pickle", "write_to_pickle",
-    "read_from_json", "write_to_json",
-    "read_from_yaml", "write_to_yaml",
-    "read_from_csv_df", "write_to_csv_df",
-    "read_from_csv", "write_to_csv",
-]
-
-
 def read_from_file(fpath: str, mode: str = "r") -> Union[str, bytes]:
     with open(fpath, mode, encoding="utf-8") as f:
         text = f.read()
@@ -125,3 +114,9 @@ def read_from_csv(fpath: str, nrows: int = -1, *, sep: str = ",", encoding="utf-
 #     df = ml.test_time(lambda: read_from_csv_df(FPATH3, sep="|"))
 #     ml.test_time(lambda: write_to_csv_df(df, FPATH4))
 #     os.remove(FPATH4)
+
+def read_from_npy(fpath: str) -> ndarray:
+    return np.load(fpath)
+
+def write_to_npy(array: ndarray, fpath: str) -> None:
+    return np.save(fpath, array)

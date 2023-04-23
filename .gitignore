@@ -1,7 +1,7 @@
 /doc/
 /ml.md
 /_test/
-/.vscode/
+# /.vscode/
 /runs/
 /_pre.py
 __pycache__/

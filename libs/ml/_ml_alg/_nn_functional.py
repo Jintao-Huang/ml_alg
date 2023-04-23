@@ -1506,13 +1506,13 @@ def adaptive_avg_pool2d(x: Tensor, output_size: Tuple[int, int]) -> Tensor:
     Hout, Wout = output_size
     #
     split_h = torch.linspace(0, Hin, Hout + 1)
+    h_start, h_end = split_h[:-1].long(), split_h[1:].ceil().long()
     split_w = torch.linspace(0, Win, Wout + 1)
+    w_start, w_end = split_w[:-1].long(), split_w[1:].ceil().long()
     res = []
     for i in range(Hout):
         for j in range(Wout):
-            h_start, w_start = int(split_h[i]), int(split_w[j])
-            h_end, w_end = math.ceil(split_h[i + 1]), math.ceil(split_w[j + 1])
-            h_pos, w_pos = slice(h_start, h_end), slice(w_start, w_end)
+            h_pos, w_pos = slice(int(h_start[i]), int(h_end[i])), slice(int(w_start[j]), int(w_end[j]))
             res.append(torch.mean(x[:, :, h_pos, w_pos], dim=(2, 3)))
     res = torch.stack(res, dim=-1).view(N, C, Hout, Wout)
     return res
@@ -1535,13 +1535,13 @@ def adaptive_max_pool2d(x: Tensor, output_size: Tuple[int, int]) -> Tensor:
     Hout, Wout = output_size
     #
     split_h = torch.linspace(0, Hin, Hout + 1)
+    h_start, h_end = split_h[:-1].long(), split_h[1:].ceil().long()
     split_w = torch.linspace(0, Win, Wout + 1)
+    w_start, w_end = split_w[:-1].long(), split_w[1:].ceil().long()
     res = []
     for i in range(Hout):
         for j in range(Wout):
-            h_start, w_start = int(split_h[i]), int(split_w[j])
-            h_end, w_end = math.ceil(split_h[i + 1]), math.ceil(split_w[j + 1])
-            h_pos, w_pos = slice(h_start, h_end), slice(w_start, w_end)
+            h_pos, w_pos = slice(int(h_start[i]), int(h_end[i])), slice(int(w_start[j]), int(w_end[j]))
             res.append(torch.max(x[:, :, h_pos, w_pos].flatten(2, 3), dim=2)[0])
     res = torch.stack(res, dim=-1).view(N, C, Hout, Wout)
     return res
