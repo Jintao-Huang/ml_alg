@@ -1,7 +1,5 @@
-try: 
-    from ..._types import *
-except ImportError:
-    from libs import *
+from ..._types import *
+# from libs import *
 
 def tf_idf(d: List[Dict[str, int]], i: int, s: str) -> float:
     """p8

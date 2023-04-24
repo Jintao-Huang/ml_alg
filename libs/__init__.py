@@ -9,3 +9,4 @@ from ._types import *
 #
 
 logger = ml.logger
+logger.setLevel(logging.DEBUG)
