@@ -3,8 +3,8 @@
 # Date:
 
 from typing import Dict, List, Any, Union, TypeVar
-
-__all__ = ["dict_sorted_key", "unique", "unique2", "flatten_list"]
+import math
+from leetcode_alg import lower_bound
 
 
 def dict_sorted_key(d: Dict[int, int]) -> Dict[int, int]:
@@ -80,3 +80,13 @@ if __name__ == "__main__":
     res = []
     flatten_list(li, res)
     print(res)
+
+def soft_split(n: int, max_len: int) -> int:
+    """binary search. return step
+    e.g. n=21, max=10. 则n_split=ceil(21/10)=3. 则step=7. 则更均匀, 且n_split不加. 
+    """
+    n_split = math.ceil(n / max_len)
+    return lower_bound(1, max_len, lambda mid: math.ceil(n / mid) <= n_split)
+
+if __name__ == "__main__":
+    print(soft_split(21, 10))

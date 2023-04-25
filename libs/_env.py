@@ -22,3 +22,4 @@ if _OPENAI_API_KEY:
 _OPENAI_ORG = os.getenv("OPENAI_ORG")
 if _OPENAI_ORG is not None:
     openai.organization: str = os.getenv("OPENAI_ORG")
+# 

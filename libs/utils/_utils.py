@@ -299,8 +299,8 @@ def test_function(func: Callable[[ndarray], ndarray], _range: Tuple[int, int] = 
 
 def GPT_out(prompt: str, max_tokens: int, temperature: float = 0.,
             model: Literal["davinci2", "davinci3", "gpt3.5"] = "gpt3.5") -> str:
-    kwargs = {  
-        "temperature" : temperature,
+    kwargs = {
+        "temperature": temperature,
         "max_tokens": max_tokens,
         "top_p": 1.,
         "frequency_penalty": 0.,
@@ -326,3 +326,25 @@ def GPT_out(prompt: str, max_tokens: int, temperature: float = 0.,
         )
         gen_text = res.choices[0].message.content
     return gen_text
+
+
+def set_logger_level(logger: Logger, level: int) -> None:
+    handers: List[Handler] = logger.handlers
+    logger.setLevel(level)
+    for hander in handers:
+        hander.setLevel(level)
+
+
+def convert_single_to_double(fpath: str, out_fpath: Optional[str]) -> None:
+    """将单引号转出双引号"""
+    if out_fpath is None:
+        out_fpath = fpath
+    with open(fpath, "r") as f:
+        text = f.read()
+    res = re.sub(r"'(.+?)'", r'"\1"', text)
+    with open(out_fpath, "w") as f:
+        f.write(res)
+
+
+if __name__ == "__main__":
+    convert_single_to_double("test.txt", "test2.txt")

@@ -6,7 +6,6 @@ from . import utils as libs_utils
 from . import _plt as libs_plt
 from ._env import *
 from ._types import *
-#
 
 logger = ml.logger
-logger.setLevel(logging.DEBUG)
+libs_utils.set_logger_level(logger, logging.DEBUG)
