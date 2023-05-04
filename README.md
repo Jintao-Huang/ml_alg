@@ -30,7 +30,7 @@
       1. 含: random_horizontal_flip, random_resized_crop...
    7. `_linalg.py`: 线性代数算法. (没啥实用性, 用于学习)
       1. 含pinv, solve, lstsq, cholesky_solve, lu_solve等
-   8. `_functional.py`: 一些torch的函数实现. (没啥实用性, 用于学习)
+   8. `_functional/*`: 一些torch的函数实现. (没啥实用性, 用于学习)
       1. 含logsumexp, softmax, var, cov, corrcoef, bincount, unique_consecutive
       2. 含div, fmod, remainder
    9. `_rand.py`: (没啥实用性, 用于学习)

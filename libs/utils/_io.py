@@ -46,8 +46,8 @@ def write_to_json(obj: Any, fpath: str, encoding: str = "utf-8") -> None:
         json.dump(obj, f)
 
 
-def read_from_csv_df(fpath: str, *, sep: str = ",") -> DataFrame:
-    return pd.read_csv(fpath, sep=sep)
+def read_from_csv_df(fpath: str, *, sep: str = ",", **kwargs) -> DataFrame:
+    return pd.read_csv(fpath, sep=sep, **kwargs)
 
 
 def write_to_csv_df(df: DataFrame, fpath: str, *, sep: str = ",", index: bool = False) -> None:
