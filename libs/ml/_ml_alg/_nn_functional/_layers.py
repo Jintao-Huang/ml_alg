@@ -600,7 +600,7 @@ def conv1d(
     x = F.unfold(x[..., None], (K, 1), D, (P, 0), (S, 1))
     x = x.view(N, G, Cin // G, K, Lout)
     weight = weight.contiguous().view(G, Cout // G, Cin//G, K)
-    # [N, G, Cout//G, Lout] -> [N, Cout, Lout]
+    # x: [N, G, Cout//G, Lout] -> [N, Cout, Lout]
     res = torch.einsum("abcde,bfcd->abfe", x, weight).contiguous().view(N, Cout, Lout)
     if bias is not None:
         res.add_(bias[None, :,  None])
@@ -1163,9 +1163,6 @@ def multi_head_attention_forward(
 #         key_padding_mask, True, attn_mask), number=10, warmup=1)
 #     print(torch.allclose(y1[0], y2[0], atol=1e-6))
 #     print(torch.allclose(y1[1], y2[1], atol=1e-6))
-
-
-
 
 
 def adaptive_avg_pool2d(x: Tensor, output_size: Tuple[int, int]) -> Tensor:

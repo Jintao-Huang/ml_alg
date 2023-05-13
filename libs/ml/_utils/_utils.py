@@ -471,3 +471,18 @@ def grad_norm(parameters: Iterable[Tensor],
 #     print(grad_norm(model.parameters()))
 #     print(clip_grad_norm_(model.parameters(), 10))
 #     print(weight_norm(model.parameters(), 10))
+
+
+class HParamsBase:
+    def __init__(self, device_ids: List[int], dataloader_hparams: Dict[str, Any],
+                 optim_name: str, optim_hparams: Dict[str, Any], trainer_hparams: Dict[str, Any],
+                 warmup: Optional[int] = None, lrs_hparams: Optional[Dict[str, Any]] = None) -> None:
+        self.device_ids = device_ids
+        self.dataloader_hparams = dataloader_hparams
+        self.optim_name = optim_name
+        self.optim_hparams = optim_hparams
+        self.trainer_hparams = trainer_hparams
+        if warmup is not None:
+            self.warmup = warmup
+        if lrs_hparams is not None:
+            self.lrs_hparams = lrs_hparams

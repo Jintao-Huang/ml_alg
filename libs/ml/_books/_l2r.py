@@ -2,11 +2,11 @@ from ..._types import *
 # from libs import *
 
 def tf_idf(d: List[Dict[str, int]], i: int, s: str) -> float:
-    """p8
+    """p8. 单词(str)在文档i中的重要性
     Ref: https://en.wikipedia.org/wiki/Tf%E2%80%93idf#Example_of_tf%E2%80%93idf
     return tf_idf >= 0
     """
-    len_doc = sum(v for c, v in d[i].items())
+    len_doc = sum(v for _, v in d[i].items())
     n = 0
     if s in d[i]:
         n = d[i][s]

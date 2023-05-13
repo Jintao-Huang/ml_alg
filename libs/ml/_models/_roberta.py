@@ -1,6 +1,8 @@
 from transformers import PreTrainedModel
 # from libs import *
+# accuracy = libs_ml.accuracy
 from ..._types import *
+from .._ml_alg._metrics import accuracy
 # from transformers.models.roberta.modeling_roberta import RobertaForMaskedLM
 
 """
@@ -90,6 +92,8 @@ class RobertaConfig(PretrainedConfig):
         vocab_size: int = 50265,
         #
         tie_word_embeddings: bool = True,
+        #
+        label_smoothing: float = 0.
     ) -> None:
         self.model_type: str = "roberta"
         #
@@ -120,6 +124,8 @@ class RobertaConfig(PretrainedConfig):
         self.torchscript = False
         self.pruned_heads = set()  # TODO: 需要裁剪的头
         self.tie_word_embeddings = tie_word_embeddings
+        #
+        self.label_smoothing = label_smoothing
 
 
 class RobertaResult:
@@ -179,9 +185,9 @@ class RobertaEmbeddings(Module):
         return FloatTensor[N, L, E]
         """
         config = self.config
-        position_ids = create_pos_ids(input_ids, config.pad_token_id)
         x: Tensor = self.word_embeddings(input_ids)
         if config.position_embedding_type == "absolute":
+            position_ids = create_pos_ids(input_ids, config.pad_token_id)
             x.add_(self.position_embeddings(position_ids))
         if config.type_vocab_size > 1:
             assert isinstance(token_type_ids, Tensor)
@@ -276,12 +282,13 @@ class RobertaSelfAttention(Module):
             #
             distance_idx = position_ids_l[:, None] - position_ids_r[None, :] + config.max_position_embeddings - 1
             positional_embedding = self.distance_embedding(distance_idx)  # [L, L, E//H]
+            # [N, H, L, E//H], [L, L, E//H] -> [N, H, L, L]
             relative_position_scores_Q = torch.einsum("bhld,lrd->bhlr", Q, positional_embedding)
             attn_scores.add_(relative_position_scores_Q)
             if config.position_embedding_type == "relative_key_query":
                 relative_position_scores_K = torch.einsum("bhrd,lrd->bhlr", K, positional_embedding)
                 attn_scores.add_(relative_position_scores_K)
-        #
+        # 
         attn_scores.div_(math.sqrt(E//H))
         attn_scores.add_(attention_mask)  # [N, 1, 1, Lkv]. for pad
         #
@@ -586,7 +593,10 @@ class RobertaModel(RobertaPreTrainedModel):
         if encoder_hidden_state is not None:
             assert encoder_attention_mask is not None
         dtype = self.embeddings.word_embeddings.weight.dtype
-        attention_mask = self._create_attn_mask(attention_mask, dtype, config.ninf)
+        if attention_mask.dtype in {torch.long, torch.int32}:
+            attention_mask = self._create_attn_mask(attention_mask, dtype, config.ninf)
+        if encoder_attention_mask is not None:
+            encoder_attention_mask = self._create_attn_mask(encoder_attention_mask, dtype, config.ninf)
         if head_masks is not None:
             head_masks = self._create_head_masks(head_masks, config.num_hidden_layers, dtype)
         x = self.embeddings(input_ids)
@@ -602,12 +612,14 @@ class RobertaModel(RobertaPreTrainedModel):
     @staticmethod
     def _create_attn_mask(attn_mask: Tensor, dtype: Dtype, ninf: float) -> Tensor:
         """
-        attn_mask: [N, L], long
+        attn_mask: [N, L] or [N, H, L, L], long
         return: [N, 1, 1, L]. float
         """
         attn_mask = attn_mask.to(dtype)
         attn_mask = (1. - attn_mask) * ninf
-        return attn_mask[:, None, None, :]
+        if attn_mask.ndim == 2:
+            attn_mask = attn_mask[:, None, None, :]
+        return attn_mask
 
     @staticmethod
     def _create_head_masks(head_masks: Tensor, num_hidden_layers: int, dtype: Dtype) -> Tensor:
@@ -628,7 +640,6 @@ class RobertaModel(RobertaPreTrainedModel):
 
 
 class RobertaForMaskedLM(RobertaPreTrainedModel):
-
     def __init__(self, config: RobertaConfig) -> None:
         super().__init__(config)
         self.config = config
@@ -647,22 +658,26 @@ class RobertaForMaskedLM(RobertaPreTrainedModel):
         head_masks: Optional[Tensor] = None,
     ) -> RobertaResult:
         """labels: [N, L]"""
+        config = self.config
         res: RobertaResult = self.roberta(input_ids, attention_mask, encoder_hidden_state,
                                           encoder_attention_mask, past_key_values, head_masks)
-        x = res.last_hidden_state
-        logits: Tensor = self.lm_head(x)  # 未过softmax
-
+        x: Tensor = res.last_hidden_state
+        
         if labels is not None:
-            loss_fct = nn.CrossEntropyLoss()  # ignore_index = -100
-            res.mlm_loss = loss_fct(logits.view(-1, self.vocab_size), labels.view(-1))
+            labels_masks = labels != -100
+            x = x[labels_masks]
+            logits: Tensor = self.lm_head(x)  # 未过softmax
+            loss_fct = nn.CrossEntropyLoss(label_smoothing=self.config.label_smoothing)  # ignore_index = -100
+            if labels_masks is not None:
+                labels = labels[labels_masks]
+            res.mlm_loss = loss_fct(logits.view(-1, config.vocab_size), labels.view(-1))
             # acc
             logits = logits.detach()
-            masked_id = torch.nonzero(labels != -100, as_tuple=True)
-            y_pred = logits[masked_id].argmax(-1)
-            y_label = labels[masked_id]
-            res.mlm_acc = libs_ml.accuracy(y_pred, y_label, "multiclass", -1)
+            y_pred = logits.argmax(-1)
+            res.mlm_acc = accuracy(y_pred, labels, "multiclass", -1)
         else:
             # 在外面计算损失, 可以使用更灵活的损失函数.
+            logits: Tensor = self.lm_head(x)  # 未过softmax
             res.mlm_logits = logits
         return res
 
@@ -681,8 +696,9 @@ if __name__ == "__main__":
     model = RobertaForMaskedLM(RobertaConfig(add_pooling_layer=True,
                                output_attentions=True, gradient_checkpointing=True, output_hidden_states=True)).cuda()
     state_dict = libs_ml.hf_get_state_dict(HF_HOME, model_id, config._commit_hash)
-    print(libs_ml.load_state_dict_with_mapper(model, state_dict,
-          "./.other/roberta_mask_m.txt", "./.other/roberta_mask_s.txt"))
+    state_dict = libs_ml.state_dict_mapper(model, state_dict,
+          "./.other/roberta_mask_m.txt", "./.other/roberta_mask_s.txt")
+    logger.info(model.load_state_dict(state_dict, strict=False))
     text = "Replace non-padding symbols with their position numbers. Position numbers begin at padding_idx+1. Padding symbols are ignored. This is modified from fairseq's `utils.make_positions`."
     text2 = "Replace non-padding symbols with their position numbers. "
     t = AutoTokenizer.from_pretrained(model_id)
@@ -699,20 +715,54 @@ if __name__ == "__main__":
             print(k, v.shape if isinstance(v, Tensor) else None)
 
 
+if __name__ == "__main__":
+    # from libs import *
+    ml.select_device([0])
+    model_id = "roberta-base"
+    from transformers.models.roberta.modeling_roberta import RobertaPreTrainedModel as _RobertaPreTrainedModel
+    config = _RobertaPreTrainedModel.config_class.from_pretrained(model_id)
+    # config.position_embedding_type = "relative_key_query"
+    # print(config)
+    model = RobertaForMaskedLM(RobertaConfig(add_pooling_layer=True,
+                               output_attentions=True, gradient_checkpointing=True, output_hidden_states=True)).cuda()
+    state_dict = libs_ml.hf_get_state_dict(HF_HOME, model_id, config._commit_hash)
+    state_dict = libs_ml.state_dict_mapper(model, state_dict,
+          "./.other/roberta_mask_m.txt", "./.other/roberta_mask_s.txt")
+    logger.info(model.load_state_dict(state_dict, strict=False))
+    text = "Replace non-padding symbols with their position numbers. Position numbers begin at padding_idx+1. Padding symbols are ignored. This is modified from fairseq's `utils.make_positions`."
+    text2 = "Replace non-padding symbols with their position numbers. "
+    t = AutoTokenizer.from_pretrained(model_id)
+    data_collator_mlm = DataCollatorForLanguageModeling(t, mlm_probability=0.15)
+    t_list =   t([text, text2], truncation=True, max_length=int(1e10),
+            # add_special_tokens=False,
+            return_token_type_ids=False,
+            return_attention_mask=False
+        )["input_ids"]
+    batch = data_collator_mlm([{"input_ids": t_l} for t_l in t_list])
+    ml.seed_everything(42)
+    head_masks = torch.randint(0, 2, (12,)).cuda()
+    for i in range(1):
+        y: RobertaResult = model(batch["input_ids"].cuda(), batch["attention_mask"].cuda(), batch["labels"].cuda(),  head_masks=head_masks)
+        print(torch.allclose(y.last_hidden_state, libs_ml.test_tensor_allclose(idx=2302171555), atol=1e-6))
+        print(torch.allclose(y.pool_output, libs_ml.test_tensor_allclose(idx=2302171556), atol=1e-6))
+        print(torch.allclose(torch.stack(y.attn_dist_list, 0), torch.stack(
+            libs_ml.test_tensor_allclose(idx=2302171557), 0), atol=1e-6))
+        for k, v in y.__dict__.items():
+            print(k, v.shape if isinstance(v, Tensor) else None)
 
 if __name__ == "__main__":
-    from libs import *
+    # from libs import *
     ml.select_device([0])
     model_id = "roberta-base"
     from transformers.models.roberta.modeling_roberta import RobertaPreTrainedModel as _RobertaPreTrainedModel
     config = _RobertaPreTrainedModel.config_class.from_pretrained(model_id)
     # print(config)
     model = RobertaForMaskedLM(RobertaConfig(add_pooling_layer=True,
-                               output_attentions=True, gradient_checkpointing=True, output_hidden_states=True, 
+                               output_attentions=True, gradient_checkpointing=True, output_hidden_states=True,
                                position_embedding_type="relative_key_query")).cuda()
     state_dict = libs_ml.hf_get_state_dict(HF_HOME, model_id, config._commit_hash)
-    print(libs_ml.load_state_dict_with_mapper(model, state_dict,
-          "./.other/roberta_mask_m.txt", "./.other/roberta_mask_s.txt"))
+    state_dict = libs_ml.state_dict_mapper(model, state_dict, "./.other/roberta_mask_m.txt", "./.other/roberta_mask_s.txt")
+    logger.info(model.load_state_dict(state_dict, strict=False))
     text = "Replace non-padding symbols with their position numbers. Position numbers begin at padding_idx+1. Padding symbols are ignored. This is modified from fairseq's `utils.make_positions`."
     text2 = "Replace non-padding symbols with their position numbers. "
     t = AutoTokenizer.from_pretrained(model_id)
