@@ -25,3 +25,6 @@ cython>=0.29
 pytest>=7.2
 flask>=2
 openai>=0.27
+nltk>=3.7
+wtforms>=3.0
+accelerate>=0.17

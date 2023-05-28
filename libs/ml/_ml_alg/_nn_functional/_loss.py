@@ -7,7 +7,7 @@ from ...._types import *
 
 
 def nll_loss(pred: Tensor, target: Tensor) -> Tensor:
-    """
+    """reduction='mean'
     pred: Tensor[float]. [N, F]
     target: Tensor[long]. [N]
     return: []
@@ -28,7 +28,7 @@ def nll_loss(pred: Tensor, target: Tensor) -> Tensor:
 
 
 def cross_entropy(pred: Tensor, target: Tensor) -> Tensor:
-    """
+    """reduction='mean'
     pred: Tensor[float]. [N, F]
     target: Tensor[long]. [N]
     return: []
@@ -46,7 +46,7 @@ def cross_entropy(pred: Tensor, target: Tensor) -> Tensor:
 
 def label_smoothing_cross_entropy(pred: Tensor, target: Tensor,
                                   smoothing: float = 0.01) -> Tensor:
-    """
+    """reduction='mean'
     pred: [N, F]. Tensor[float]. 未过softmax
     target: [N]. Tensor[long]
     smoothing: 若smoothing为0.1, 则target=4, n_labels=5, 对应:
@@ -75,7 +75,7 @@ def label_smoothing_cross_entropy(pred: Tensor, target: Tensor,
 
 
 def binary_cross_entropy_with_logits(pred: Tensor, target: Tensor) -> Tensor:
-    """binary_cross_entropy数值不稳定. 
+    """binary_cross_entropy数值不稳定. reduction='mean'
     pred: Tensor[float]. [N]
     target: Tensor[float]. [N]
     return: []
@@ -85,6 +85,7 @@ def binary_cross_entropy_with_logits(pred: Tensor, target: Tensor) -> Tensor:
     ###
     p_sig: Tensor = F.logsigmoid(pred)
     pm_sig: Tensor = F.logsigmoid(-pred)
+    # 
     res = p_sig.mul_(target)
     res.add_(pm_sig.mul_((1-target)))
     return -res.mean()
@@ -101,7 +102,7 @@ def binary_cross_entropy_with_logits(pred: Tensor, target: Tensor) -> Tensor:
 
 
 def mse_loss(pred: Tensor, target: Tensor) -> Tensor:
-    """
+    """reduction='mean'
     pred: [N, F]. Tensor[float]
     target: [N, F]. Tensor[float]
     return: []
@@ -120,7 +121,7 @@ def mse_loss(pred: Tensor, target: Tensor) -> Tensor:
 
 
 def smooth_l1_loss(pred: Tensor, target: Tensor, beta: float = 1.) -> Tensor:
-    """diff=beta为loss1, loss2的分界线."""
+    """diff=beta为loss1, loss2的分界线. reduction='mean'"""
     # diff=beta处, loss1, loss2的导数值(=1), 值相等(=beta/2). loss(diff=0)=0
     cond = target.sub(pred).abs_().lt(beta)
     loss1 = F.mse_loss(pred, target, reduction="none").div_(2 * beta)
@@ -138,7 +139,7 @@ def smooth_l1_loss(pred: Tensor, target: Tensor, beta: float = 1.) -> Tensor:
 
 def cosine_embedding_loss(x1: Tensor, x2: Tensor, target: Tensor, 
                           margin: float = 0.)->Tensor:
-    """
+    """reduction='mean'
     x1: [N, D]
     x2: [N, D]
     target: [N]

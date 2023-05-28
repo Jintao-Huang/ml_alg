@@ -153,8 +153,11 @@ import torchvision.models as tvm
 # import pytorch_lightning.callbacks as plc
 #
 from transformers.pipelines import pipeline
-from transformers.models.auto.modeling_auto import AutoModel
+from transformers.models.auto.modeling_auto import (AutoModel, AutoModelForCausalLM, AutoModelForMaskedLM, 
+                                                        AutoModelForSequenceClassification, AutoModelForQuestionAnswering, 
+                                                        AutoModelForMultipleChoice, AutoModelForTokenClassification)
 from transformers.models.auto.tokenization_auto import AutoTokenizer
+from transformers.models.auto.configuration_auto import AutoConfig
 from transformers.data.data_collator import DataCollatorForLanguageModeling, DataCollatorWithPadding
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 from transformers.modeling_utils import PreTrainedModel
@@ -172,7 +175,10 @@ from torchmetrics.classification.average_precision import AveragePrecision
 import gym
 from gym import Env
 import openai
-from flask import Flask, url_for, render_template
+from flask import Flask, url_for, render_template, redirect, request
+from markupsafe import Markup
+from wtforms import StringField, Form, SubmitField, PasswordField, BooleanField
+from wtforms.validators import DataRequired, Length
 #
 import mini_lightning as ml
 # _remove_keys, _key_add_suffix

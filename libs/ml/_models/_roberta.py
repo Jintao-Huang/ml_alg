@@ -649,27 +649,32 @@ class RobertaForMaskedLM(RobertaPreTrainedModel):
 
     def forward(
         self,
-        input_ids: Tensor,
-        attention_mask: Tensor,
-        labels: Optional[Tensor] = None,
-        encoder_hidden_state: Optional[Tensor] = None,
-        encoder_attention_mask: Optional[Tensor] = None,
-        past_key_values: Optional[List[List[Tensor]]] = None,
+        input_ids: Tensor,  # [N, L]
+        attention_mask: Tensor,  # [N, L]
+        labels: Optional[Tensor] = None,  # [N, L]
+        encoder_hidden_state: Optional[Tensor] = None,  # [N, L, E]
+        encoder_attention_mask: Optional[Tensor] = None,  # [N, L]
+        past_key_values: Optional[List[List[Tensor]]] = None,  # [...]
         head_masks: Optional[Tensor] = None,
+        labels_masks: Optional[Tensor] = None,  # [X]
     ) -> RobertaResult:
         """labels: [N, L]"""
         config = self.config
         res: RobertaResult = self.roberta(input_ids, attention_mask, encoder_hidden_state,
                                           encoder_attention_mask, past_key_values, head_masks)
         x: Tensor = res.last_hidden_state
-        
+        # 
         if labels is not None:
-            labels_masks = labels != -100
+            if labels_masks is None:
+                labels_masks = labels != -100
+            labels = labels[labels_masks]
+        # 
+        if labels_masks is not None:
             x = x[labels_masks]
-            logits: Tensor = self.lm_head(x)  # 未过softmax
+        logits: Tensor = self.lm_head(x)  # 未过softmax
+        # 
+        if labels is not None:
             loss_fct = nn.CrossEntropyLoss(label_smoothing=self.config.label_smoothing)  # ignore_index = -100
-            if labels_masks is not None:
-                labels = labels[labels_masks]
             res.mlm_loss = loss_fct(logits.view(-1, config.vocab_size), labels.view(-1))
             # acc
             logits = logits.detach()
@@ -677,7 +682,6 @@ class RobertaForMaskedLM(RobertaPreTrainedModel):
             res.mlm_acc = accuracy(y_pred, labels, "multiclass", -1)
         else:
             # 在外面计算损失, 可以使用更灵活的损失函数.
-            logits: Tensor = self.lm_head(x)  # 未过softmax
             res.mlm_logits = logits
         return res
 
@@ -686,7 +690,7 @@ class RobertaForMaskedLM(RobertaPreTrainedModel):
 
 
 if __name__ == "__main__":
-    # from libs import *
+    from libs import *
     ml.select_device([0])
     model_id = "roberta-base"
     from transformers.models.roberta.modeling_roberta import RobertaPreTrainedModel as _RobertaPreTrainedModel
