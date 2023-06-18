@@ -77,9 +77,9 @@ if __name__ == "__main__":
             #
             optim = SGD([Parameter(torch.randn(100,))], initial_lr)
             warmup = 3
-            lrs = WarmupCosineAnnealingLR2(optim, warmup, T_max, eta_min)
+            lr_s = WarmupCosineAnnealingLR2(optim, warmup, T_max, eta_min)
             for i in range(max_epoch):
-                lr = lrs.get_last_lr()[0]
+                lr = lr_s.get_last_lr()[0]
                 if i == 0:
                     self.assertTrue(lr > 0)
                 elif i == warmup - 2:

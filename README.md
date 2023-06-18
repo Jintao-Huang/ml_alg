@@ -55,7 +55,7 @@
 ```bash
 # Installation
 # 下载仓库到本地, 进入setup.py所在文件夹. 输入以下命令即可(会自动安装依赖, pytorch请手动安装, 避免cuda版本不匹配)
-pip install .
+pip install -e .
 ```
 
 ```python

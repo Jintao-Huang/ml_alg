@@ -138,6 +138,9 @@ import torch.distributed as dist
 from torch.multiprocessing.spawn import spawn
 from torch.cuda.amp.grad_scaler import GradScaler
 from torch.amp.autocast_mode import autocast
+from peft import (
+    PeftModel, PeftConfig, PeftModelForCausalLM, PeftModelForSequenceClassification, 
+)
 #
 import torchvision.transforms._functional_tensor as tvtF_t
 import torchvision.transforms._functional_pil as tvtF_pil
