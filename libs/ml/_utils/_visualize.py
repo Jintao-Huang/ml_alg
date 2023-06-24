@@ -2,10 +2,8 @@
 # Email: huangjintao@mail.ustc.edu.cn
 # Date:
 
+from torchvision.utils import make_grid as _make_grid
 from ..._types import *
-
-__all__ = ["bincount", "plot_classification_map", "visualize_samples",
-           "plot_lines", "plot_subplots", "make_grid", "normalize", "make_grid2"]
 
 
 def bincount(x: ndarray, n_bin: int = None, step: int = None,
@@ -272,3 +270,27 @@ def make_grid2(images: Union[Tensor, ndarray], fig: Figure = None,
 #     #
 #     make_grid2(torch.stack(data), cmap='gray')
 #     plt.show()
+
+
+def save_images(
+    images: Tensor, ncols: int, path: str, *,
+    norm: bool = False,
+    value_range: Optional[Tuple[int, int]] = None,
+    pad_value: float = 0.
+) -> None:
+    """copy from gan.py
+    images: [N, C, H, W]
+    """
+    images = images.detach().cpu()
+    N = images.shape[0]
+    nrows = int(math.ceil(N / ncols))
+    images = _make_grid(images, nrow=ncols, normalize=norm, value_range=value_range,
+                        pad_value=pad_value)  # [C, H, W], 0-1
+    images.clip_(0, 1)
+    images = images.permute(1, 2, 0).numpy()
+    #
+    _, ax = plt.subplots(figsize=(2 * ncols, 2 * nrows), dpi=200)
+    ax.imshow(images, cmap=None, origin="upper", vmin=0, vmax=1)
+    ax.axis("off")
+    plt.savefig(path, bbox_inches="tight")
+    plt.close()

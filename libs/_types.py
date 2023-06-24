@@ -26,6 +26,7 @@ from enum import Enum
 from inspect import getmembers, isfunction, ismethod
 from pprint import pprint
 #
+import gradio as gr
 from warnings import filterwarnings
 from operator import itemgetter, attrgetter
 from pprint import pprint
@@ -128,8 +129,9 @@ from torch.utils.data import (
     Dataset, IterableDataset, TensorDataset,
     Sampler, RandomSampler, SequentialSampler, BatchSampler, DistributedSampler,
     DataLoader, default_collate, get_worker_info,
-    random_split,
+    random_split
 )
+from torch.nn.utils.rnn import pad_sequence
 from torch.utils.checkpoint import checkpoint
 import torch.utils.data as tud
 from torch.utils.tensorboard.writer import SummaryWriter
@@ -138,9 +140,8 @@ import torch.distributed as dist
 from torch.multiprocessing.spawn import spawn
 from torch.cuda.amp.grad_scaler import GradScaler
 from torch.amp.autocast_mode import autocast
-from peft import (
-    PeftModel, PeftConfig, PeftModelForCausalLM, PeftModelForSequenceClassification, 
-)
+from peft.peft_model import PeftModelForCausalLM
+from peft.tuners.lora import LoraConfig
 #
 import torchvision.transforms._functional_tensor as tvtF_t
 import torchvision.transforms._functional_pil as tvtF_pil
@@ -149,16 +150,21 @@ from torchvision.transforms.functional import InterpolationMode, pil_modes_mappi
 import torchvision as tv
 import torchvision.transforms as tvt
 import torchvision.datasets as tvd
-from torchvision.utils import make_grid
+from torchvision.datasets import MNIST, FashionMNIST, CIFAR10, CIFAR100, STL10
+from torchvision.utils import make_grid, save_image
 import torchvision.models as tvm
+from torchvision.models import ResNet, DenseNet, resnet18
 #
-# import pytorch_lightning as pl
-# import pytorch_lightning.callbacks as plc
+import lightning.pytorch as pl
+from lightning.pytorch import LightningDataModule, LightningModule, Trainer
+from lightning.pytorch.callbacks import Callback
+from lightning.pytorch.cli import LightningCLI
+from lightning_utilities.core.rank_zero import rank_zero_only
 #
 from transformers.pipelines import pipeline
 from transformers.models.auto.modeling_auto import (AutoModel, AutoModelForCausalLM, AutoModelForMaskedLM, 
-                                                        AutoModelForSequenceClassification, AutoModelForQuestionAnswering, 
-                                                        AutoModelForMultipleChoice, AutoModelForTokenClassification)
+                                                    AutoModelForSequenceClassification, AutoModelForQuestionAnswering, 
+                                                    AutoModelForMultipleChoice, AutoModelForTokenClassification)
 from transformers.models.auto.tokenization_auto import AutoTokenizer
 from transformers.models.auto.configuration_auto import AutoConfig
 from transformers.data.data_collator import DataCollatorForLanguageModeling, DataCollatorWithPadding
@@ -166,6 +172,7 @@ from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 from transformers.modeling_utils import PreTrainedModel
 from transformers.configuration_utils import PretrainedConfig
 from datasets.load import load_dataset
+from datasets.combine import concatenate_datasets
 #
 from torchmetrics import MeanMetric, Metric
 from torchmetrics.classification.accuracy import Accuracy

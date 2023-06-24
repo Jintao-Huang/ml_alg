@@ -28,3 +28,5 @@ openai>=0.27
 nltk>=3.7
 wtforms>=3.0
 accelerate>=0.17
+gradio>=3.30
+peft>=0.3
