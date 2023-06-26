@@ -1,4 +1,5 @@
 # distutils: language=c++
+# distutils: extra_compile_args = ["-std=c++11"]
 
 from ...alg_fast._types cimport * 
 

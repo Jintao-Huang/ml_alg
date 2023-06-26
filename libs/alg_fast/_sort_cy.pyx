@@ -1,4 +1,5 @@
 # distutils: language=c++
+# distutils: extra_compile_args = ["-std=c++11"]
 from ._types cimport *
 
 cdef int _partition_cy(int_float[::1] nums, int lo, int hi):

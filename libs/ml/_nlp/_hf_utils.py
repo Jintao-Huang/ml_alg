@@ -99,11 +99,12 @@ if __name__ == "__main__":
 _T = TypeVar("_T")
 
 # timeout
-def mulit_runs(func: Callable[[], _T], nums: int = 5) -> Optional[_T]:
+def multi_runs_no_error(func: Callable[[], _T], nums: int = 5) -> Optional[_T]:
     for i in range(nums):
         try:
             return func()
         except Exception as e:
+            time.sleep(1)
             logger.info(e)
             if i+1 == nums:
                 raise e

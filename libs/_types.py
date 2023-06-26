@@ -25,6 +25,7 @@ import csv
 from enum import Enum
 from inspect import getmembers, isfunction, ismethod
 from pprint import pprint
+from dataclasses import dataclass, field
 #
 import gradio as gr
 from warnings import filterwarnings
@@ -140,8 +141,10 @@ import torch.distributed as dist
 from torch.multiprocessing.spawn import spawn
 from torch.cuda.amp.grad_scaler import GradScaler
 from torch.amp.autocast_mode import autocast
-from peft.peft_model import PeftModelForCausalLM
-from peft.tuners.lora import LoraConfig
+from peft import (
+    PeftModel, PeftConfig, PeftModelForCausalLM, 
+    LoraConfig
+)
 #
 import torchvision.transforms._functional_tensor as tvtF_t
 import torchvision.transforms._functional_pil as tvtF_pil
@@ -173,6 +176,9 @@ from transformers.modeling_utils import PreTrainedModel
 from transformers.configuration_utils import PretrainedConfig
 from datasets.load import load_dataset
 from datasets.combine import concatenate_datasets
+#
+from modelscope.msdatasets import MsDataset
+from modelscope.hub.snapshot_download import snapshot_download
 #
 from torchmetrics import MeanMetric, Metric
 from torchmetrics.classification.accuracy import Accuracy

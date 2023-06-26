@@ -30,3 +30,5 @@ wtforms>=3.0
 accelerate>=0.17
 gradio>=3.30
 peft>=0.3
+lightning>=2.0
+# modelscope>=1.6
