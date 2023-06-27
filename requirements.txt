@@ -1,5 +1,5 @@
-mini-lightning>=0.2.0
-leetcode-alg>=0.1.0.1
+mini-lightning>=0.2
+leetcode-alg>=0.1
 torch>=2.0
 threadpoolctl>=3.1
 pillow>=9.4
@@ -16,9 +16,9 @@ seaborn>=0.11
 opencv-python>=4.6
 scikit-learn>=1.1
 # 
-torchvision>=0.15.1
-transformers>=4.24
-datasets>=2.7
+torchvision>=0.15
+transformers>=4.29
+datasets>=2.12
 gym>=0.25
 pygame>=2.1
 cython>=0.29

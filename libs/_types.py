@@ -141,10 +141,10 @@ import torch.distributed as dist
 from torch.multiprocessing.spawn import spawn
 from torch.cuda.amp.grad_scaler import GradScaler
 from torch.amp.autocast_mode import autocast
-from peft import (
-    PeftModel, PeftConfig, PeftModelForCausalLM, 
-    LoraConfig
-)
+# 
+from peft.utils.config import PeftConfig
+from peft.peft_model import PeftModelForCausalLM, PeftModel
+from peft.tuners.lora import LoraConfig
 #
 import torchvision.transforms._functional_tensor as tvtF_t
 import torchvision.transforms._functional_pil as tvtF_pil
@@ -165,6 +165,7 @@ from lightning.pytorch.cli import LightningCLI
 from lightning_utilities.core.rank_zero import rank_zero_only
 #
 from transformers.pipelines import pipeline
+from transformers.generation.streamers import TextStreamer
 from transformers.models.auto.modeling_auto import (AutoModel, AutoModelForCausalLM, AutoModelForMaskedLM, 
                                                     AutoModelForSequenceClassification, AutoModelForQuestionAnswering, 
                                                     AutoModelForMultipleChoice, AutoModelForTokenClassification)

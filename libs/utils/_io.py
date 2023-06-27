@@ -43,7 +43,7 @@ def read_from_json(fpath: str, encoding: str = "utf-8") -> Any:
 
 def write_to_json(obj: Any, fpath: str, encoding: str = "utf-8") -> None:
     with open(fpath, "w", encoding=encoding) as f:
-        json.dump(obj, f)
+        json.dump(obj, f, ensure_ascii=False)
 
 
 def read_from_csv_df(fpath: str, *, sep: str = ",", **kwargs) -> DataFrame:
