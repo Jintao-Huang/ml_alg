@@ -46,6 +46,18 @@ def write_to_json(obj: Any, fpath: str, encoding: str = "utf-8") -> None:
         json.dump(obj, f, ensure_ascii=False)
 
 
+def read_from_jsonl(fpath: str, encoding: str = "utf-8") -> List[Any]:
+    res = []
+    with open(fpath, "r", encoding=encoding) as f:
+        for l in f:
+            res.append(json.loads(l))
+    return res
+
+def append_to_jsonl(obj: Any, fpath: str, encoding: str = "utf-8") -> None:
+    with open(fpath, "a", encoding=encoding) as f:
+        f.write(json.dumps(obj, ensure_ascii=False) + "\n")
+
+
 def read_from_csv_df(fpath: str, *, sep: str = ",", **kwargs) -> DataFrame:
     return pd.read_csv(fpath, sep=sep, **kwargs)
 
