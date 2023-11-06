@@ -884,3 +884,18 @@ def spearman_corrcoef(y_pred: Tensor, y_true: Tensor) -> Tensor:
 #     y = ml.test_time(lambda: _spearman_corrcoef(preds, target))
 #     y2 = ml.test_time(lambda: spearman_corrcoef(preds, target))
 #     print(torch.allclose(y, y2))
+
+
+def pairwise_corrcoef(X: Tensor, Y: Tensor) -> Tensor:
+    """
+    X: [F, N]
+    Y: [F2, N]
+    Z: [F, F2]
+    """
+    X_mean = X.mean(dim=1, keepdim=True)  # [F]
+    Y_mean = Y.mean(dim=1, keepdim=True)  # [F2]
+    X_diff = X - X_mean
+    Y_diff = Y - Y_mean
+    X_std = torch.einsum("ij,ij->i", X_diff, X_diff).sqrt_()  # ignore coef
+    Y_std = torch.einsum("ij,ij->i", Y_diff, Y_diff).sqrt_()
+    return (X_diff @ (Y_diff).T).div_(X_std[:, None]).div_(Y_std)
